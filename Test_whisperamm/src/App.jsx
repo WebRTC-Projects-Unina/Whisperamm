@@ -67,7 +67,7 @@ const App = () => { // <= NOTA: Rinominato da HomePage ad App
     // Altrimenti, mostra il form di registrazione
     return (
         <div className="registration-container">
-            <h1>Benvenuto a Whisperamm</h1>
+            <h1>Benvenuto in Whisperamm</h1>
             <p>Inserisci il tuo nome per giocare.</p>
             
             <form onSubmit={handleSubmit}>
@@ -78,7 +78,7 @@ const App = () => { // <= NOTA: Rinominato da HomePage ad App
                         id="username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Es. Mario"
+                        placeholder="Es. Pippozzo"
                         autoFocus
                     />
                 </div>
