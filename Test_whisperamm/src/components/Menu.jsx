@@ -78,7 +78,7 @@ const Menu = () => {
                         id="username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Es. Pippozzo"
+                        placeholder="Es. Mario"
                         autoFocus
                     />
                 </div>

@@ -41,7 +41,7 @@ app.post('/api/register', (req, res) => {
         id: req.session.id, // Possiamo usare l'ID di sessione come ID utente
         username: username.trim()
     };
-    console.log(`DEBUG -- Sessione creata con ID: ${req.session.id}`);
+    
     console.log(`Utente registrato: ${username} (ID: ${req.session.user.id})`);
 
     // Rimanda indietro l'utente registrato
