@@ -3,9 +3,34 @@ const session = require('express-session'); // Importa express-session
 const app = express();
 const PORT = process.env.PORT || 8080;
 
-const cors = require('cors');
-app.use(cors());
+//Inizio aggiunta
+// aggancio chatSocket.js
+const http = require('http');
+const { Server } = require('socket.io');
+const registerChatHandlers = require('./socket/chatSocket');
 
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+  },
+});
+
+
+registerChatHandlers(io);
+
+//fine aggiunta
+
+const cors = require('cors');
+// Usa CORS con origine esplicita e credenziali abilitate
+app.use(
+  cors({
+    origin: 'http://localhost:5173',
+    credentials: true,
+  })
+);
+// --- fine CORS ---
 app.use(express.json());
 
 // Configurazione della sessione in memoria
@@ -25,7 +50,13 @@ const routes = require('./routes/userRoutes');
 routes(app); // Registra le rotte
 
 // Avvio del server
+/*
 app.listen(PORT, () => {
+    console.log(`Server in ascolto sulla porta ${PORT}`);
+});
+*/
+
+server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);
 });
 

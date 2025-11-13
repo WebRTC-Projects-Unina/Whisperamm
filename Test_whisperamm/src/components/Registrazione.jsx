@@ -75,7 +75,7 @@ const Registrazione = () => {
                         id="username"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Es. Mario"
+                        placeholder="Es. Pippozzo"
                         autoFocus
                     />
                 </div>

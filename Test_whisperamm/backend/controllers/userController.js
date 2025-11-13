@@ -85,3 +85,12 @@ exports.checkGame = (req, res) => {
         res.status(500).json({ message: "Errore interno del server." });
     }
 }
+
+
+
+exports.getMe = (req, res) => {
+    if (!req.session || !req.session.user) {
+      return res.status(401).json({ error: 'Non autenticato' });
+    }
+    res.json({ user: req.session.user });
+  };

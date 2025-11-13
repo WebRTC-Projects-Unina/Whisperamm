@@ -9,5 +9,8 @@ module.exports = (app) => {
 
     app.route('/api/game/check/:gameId')
         .post(controller.checkGame);
+
+    app.route('/api/me')
+        .get(controller.getMe);
 }
 
