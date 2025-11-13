@@ -1,0 +1,106 @@
+/*
+ * File CSS dedicato ESCLUSIVAMENTE a Home.jsx
+ * Gli stili sono ispirati a Registrazione.css per coerenza.
+*/
+
+/* --- Contenitore Principale (per Menu, Crea e Unisciti) --- */
+.home-container {
+    background-color: #282c34; /* Grigio scuro per il box */
+    padding: 2.5rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    width: 100%;
+    max-width: 400px;
+    border: 1px solid #444;
+
+    /* Centra i titoli e i paragrafi al suo interno */
+    h2, h3, p {
+        text-align: center;
+        margin-top: 0;
+    }
+}
+
+/* --- Stile dei Form (Crea e Unisciti) --- */
+.home-container form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Spazio tra gli elementi del form */
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.form-group label {
+    font-size: 0.9rem;
+    color: #aaa;
+}
+
+/* Stile Input (identico a Registrazione.css) */
+input[type="text"] {
+    padding: 12px 15px;
+    font-size: 1rem;
+    border: 1px solid #555;
+    border-radius: 8px;
+    background-color: #333;
+    color: #f0f0f0;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="text"]:focus {
+    outline: none;
+    border-color: #61dafb; /* Colore React-like per il focus */
+    box-shadow: 0 0 0 3px rgba(97, 218, 251, 0.2);
+}
+
+/* --- Stile dei Pulsanti (Generico) --- */
+.btn {
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s, transform 0.1s;
+}
+
+.btn:active {
+    transform: translateY(1px);
+}
+
+/* Pulsante "Primario" (Verde per Conferma/Crea) */
+.btn-primary {
+    background-color: #4caf50; /* Verde */
+    color: white;
+}
+.btn-primary:hover {
+    background-color: #45a049;
+}
+
+/* Pulsante "Secondario" (Grigio per Annulla/Unisciti) */
+.btn-secondary {
+    background-color: #555;
+    color: white;
+}
+.btn-secondary:hover {
+    background-color: #666;
+}
+
+
+/* --- Stile del Menu Principale (i due bottoni) --- */
+.lobby-options {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem; /* Spazio tra i pulsanti */
+    margin-top: 2rem;
+}
+
+/* --- Stile per i bottoni dei Form (Conferma/Annulla) --- */
+.form-button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    margin-top: 1rem;
+}

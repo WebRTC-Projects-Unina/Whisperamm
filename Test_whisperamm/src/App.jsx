@@ -1,17 +1,19 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-
-import Menu from './components/Menu';
-import Match from './components/Match';
+import Registrazione from './components/Registrazione'
+import Lobby from './components/Lobby';
 
 // Definisco le tue rotte
-const router = createBrowserRouter([ // createBrowserRouter lo uso per matchare gli elementi alle possibili routes (URL) dell'applicazione.
+const router = createBrowserRouter([
+    // createBrowserRouter lo uso per matchare gli elementi alle possibili routes (URL) dell'applicazione.
     {
         path: "/", // URL principale
-        element: <Menu />, // Mostra il Menu
+        element: <Registrazione />, // Mostra il Menu
     },
+
+    //1.Così com'è, se uno ha il link può entrare nella partita..però in teoria dovrebbe anche verificare che può entrarci nella partita.
     {
         path: "/match/:gameId", // URL della partita con un ID dinamico
-        element: <Match />, // Mostra il componente Match
+        element: <Lobby/>, // Mostra il componente Match
     }
 ]);
 

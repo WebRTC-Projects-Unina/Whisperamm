@@ -1,8 +1,10 @@
 // src/pages/Lobby.jsx
-import React from 'react';
 import { useParams } from 'react-router-dom';
-
+import {useState} from 'react'
 function Lobby() {
+    const [lobbyName,setLobbyName] = useState('');
+    const [isCreated,setIsCreated] = useState(false);
+
     // Questo hook legge i "parametri" dall'URL
     // In /lobby/ABCDE, gameId sarà "ABCDE"
     const { gameId } = useParams();
