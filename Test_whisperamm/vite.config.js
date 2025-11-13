@@ -1,7 +1,6 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
-// https://vite.dev/config/
 export default defineConfig({
   
   plugins: [
@@ -11,9 +10,8 @@ export default defineConfig({
       },
     }),
   ],
-
   // === IL BLOCCO SERVER VA QUI ===
-  // (Dentro defineConfig, dopo i plugin)
+  //Qua però in teoria è solo per lo sviluppo, in prod lo dobbiamo togliere.
   server: {
     proxy: {
       // Qualsiasi richiesta che inizia con /api...
@@ -23,7 +21,7 @@ export default defineConfig({
         changeOrigin: true,
       }
     }
-  }
+  } 
   // ===============================
 
-}) // <-- La parentesi graffa e tonda di chiusura di defineConfig va alla fine
+})
