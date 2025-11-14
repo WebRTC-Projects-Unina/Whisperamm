@@ -104,3 +104,15 @@ input[type="text"]:focus {
     gap: 0.75rem;
     margin-top: 1rem;
 }
+
+/* --- Stile per l'errore ---*/
+.form-error-message {
+    color: #a94442; /* Un rosso scuro per il testo */
+    background-color: #f2dede; /* Uno sfondo rosa chiaro */
+    border: 1px solid #ebccd1; /* Un bordo rosso chiaro */
+    padding: 10px;
+    border-radius: 5px;
+    margin-bottom: 15px; /* Spazio prima del form */
+    text-align: center;
+    font-weight: bold;
+}

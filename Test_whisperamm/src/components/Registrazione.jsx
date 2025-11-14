@@ -1,30 +1,27 @@
 import { useState } from 'react';
-import './Registrazione.css'; // Puoi importare lo stile di default o il tuo CSS qui
+import { useAuth } from "../context/AuthContext.jsx"; // <-- 1. Importi il tuo hook (già c'era, ottimo!)
+import './Registrazione.css';
 import Home from './Home';
 
 const Registrazione = () => {
     const [username, setUsername] = useState('');
     const [error, setError] = useState(null);
-    const [registeredUser, setRegisteredUser] = useState(null); // Stato per l'utente loggato
 
-    const handleSubmit = async (e) => { //e, event è un oggetto che il browser invia automaticamente alla funzione
-        e.preventDefault(); //Normalmente,inviando un Form HTML il browser ricarica la pagina.
+    // Togliamo lo stato locale e prendiamo 'user' e 'setUser' dal context
+    const { user, setUser } = useAuth();
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
         setError(null);
 
-        /*
-        Serve settare error a null, perchè l'utente potrebbe vedere ancora l'errore vecchio,
-        inserendo un nome corretto dopo!
-        */
-
-        //Il controllo su ciò che scrive l'utente è ok fare una parte in front-end ma va fatto tutto in back!
+        // ...tutta la tua validazione (va benissimo)
         if (username.length < 3) {
             setError('Il nome deve essere di almeno 3 caratteri.');
             return;
         }
 
         try {
-
-            // Grazie al proxy in vite.config.js, Vite la girerà a localhost:8080
+            // facciamo la fetch per registrare l'utente
             const response = await fetch('/api/register', {
                 method: 'POST',
                 headers: {
@@ -36,19 +33,22 @@ const Registrazione = () => {
             const data = await response.json();
 
             if (!response.ok) {
-                //Caso Nome già in uso oppure valutato non valido dal backend
+                // ...tutta la tua gestione errori (va benissimo)
                 if(response.status === 409 || response.status === 400){
                     throw new Error(data.message || "Nome utente non valido");
                 }
-
-                //Caso Errore del Server
                 if(response.status ===500){
                     throw new Error(data.message || 'I nostri server hanno un problema, riprova più tardi..');
                 }
             }
 
             console.log('Registrato:', data.user);
-            setRegisteredUser(data.user);
+
+            // --- MODIFICA QUI ---
+            // 3. Salva l'utente nello stato GLOBALE (il context)
+            setUser(data.user);
+            // setRegisteredUser(data.user); // <-- VIA QUESTO
+            // --- FINE MODIFICHE ---
 
         } catch (err) {
             setError(err.message);
@@ -56,12 +56,18 @@ const Registrazione = () => {
     };
 
     // === Logica di rendering ===
-    // Se l'utente è già registrato, mostra la Lobby
-    if (registeredUser) {
-        return <Home user={registeredUser} />;
+
+    // --- MODIFICHE QUI ---
+    // 4. Controlla 'user' dal context, non più lo stato locale
+    if (user) {
+        // 'Home' ora non ha più bisogno della prop 'user',
+        // perché può prenderlo da solo dal context.
+        return <Home />;
     }
+    // --- FINE MODIFICHE ---
 
     // Altrimenti, mostra il form di registrazione
+    // (Questa parte è rimasta identica)
     return (
         <div className="registration-container">
             <h1>Benvenuto a Whisperamm</h1>
@@ -90,4 +96,4 @@ const Registrazione = () => {
         </div>
     );
 };
-export default Registrazione; // <= NOTA: Esporta App
+export default Registrazione;

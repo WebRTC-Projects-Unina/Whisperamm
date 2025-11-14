@@ -27,18 +27,27 @@ exports.register = (req, res) => {
 
 exports.createGame = (req, res) => {
     try {
-        const { roomName, user } = req.body;
+        const { roomName, user, maxPlayers, rounds } = req.body;
 
         if (!user || !user.username) {
             return res.status(401).json({ message: "Utente non autenticato." });
         }
-        if (!roomName || roomName.length < 3) {
-            return res.status(400).json({ message: "Il nome della stanza deve essere di almeno 3 caratteri." });
+        if (!roomName || roomName.length < 3 || maxPlayers <= 0 || maxPlayers > 12 || rounds < 1 || rounds > 10) {
+            if (!roomName || roomName.length < 3) {
+                return res.status(400).json({ message: "Il nome della stanza deve essere di almeno 3 caratteri." });
+            }
+            else if (maxPlayers <= 1 || maxPlayers > 12) {
+                return res.status(400).json({ message: "Il numero di giocatori dev'essere compreso tra 2 e 12." });
+            }
+            else if (rounds < 1 || rounds > 10) {
+                return res.status(400).json({ message: "Il numero di round dev'essere compreso tra 1 e 10." });
+            }
+            return;
         }
 
         // --- CREAZIONE STANZA ---
         // Ora 'createRoom' è una funzione REALE importata dallo store
-        const roomId = createRoom(roomName, user);
+        const roomId = createRoom(roomName, user, maxPlayers, rounds);
 
         console.log(`[SERVER] Stanza ${roomId} creata con successo in RAM.`);
 

@@ -1,48 +1,69 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import './Home.css'; // <-- 1. Importa il NUOVO file CSS
+import { useAuth } from '../context/AuthContext';
+import './Home.css';
 
-const Home = ({ user }) => {
+// --- MODIFICA QUI ---
+// 2. Rimuovi '{ user }' dalle props. Il componente non lo riceve più.
+const Home = () => {
+// --- FINE MODIFICA ---
+
+    // Prendiamo 'user' direttamente dal context
+    const { user } = useAuth();
+
     //Stati
     const [isJoining, setIsJoining] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
+    // Stati per la partita
     const [lobbyName, setLobbyName] = useState('');
     const [gameID, setGameID] = useState('');
+    const [maxPlayers, setMaxPlayers] = useState('');
+    const [rounds, setRounds] = useState('');
+
     const [error, setError] = useState(null); // Stato per gli errori
 
-    const navigate = useNavigate(); //Questo è un altro hook
+    const navigate = useNavigate();
 
+    const handleShowCreate = () => {
+        setError(null); // <-- Pulisci l'errore
+        setIsCreating(true);
+    };
 
+    const handleShowJoin = () => {
+        setError(null); // <-- Pulisci l'errore
+        setIsJoining(true);
+    };
 
     const handleSubmitNewGame = async (e) => {
         e.preventDefault();
-        setError(null); // Pulisci errori vecchi
-        if (lobbyName.length < 3) {
-            setError("Il nome della stanza è troppo corto");
+        if (lobbyName.length < 3 || maxPlayers <= 0 || maxPlayers > 12 || rounds < 1 || rounds > 10) {
+            if (lobbyName.length < 3) {
+                setError("Il nome della stanza è troppo corto");
+            }
+            else if (maxPlayers <= 1 || maxPlayers > 12) {
+                setError("Inserisci un numero di giocatori tra 2 e 12");
+            }
+            else if (rounds < 1 || rounds > 10) {
+                setError("Inserisci un numero di round tra 1 e 10")
+            }
             return;
         }
 
         try {
-            // Contatta il backend per validare e creare la stanza
             console.log("Famo arriva sta richiestina..")
-            const response = await fetch('/api/createGame', { // L'URL del tuo backend
+            const response = await fetch('/api/createGame', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // Invia il nome e l'utente che la crea
-                body: JSON.stringify({ roomName: lobbyName, user: user })
+                body: JSON.stringify({ roomName: lobbyName, user: user, maxPlayers: maxPlayers, rounds: rounds })
             });
 
             const data = await response.json();
 
-            if (!response.ok) { //Sistemare
-                // Errore dal server (es. "Nome già in uso")
+            if (!response.ok) {
                 throw new Error(data.message || 'Errore durante la creazione');
             }
 
-            // Il server ha validato e risposto con l'ID della stanza
             console.log("Stanza creata, ID:", data.roomId);
-
-            //Qui metteremo anche la connessione con Socket.io e poi  navighi alla pagina della partita
             navigate(`/match/${data.roomId}`);
 
         } catch (err) {
@@ -51,35 +72,26 @@ const Home = ({ user }) => {
         }
     };
 
-    // Logica per ENTRARE (HTTP)
     const handleSubmitJoinGame = async (e) => {
         e.preventDefault();
-        setError(null);
         if (gameID.length < 3) {
             setError("L'ID della stanza è troppo corto");
             return;
         }
 
         try {
-            // Fai una chiamata HTTP per VEDERE SE la stanza esiste
-            // (Il tuo backend deve avere una rotta GET /api/game/check/:gameId)
-            const response = await fetch(`/api/game/check/${gameID}`, { // L'URL del tuo backend
+            const response = await fetch(`/api/game/check/${gameID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                // Invia il nome e l'utente che la crea
-                body: JSON.stringify({ user: user })
+                body: JSON.stringify({ user: user }) // <-- 'user' è disponibile
             });
 
             console.log(response);
             if (!response.ok) {
-                // Il server ha risposto 404 (Not Found) o altro
                 throw new Error("Stanza non trovata o piena");
             }
 
-            // La stanza esiste, navigo
-            //Qui ci vorrà la connessione con socket.io
             navigate(`/match/${gameID}`);
-
 
         } catch (err) {
             console.error(err);
@@ -88,22 +100,56 @@ const Home = ({ user }) => {
     };
 
 
+    // 5. AGGIUNGIAMO UN CONTROLLO DI SICUREZZA
+    // (Nel tuo flusso attuale 'user' dovrebbe esistere sempre,
+    // ma è buona norma controllare)
+    if (!user) {
+        return <p>Errore: utente non trovato. Ritorna alla pagina di login.</p>
+    }
 
+
+    // 6. NESSUNA MODIFICA AL JSX
+    // Il resto del tuo codice JSX (i form e il menu)
+    // usa la variabile 'user', che è correttamente definita.
 
     if (isCreating) {
         return (
-            //Usa il contenitore definito in Home.css
+        //Usa il contenitore definito in Home.css
             <div className="home-container">
                 <h3>Crea la tua Partita</h3>
+                {error && (
+                    <div className="form-error-message">
+                        {error}
+                    </div>
+                )}
                 <form onSubmit={handleSubmitNewGame}>
                     {/* 3. Usa la classe per i form (definita in Home.css) */}
                     <div className="form-group">
+                        {/*Nome stanza*/}
                         <label htmlFor='lobbyName'>Nome Stanza</label>
                         <input type='text'
                                id="lobbyName"
                                value={lobbyName}
                                onChange={(e) => setLobbyName(e.target.value)}
                                placeholder='Es. La Partita del cuore'
+                               autoFocus
+                        />
+                        {/*Numero di giocatori*/}
+                        <label htmlFor='maxPlayers'>Numero di giocatori</label>
+                        <input type='text'
+                               id="maxPlayers"
+                               value={maxPlayers}
+                               onChange={(e) => setMaxPlayers(e.target.value)}
+                               placeholder='Il numero di giocatori massimo è 12'
+                               autoFocus
+                        />
+                        {/*Numero rounds*/}
+                        <label htmlFor='rounds'>Numero di round</label>
+                        <input type='text'
+                               id="rounds"
+                               value={rounds}
+                               onChange={(e) => setRounds(e.target.value)}
+                               placeholder='Il numero di round massimo è 10'
                                autoFocus
                         />
                     </div>
@@ -121,10 +167,16 @@ const Home = ({ user }) => {
     }
 
     // --- SCENA "UNISCITI A PARTITA" ---
+
     if (isJoining) {
         return (
             <div className="home-container">
                 <h3>Entra in una Stanza</h3>
+                {error && (
+                    <div className="form-error-message">
+                        {error}
+                    </div>
+                )}
                 <form onSubmit={handleSubmitJoinGame}>
                     <div className="form-group">
                         <label htmlFor='gameId'>ID Stanza</label>
@@ -148,17 +200,16 @@ const Home = ({ user }) => {
         )
     }
 
-    // --- (Menu) ---
+    // ---Menu---
     return (
-        <div className="home-container"> {/* 5. Usa lo stesso contenitore */}
-            <h2>Ciao, {user.username}!</h2>
+        <div className="home-container">
+            <h2>Ciao, {user.username}!</h2> {/* <-- 'user' è disponibile */}
             <p>Cosa vuoi fare?</p>
-            {/* 6. Classe specifica per il menu della lobby */}
             <div className="lobby-options">
-                <button className="btn btn-primary" onClick={() => setIsCreating(true)}>
+                <button className="btn btn-primary" onClick={handleShowCreate}>
                     Crea Partita
                 </button>
-                <button className="btn btn-secondary" onClick={() => setIsJoining(true)}>
+                <button className="btn btn-secondary" onClick={handleShowJoin}>
                     Unisciti a una partita
                 </button>
             </div>

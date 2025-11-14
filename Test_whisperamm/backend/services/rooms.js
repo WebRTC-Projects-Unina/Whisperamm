@@ -9,9 +9,11 @@ const liveRooms = {};
  * Crea una nuova stanza e la salva in memoria.
  * @param {string} roomName - Il nome visualizzato della stanza.
  * @param {object} user - L'oggetto utente che crea la stanza (host).
+ * @param {int} maxPlayers - Numero massimo di giocatori
+ * @param {int} rounds - Numero di round della partita
  * @returns {string} L'ID della stanza appena creata.
  */
-const createRoom = (roomName, user) => {
+const createRoom = (roomName, user, maxPlayers, rounds) => {
     const newRoomId = randomUUID().slice(0, 6).toUpperCase();
 
     liveRooms[newRoomId] = {
@@ -19,6 +21,8 @@ const createRoom = (roomName, user) => {
         name: roomName,
         players: [user], // L'utente che la crea è il primo giocatore
         host: user.username, // Il nome utente dell'host
+        maxPlayers: maxPlayers,
+        rounds: rounds,
         createdAt: new Date()
     };
 
