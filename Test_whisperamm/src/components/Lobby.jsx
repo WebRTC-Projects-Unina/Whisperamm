@@ -23,7 +23,11 @@ function Lobby() {
 
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
-      
+
+    // NUOVO: lista giocatori
+    const [players, setPlayers] = useState([]);
+    
+
     // 1) recupera username dalla sessione sul server
     useEffect(() => {
       const loadUser = async () => {
@@ -63,10 +67,18 @@ function Lobby() {
         setMessages((prev) => [...prev, msg]);
         };
 
+      // NUOVO: gestore lista giocatori
+      const handleLobbyPlayers = (payload) => {
+        if (payload?.gameId !== gameId) return;
+        setPlayers(payload.players || []);
+      };
+
         socket.on('chatMessage', handleChatMessage);
+        socket.on('lobbyPlayers', handleLobbyPlayers);
 
         return () => {
         socket.off('chatMessage', handleChatMessage);
+        socket.off('lobbyPlayers', handleLobbyPlayers);
         };
     }, [gameId, username]);
 
@@ -89,8 +101,11 @@ function Lobby() {
 
     return (
         <div className="lobby-page">
-        <div className="lobby-card">
-            <h1 className="lobby-title">Lobby partita</h1>
+          {/* NUOVO: layout centrale + sidebar */}
+          <div className="lobby-layout">
+            <div className="lobby-card">
+             <h1 className="lobby-title">Lobby partita</h1>
+
 
             <div className="lobby-info">
             <p className="lobby-label">Codice stanza</p>
@@ -145,7 +160,39 @@ function Lobby() {
             Torna alla Home
             </button>
         </div>
-        </div>
+
+        {/* NUOVO: banner a destra con i player */}
+        <aside className="lobby-sidebar">
+          <h2 className="sidebar-title">Giocatori nella stanza</h2>
+          <p className="sidebar-room-code">{gameId}</p>
+
+          <div className="sidebar-players">
+            {players.length === 0 && (
+              <p className="sidebar-empty">In attesa di giocatori...</p>
+            )}
+
+            {players.map((p, idx) => (
+              <div
+                key={idx}
+                className={
+                  p === username
+                    ? 'sidebar-player sidebar-player-me'
+                    : 'sidebar-player'
+                }
+              >
+                <span className="sidebar-player-avatar">
+                  {p?.[0]?.toUpperCase() || '?'}
+                </span>
+                <span className="sidebar-player-name">
+                  {p}
+                  {p === username && ' (tu)'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </aside>
+      </div>
+    </div>
   );
 }
 export default Lobby;
