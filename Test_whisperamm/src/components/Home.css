@@ -38,21 +38,53 @@
     color: #aaa;
 }
 
-/* Stile Input (identico a Registrazione.css) */
-input[type="text"] {
+/* Stile Input e Select (identico a Registrazione.css) */
+input[type="text"],
+select {
     padding: 12px 15px;
     font-size: 1rem;
+    font-family: inherit; /* Assicura lo stesso font */
     border: 1px solid #555;
     border-radius: 8px;
     background-color: #333;
     color: #f0f0f0;
+    width: 90%; /* Fagli occupare tutto lo spazio disponibile */
     transition: border-color 0.2s, box-shadow 0.2s;
+
+    /* Bonus: forza lo stile dark del menu a tendina
+       anche su browser come Firefox */
+    color-scheme: dark;
 }
 
-input[type="text"]:focus {
+input[type="text"]:focus,
+select:focus {
     outline: none;
     border-color: #61dafb; /* Colore React-like per il focus */
     box-shadow: 0 0 0 3px rgba(97, 218, 251, 0.2);
+}
+
+/* * 1. Applica il colore del placeholder (#aaa) quando il
+ * select è "invalido" (cioè quando è selezionata
+ * l'opzione con value="").
+*/
+select.select-placeholder:invalid {
+    color: #aaa;
+}
+
+/* * 2. Quando l'utente sceglie un'opzione valida,
+ * il select non è più :invalid, quindi torna
+ * al colore di testo normale (#f0f0f0).
+*/
+select.select-placeholder {
+    color: #f0f0f0;
+}
+
+/* * 3. Assicura che le opzioni nel menu a tendina
+ * abbiano il colore di testo normale (non grigio).
+ * Questo esclude il placeholder stesso.
+*/
+select.select-placeholder option {
+    color: #f0f0f0;
 }
 
 /* --- Stile dei Pulsanti (Generico) --- */

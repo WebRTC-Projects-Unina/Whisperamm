@@ -72,6 +72,17 @@ const getPlayers = (roomId) => {
 };
 
 /**
+ * (GETTER) Recupera il numero di giocatori ATTUALI in una stanza.
+ * @param {string} roomId - L'ID della stanza.
+ * @returns {number | null} Il numero di giocatori o null se la stanza non esiste.
+ */
+const getNumberOfPlayers = (roomId) => {
+    const room = getRoom(roomId);
+    // Se la stanza esiste, ritorna la lunghezza dell'array dei giocatori
+    return room ? room.players.length : null;
+};
+
+/**
  * (GETTER) Recupera il nome utente dell'host di una stanza.
  * @param {string} roomId - L'ID della stanza.
  * @returns {string | null} Il nome utente dell'host o null.
@@ -81,6 +92,16 @@ const getHost = (roomId) => {
     return room ? room.host : null;
 };
 
+/**
+ * (GETTER) Recupera il numero massimo di giocatori consentiti in una stanza.
+ * @param {string} roomId - L'ID della stanza.
+ * @returns {number | null} Il numero massimo di giocatori o null se la stanza non esiste.
+ */
+const getMaxPlayers = (roomId) => {
+    const room = getRoom(roomId);
+    // Se la stanza esiste, ritorna il valore di maxPlayers
+    return room ? room.maxPlayers : null;
+};
 
 // --- SETTERS / MUTATORS (per modificare i dati) ---
 

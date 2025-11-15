@@ -36,15 +36,9 @@ const Home = () => {
 
     const handleSubmitNewGame = async (e) => {
         e.preventDefault();
-        if (lobbyName.length < 3 || maxPlayers <= 0 || maxPlayers > 12 || rounds < 1 || rounds > 10) {
+        if (lobbyName.length < 3) {
             if (lobbyName.length < 3) {
                 setError("Il nome della stanza è troppo corto");
-            }
-            else if (maxPlayers <= 1 || maxPlayers > 12) {
-                setError("Inserisci un numero di giocatori tra 2 e 12");
-            }
-            else if (rounds < 1 || rounds > 10) {
-                setError("Inserisci un numero di round tra 1 e 10")
             }
             return;
         }
@@ -80,7 +74,7 @@ const Home = () => {
         }
 
         try {
-            const response = await fetch(`/api/game/check/${gameID}`, {
+            const response = await fetch(`/api/game/checkGame/${gameID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user: user }) // <-- 'user' è disponibile
@@ -100,18 +94,12 @@ const Home = () => {
     };
 
 
-    // 5. AGGIUNGIAMO UN CONTROLLO DI SICUREZZA
-    // (Nel tuo flusso attuale 'user' dovrebbe esistere sempre,
-    // ma è buona norma controllare)
+    // AGGIUNGIAMO UN CONTROLLO DI SICUREZZA
     if (!user) {
         return <p>Errore: utente non trovato. Ritorna alla pagina di login.</p>
     }
 
-
-    // 6. NESSUNA MODIFICA AL JSX
-    // Il resto del tuo codice JSX (i form e il menu)
-    // usa la variabile 'user', che è correttamente definita.
-
+    // SCENA "CREA PARTITA"
     if (isCreating) {
         return (
         //Usa il contenitore definito in Home.css
@@ -123,9 +111,8 @@ const Home = () => {
                     </div>
                 )}
                 <form onSubmit={handleSubmitNewGame}>
-                    {/* 3. Usa la classe per i form (definita in Home.css) */}
                     <div className="form-group">
-                        {/*Nome stanza*/}
+                        {/*Nome stanza */}
                         <label htmlFor='lobbyName'>Nome Stanza</label>
                         <input type='text'
                                id="lobbyName"
@@ -134,27 +121,49 @@ const Home = () => {
                                placeholder='Es. La Partita del cuore'
                                autoFocus
                         />
-                        {/*Numero di giocatori*/}
+
+                        {/* Numero di giocatori */}
                         <label htmlFor='maxPlayers'>Numero di giocatori</label>
-                        <input type='text'
-                               id="maxPlayers"
-                               value={maxPlayers}
-                               onChange={(e) => setMaxPlayers(e.target.value)}
-                               placeholder='Il numero di giocatori massimo è 12'
-                               autoFocus
-                        />
-                        {/*Numero rounds*/}
+                        <select
+                            id="maxPlayers"
+                            value={maxPlayers}
+                            onChange={(e) => setMaxPlayers(e.target.value)}
+                            required
+                            className="select-placeholder"
+                        >
+                            <option value="" disabled>Seleziona (da 2 a 12)</option>
+                            {
+                                // Crea un array da 2 a 12
+                                Array.from({ length: 11 }, (_, i) => i + 2).map(num => (
+                                    <option key={num} value={num}>
+                                        {num} giocatori
+                                    </option>
+                                ))
+                            }
+                        </select>
+
+                        {/* Numero rounds */}
                         <label htmlFor='rounds'>Numero di round</label>
-                        <input type='text'
-                               id="rounds"
-                               value={rounds}
-                               onChange={(e) => setRounds(e.target.value)}
-                               placeholder='Il numero di round massimo è 10'
-                               autoFocus
-                        />
+                        <select
+                            id="rounds"
+                            value={rounds}
+                            onChange={(e) => setRounds(e.target.value)}
+                            required
+                            className="select-placeholder"
+                        >
+                            <option value="" disabled>Seleziona (da 1 a 10)</option>
+                            {
+                                // Crea un array da 1 a 10
+                                Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                    <option key={num} value={num}>
+                                        {num} {num === 1 ? 'round' : 'rounds'}
+                                    </option>
+                                ))
+                            }
+                        </select>
                     </div>
 
-                    {/*Le classi per i bottoni */}
+                    {/*Le classi per i bottoni (rimane invariato)*/}
                     <div className="form-button-group">
                         <button type="submit" className='btn btn-primary'>Conferma</button>
                         <button type="button" className="btn btn-secondary" onClick={() => setIsCreating(false)}>
