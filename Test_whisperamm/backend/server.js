@@ -41,9 +41,10 @@ app.use(session({
     secret: 'il-tuo-segreto-per-mister-white', // Una stringa segreta per firmare i cookie
     resave: false,
     saveUninitialized: true,
+    rolling: true, // Fa in modo che il tempo venga resettato quando un utente fa una richiesta -> maxAge parte dopo che un'utente diventa inattivo
     cookie: {
         secure: false, // Metti 'true' se sei in HTTPS
-        maxAge: 1000 * 60 * 60 * 24 // Cookie valido per 24 ore
+        maxAge: 1000 * 60 * 30 // Cookie valido per 30 minuti
     }
 }));
 
@@ -61,21 +62,3 @@ app.listen(PORT, () => {
 server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);
 });
-
-/**
- * @route   POST /api/register
- * @desc    Registra un utente e lo salva nella sua sessione
- * @access  Pubblico
- */
-
-/**
- * @route POST /api/createGame
- * @desc Crea una partita, genera il codice passandolo a chi ha fatto la richiesta
- * @access Pubblico
- */
-
-/**
- * @route GET /api/game/check/:gameId
- * @desc Check se la stanza esiste, se si aggiunge il giocatore negli utenti della stanza
- * @access Pubblico
- */

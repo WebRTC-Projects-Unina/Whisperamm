@@ -1,60 +1,121 @@
+const {
+    getRoom,
+    addUserToRoom,
+    removeUserFromRoom,
+    roomExists,
+} = require("../services/rooms");
 // Struttura dati: Map<gameId, Map<username, Set<socket.id>>>
 const lobbies = new Map();
 
 module.exports = function registerChatHandlers(io) {
+    // Attendiamo il connection event
     io.on('connection', (socket) => {
         console.log('Nuovo client connesso:', socket.id);
+        // A questo punto possiamo leggere il payload della socket per capire il tipo di messaggio
 
-        socket.on('joinLobby', ({ gameId, username }) => {
-            if (!gameId) return;
+        socket.on('joinLobby', ({ gameId, user }) => {
+            // Errore: l'utente non ha inviato i dati
+            if (!gameId || !user) return;
 
-            const name = username;
+            const name = user.username;
+            const userId = user.id; // <-- CI SERVE L'ID!
 
-            // --- MODIFICATO: Salva i dati sul socket per la disconnessione ---
-            // Ci serve per sapere chi e da dove si disconnette
-            socket.data = socket.data || {};
+            // 1. Controlla lo stato UFFICIALE
+            const room = getRoom(gameId);
+            if (!room) {
+                socket.emit('lobbyError', { message: 'Stanza non trovata' });
+                return;
+            }
+
+            // Controlla se è piena (logica dal tuo file!)
+            if (room.players.length >= room.maxPlayers) {
+                socket.emit('lobbyError', { message: 'Stanza piena' });
+                return;
+            }
+
+            // 2. Aggiungi l'utente alla lista UFFICIALE
+            // (la tua funzione addUserToRoom gestisce già i duplicati!)
+            addUserToRoom(gameId, user);
+            console.log('Client joined');
+
+            // 3. Salva i dati sul socket per la disconnessione
             socket.data.gameId = gameId;
             socket.data.username = name;
+            socket.data.userId = userId; // <-- SALVA ANCHE L'ID
 
-            // --- NUOVA LOGICA: Registra il giocatore per "presenza" ---
-
-            // 1. Get o crea la lobby
-            if (!lobbies.has(gameId)) {
-                lobbies.set(gameId, new Map());
-            }
+            // 4. Gestisci la PRESENZA (il codice WebSocket di prima)
+            if (!lobbies.has(gameId)) lobbies.set(gameId, new Map());
             const lobby = lobbies.get(gameId);
-
-            // 2. Get o crea il Set di connessioni per questo utente
-            if (!lobby.has(name)) {
-                lobby.set(name, new Set());
-            }
+            if (!lobby.has(name)) lobby.set(name, new Set());
             const connections = lobby.get(name);
 
-            // 3. Controlla se è la sua prima connessione *prima* di aggiungerla
             const isFirstConnection = connections.size === 0;
-
-            // 4. Aggiungi questo socket.id al Set dell'utente
             connections.add(socket.id);
-
-            // 5. Unisciti alla "stanza" di socket.io per la chat
             socket.join(gameId);
 
-            // --- MODIFICATO: Invia il messaggio solo se è il primo join ---
+            // 5. Invia i messaggi
             if (isFirstConnection) {
                 socket.to(gameId).emit('chatMessage', {
                     from: 'system',
                     text: `${name} è entrato nella lobby`,
-                    timestamp: Date.now(),
                 });
             }
 
-            // --- MODIFICATO: Invia la lista di giocatori UNICI ---
-            // Ora prendiamo le "keys" della mappa della lobby, che sono gli username
-            const players = Array.from(lobby.keys());
+            // 6. Invia la lista giocatori UFFICIALE
+            const players = getRoom(gameId).players; // Prende la lista aggiornata
             io.to(gameId).emit('lobbyPlayers', {
                 gameId,
-                players,
+                players: players.map(p => p.username), // Invia solo i nomi
             });
+        });
+
+        // --- EVENTO DISCONNECT ---
+        socket.on('disconnect', () => {
+            const { gameId, username, userId } = socket.data || {};
+
+            if (!gameId || !username || !userId) return;
+
+            const lobby = lobbies.get(gameId);
+            if (!lobby) return;
+            const connections = lobby.get(username);
+            if (!connections) return;
+
+            // Rimuovi dalla PRESENZA
+            connections.delete(socket.id);
+
+            // Se era l'ultima scheda
+            if (connections.size === 0) {
+                console.log(`${username} (ID: ${userId}) è offline da ${gameId}`);
+
+                // Rimuovi l'utente dalla mappa delle presenze
+                lobby.delete(username);
+
+                // 1. Rimuovi l'utente dalla lista UFFICIALE
+                const updatedRoom = removeUserFromRoom(gameId, userId);
+
+                // Se la stanza è stata eliminata (era l'ultimo giocatore)
+                if (!updatedRoom) {
+                    console.log(`Stanza ${gameId} vuota, eliminata.`);
+                    lobbies.delete(gameId); // Pulisci anche la mappa delle presenze
+                    return;
+                }
+
+                // 2. Invia l'aggiornamento a chi è rimasto
+                io.to(gameId).emit('chatMessage', {
+                    from: 'system',
+                    text: `${username} ha lasciato la lobby`,
+                });
+
+                // 3. Invia la nuova lista giocatori UFFICIALE
+                const players = updatedRoom.players;
+                io.to(gameId).emit('lobbyPlayers', {
+                    gameId,
+                    players: players.map(p => p.username),
+                });
+
+                // (Opzionale) Invia il nuovo host se è cambiato
+                // io.to(gameId).emit('hostChanged', { newHost: updatedRoom.host });
+            }
         });
 
         socket.on('chatMessage', ({ gameId, from, text }) => {
@@ -67,59 +128,6 @@ module.exports = function registerChatHandlers(io) {
             });
         });
 
-        // --- LOGICA 'disconnect' COMPLETAMENTE RIFATTA ---
-        // Molto più efficiente e corretta
-        socket.on('disconnect', () => {
-            console.log('Client disconnesso:', socket.id);
 
-            // 1. Recupera i dati che abbiamo salvato sul socket
-            const { gameId, username } = socket.data || {};
-
-            // Se questo socket non era in una lobby, non fare nulla
-            if (!gameId || !username) {
-                return;
-            }
-
-            // 2. Trova la lobby e il Set di connessioni dell'utente
-            const lobby = lobbies.get(gameId);
-            if (!lobby) return;
-
-            const connections = lobby.get(username);
-            if (!connections) return;
-
-            // 3. Rimuovi questo socket.id dal Set
-            connections.delete(socket.id);
-
-            // 4. CONTROLLO CHIAVE: se il Set è vuoto, l'utente è offline
-            if (connections.size === 0) {
-                // Rimuovi l'utente dalla mappa della lobby
-                lobby.delete(username);
-
-                console.log(`${username} ha chiuso l'ultima scheda. Uscito da ${gameId}`);
-
-                // Avvisa la lobby che il giocatore è uscito
-                io.to(gameId).emit('chatMessage', {
-                    from: 'system',
-                    text: `${username} ha lasciato la lobby`,
-                    timestamp: Date.now(),
-                });
-
-                // Invia la lista aggiornata (ora senza di lui)
-                const players = Array.from(lobby.keys());
-                io.to(gameId).emit('lobbyPlayers', {
-                    gameId,
-                    players,
-                });
-
-                // (Opzionale) Pulisci la lobby se è l'ultimo giocatore
-                if (lobby.size === 0) {
-                    lobbies.delete(gameId);
-                    console.log(`Lobby ${gameId} vuota, eliminata.`);
-                }
-            } else {
-                // L'utente ha altre schede aperte, quindi è ancora nella lobby
-                console.log(`${username} ha chiuso una scheda, ma è ancora in ${gameId}`);
-            }
-        });
     });
 };

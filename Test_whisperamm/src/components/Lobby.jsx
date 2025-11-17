@@ -2,33 +2,86 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { useAuth } from '../context/AuthContext'; // <-- 1. IMPORTA
+import { useAuth } from '../context/AuthContext'; // <-- IMPORTA
 import './Lobby.css';
-
 
 function Lobby() {
     // --- STATI PRINCIPALI ---
     const { gameId } = useParams();
     const navigate = useNavigate();
-    // Prendiamo 'user' (per leggere) e 'setUser' (per scrivere)
-    const { user, setUser } = useAuth();    //Secondo me un modo più efficiente c'è, ma chi sa... -pino
+    const { user, setUser } = useAuth(); // Prende l'utente e la funzione per impostarlo
 
-    // --- 3. STATI DELLA LOBBY ---
-    const [socket, setSocket] = useState(null); // Stato per lo socket
+    // --- STATI DELLA LOBBY ---
+    const [socket, setSocket] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [players, setPlayers] = useState([]);
 
-    // --- 4. STATI PER IL MINI-FORM  ---
+    // --- STATI PER IL MINI-FORM ---
     const [usernameInput, setUsernameInput] = useState('');
-    const [error, setError] = useState(null);
+    const [error, setError] = useState(null); // Errore per il mini-form
 
-    // --- 5. LOGICA SOCKET (Si attiva solo se 'user' esiste) ---
+    // --- STATI DI VALIDAZIONE LOBBY ---
+    const [isValidating, setIsValidating] = useState(true); // Stiamo controllando...
+    const [lobbyError, setLobbyError] = useState(null); // Errore fatale della lobby
+
+    // --- CONTROLLO VALIDITÀ LOBBY ---
+    // Si attiva una sola volta al montaggio per controllare se la stanza esiste
     useEffect(() => {
-        // Se non c'è utente, non connettere lo socket
-        if (!user) return;
+        const checkLobby = async () => {
+            try {
+                // Assicurati che questo endpoint esista sul tuo server
+                const response = await fetch(`/api/game/checkGame/${gameID}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ user: user }) // <-- 'user' è disponibile
+                });
 
-        // Creiamo lo socket solo ora
+                if (!res.ok) {
+                    if (res.status === 404) {
+                        throw new Error('Stanza non trovata.');
+                    }
+                    throw new Error('Errore nel verificare la stanza.');
+                }
+
+                // Tutto OK, possiamo smettere di validare
+                setIsValidating(false);
+
+            } catch (err) {
+                console.error(err.message);
+                setLobbyError(err.message); // Imposta l'errore fatale
+                setIsValidating(false); // Finito, anche se con errore
+            }
+        };
+
+        checkLobby();
+    }, [gameId]); // Dipende solo da gameId
+
+    // --- 2. GESTORE REDIRECT SU ERRORE ---
+    // Si attiva se 'lobbyError' cambia da null a un messaggio
+    useEffect(() => {
+        if (lobbyError) {
+            // Mostra l'errore per 3 secondi, poi reindirizza
+            const timer = setTimeout(() => {
+                navigate('/'); // Reindirizza alla Home
+            }, 3000); // 3 secondi
+
+            // Pulisce il timer se il componente viene smontato
+            return () => clearTimeout(timer);
+        }
+    }, [lobbyError, navigate]); // Dipende da lobbyError e navigate
+
+    // --- 3. LOGICA SOCKET (Si attiva solo se l'utente e la stanza sono validi) ---
+    useEffect(() => {
+        // GUARDIA: Non connetterti se:
+        // 1. Non c'è un utente
+        // 2. Stiamo ancora validando la stanza
+        // 3. C'è stato un errore fatale con la stanza
+        if (!user || isValidating || lobbyError) {
+            return;
+        }
+
+        // Se siamo qui, l'utente è loggato e la stanza è valida. Connettiamo.
         const newSocket = io('http://localhost:8080', {
             withCredentials: false,
         });
@@ -39,12 +92,12 @@ function Lobby() {
         });
 
         // Entra nella stanza usando l'utente dal context
-        newSocket.emit('joinLobby', { gameId, username: user.username });
+        newSocket.emit('joinLobby', { gameId, user: user });
 
+        // Gestori per i messaggi dal server
         const handleChatMessage = (msg) => {
             setMessages((prev) => [...prev, msg]);
         };
-
         const handleLobbyPlayers = (payload) => {
             if (payload?.gameId !== gameId) return;
             setPlayers(payload.players || []);
@@ -53,16 +106,18 @@ function Lobby() {
         newSocket.on('chatMessage', handleChatMessage);
         newSocket.on('lobbyPlayers', handleLobbyPlayers);
 
-        // Pulizia
+        // Funzione di pulizia
         return () => {
             newSocket.off('chatMessage', handleChatMessage);
             newSocket.off('lobbyPlayers', handleLobbyPlayers);
             newSocket.disconnect();
+            setSocket(null); // Pulisci lo stato dello socket
         };
-    }, [gameId, user]); // Dipende da 'user'
+    }, [gameId, user, isValidating, lobbyError]); // Dipende da tutte queste condizioni
 
-    // --- 6. GESTORE SUBMIT PER LA CHAT ---
-    // (Questo era il tuo 'handleSubmit' originale)
+    // --- 4. GESTORI DI EVENTI ---
+
+    // Gestore per l'invio di messaggi in chat
     const handleSubmitChat = (e) => {
         e.preventDefault();
         if (!newMessage.trim() || !socket || !user) return;
@@ -76,7 +131,7 @@ function Lobby() {
         setNewMessage('');
     };
 
-    // --- 7. GESTORE PER IL MINI-FORM (nuovo) ---
+    // Gestore per il "mini-form" di registrazione/join
     const handleJoinRegister = async (e) => {
         e.preventDefault();
         setError(null);
@@ -85,8 +140,8 @@ function Lobby() {
             return;
         }
         try {
-            // Chiamata identica a quella di Registrazione.jsx
-            const response = await fetch('/api/register', {
+            // Usa lo stesso endpoint della pagina di Registrazione
+            const response = await fetch('/api/register', { // Assumendo path relativo
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: usernameInput }),
@@ -95,28 +150,50 @@ function Lobby() {
             if (!response.ok) {
                 throw new Error(data.message || 'Nome già in uso');
             }
+
             // LA MAGIA: Salviamo l'utente nel context.
-            // Questo farà ri-renderizzare il componente
-            // e mostrerà la lobby vera e propria.
+            // Questo fa ri-renderizzare il componente.
+            // L'useEffect (n.3) vedrà il nuovo 'user' e connetterà lo socket.
             setUser(data.user);
         } catch (err) {
             setError(err.message);
         }
     };
 
-    // Il tuo gestore per tornare indietro
+    // Gestore per tornare alla Home
     const handleBackHome = () => {
         navigate('/');
     };
 
-    
+    // --- 5. RENDER CONDIZIONALE ---
 
-    // --- 8. RENDER CONDIZIONALE ---
+    // CASO 0: Validazione in corso
+    if (isValidating) {
+        return (
+            <div className="lobby-page">
+                <div className="lobby-card">
+                    <h1 className="lobby-title">Verifica stanza...</h1>
+                </div>
+            </div>
+        );
+    }
 
-    // CASO A: L'utente NON è loggato (mostra il mini-form)
+    // CASO 1: Errore fatale (stanza non trovata)
+    if (lobbyError) {
+        return (
+            <div className="lobby-page">
+                <div className="lobby-card">
+                    <h1 className="lobby-title" style={{ color: 'red' }}>Errore</h1>
+                    <p className="lobby-subtitle">{lobbyError}</p>
+                    <p>Stai per essere reindirizzato alla Home...</p>
+                </div>
+            </div>
+        );
+    }
+
+    // CASO 2: Stanza valida, ma utente NON loggato (mostra il mini-form)
     if (!user) {
         return (
-            // Uso le tue classi CSS per mantenere lo stile
             <div className="lobby-page">
                 <div className="lobby-layout">
                     <div className="lobby-card">
@@ -143,7 +220,7 @@ function Lobby() {
                                 Entra
                             </button>
                         </form>
-                        {error && <p className="error-message" style={{color: 'red', marginTop: '10px'}}>{error}</p>}
+                        {error && <p className="error-message" style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
                     </div>
                     {/* Non mostriamo la sidebar dei player se non è loggato */}
                 </div>
@@ -151,8 +228,7 @@ function Lobby() {
         );
     }
 
-    // CASO B: L'utente È loggato (mostra la tua lobby originale)
-   
+    // CASO 3: Stanza valida E utente loggato (mostra la lobby completa)
     return (
         <div className="lobby-page">
             <div className="lobby-layout">
@@ -168,7 +244,7 @@ function Lobby() {
                         In attesa di altri giocatori... Nel frattempo puoi usare la chat.
                     </p>
 
-                    {/* SEZIONE CHAT (Tuo codice originale) */}
+                    {/* SEZIONE CHAT */}
                     <div className="chat-container">
                         <h2 className="chat-title">Chat lobby</h2>
 
@@ -186,15 +262,15 @@ function Lobby() {
                                             : 'chat-message'
                                     }
                                 >
-                    <span className="chat-from">
-                    {m.from === 'system' ? '[SYSTEM]' : m.from}:
-                    </span>
+                                    <span className="chat-from">
+                                        {m.from === 'system' ? '[SYSTEM]' : m.from}:
+                                    </span>
                                     <span className="chat-text">{m.text}</span>
                                 </div>
                             ))}
                         </div>
 
-                        {/* Form della chat (aggiornato on Submit) */}
+                        {/* Form della chat */}
                         <form className="chat-input-form" onSubmit={handleSubmitChat}>
                             <input
                                 type="text"
@@ -214,7 +290,7 @@ function Lobby() {
                     </button>
                 </div>
 
-                {/* Sidebar (Tuo codice originale, aggiornato con user.username) */}
+                {/* Sidebar dei giocatori */}
                 <aside className="lobby-sidebar">
                     <h2 className="sidebar-title">Giocatori nella stanza</h2>
                     <p className="sidebar-room-code">{gameId}</p>
@@ -228,18 +304,18 @@ function Lobby() {
                             <div
                                 key={idx}
                                 className={
-                                    p === user.username // <-- Usa 'user.username'
+                                    p === user.username // Usa 'user.username' dal context
                                         ? 'sidebar-player sidebar-player-me'
                                         : 'sidebar-player'
                                 }
                             >
-                <span className="sidebar-player-avatar">
-                  {p?.[0]?.toUpperCase() || '?'}
-                </span>
+                                <span className="sidebar-player-avatar">
+                                    {p?.[0]?.toUpperCase() || '?'}
+                                </span>
                                 <span className="sidebar-player-name">
-                  {p}
-                                    {p === user.username && ' (tu)'} {/* <-- Usa 'user.username' */}
-                </span>
+                                    {p}
+                                    {p === user.username && ' (tu)'} {/* Usa 'user.username' */}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -248,4 +324,5 @@ function Lobby() {
         </div>
     );
 }
+
 export default Lobby;
