@@ -7,7 +7,7 @@ const Registrazione = () => {
     const [username, setUsername] = useState('');
     const [error, setError] = useState(null);
 
-    // Togliamo lo stato locale e prendiamo 'user' e 'setUser' dal context
+    //Prendiamo 'user' e 'setUser' dal context
     const { user, setUser } = useAuth();
 
     const handleSubmit = async (e) => {
@@ -47,9 +47,6 @@ const Registrazione = () => {
             // --- MODIFICA QUI ---
             // 3. Salva l'utente nello stato GLOBALE (il context)
             setUser(data.user);
-            // setRegisteredUser(data.user); // <-- VIA QUESTO
-            // --- FINE MODIFICHE ---
-
         } catch (err) {
             setError(err.message);
         }
@@ -64,7 +61,6 @@ const Registrazione = () => {
         // perché può prenderlo da solo dal context.
         return <Home />;
     }
-    // --- FINE MODIFICHE ---
 
     // Altrimenti, mostra il form di registrazione
     // (Questa parte è rimasta identica)

@@ -3,10 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Home.css';
 
-// --- MODIFICA QUI ---
-// 2. Rimuovi '{ user }' dalle props. Il componente non lo riceve più.
 const Home = () => {
-// --- FINE MODIFICA ---
 
     // Prendiamo 'user' direttamente dal context
     const { user } = useAuth();
@@ -93,6 +90,9 @@ const Home = () => {
                 throw new Error("Stanza non trovata o piena");
             }
 
+            // Se tutto va bene, reindirizza alla pagina della partita
+            //Qui forse user malevolo potrebbe accedere anche se non esiste, togliendo il check sulla response.ok
+            
             navigate(`/match/${gameID}`);
 
         } catch (err) {

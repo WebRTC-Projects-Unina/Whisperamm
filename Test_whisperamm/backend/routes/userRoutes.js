@@ -13,4 +13,3 @@ module.exports = (app) => {
     app.route('/api/me')
         .get(controller.getMe);
 }
-

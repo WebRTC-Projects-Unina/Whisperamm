@@ -4,15 +4,14 @@ import Lobby from './components/Lobby';
 // Importo il provider
 import { AuthProvider } from './context/AuthContext';
 
-// Definisco le tue rotte
+// Definisco le rotte che verranno gestite dal componente di ReactV6: RouterProvider
 const router = createBrowserRouter([
-    // createBrowserRouter lo uso per matchare gli elementi alle possibili routes (URL) dell'applicazione.
     {
         path: "/", // URL principale
         element: <Registrazione />, // Mostra il Menu
     },
 
-    // Così com'è, se uno ha il link può entrare nella partita..però in teoria dovrebbe anche verificare che può entrarci nella partita.
+    //Se uno ha il link può entrare nella partita..DEVE ESSERE REGISTRATO
     {
         path: "/match/:gameId", // URL della partita con un ID dinamico
         element: <Lobby/>, // Mostra il componente Match

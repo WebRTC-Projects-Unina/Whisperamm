@@ -9,8 +9,7 @@ exports.register = (req, res) => {
         return res.status(400).json({ message: 'Username non valido. Servono almeno 3 caratteri.' });
     }
 
-    // La logica della sessione funziona ESATTAMENTE come prima
-    // perché 'req' è lo stesso oggetto
+    // Salvo l'utente nella sessione
     req.session.user = {
         id: req.session.id,
         username: username.trim()
@@ -46,11 +45,8 @@ exports.createGame = (req, res) => {
         }
 
         // --- CREAZIONE STANZA ---
-        // Ora 'createRoom' è una funzione REALE importata dallo store
         const roomId = createRoom(roomName, user, maxPlayers, rounds);
-
         console.log(`[SERVER] Stanza ${roomId} creata con successo in RAM.`);
-
         res.status(201).json({ roomId: roomId });
 
     } catch (error) {

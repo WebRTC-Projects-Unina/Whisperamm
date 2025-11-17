@@ -3,8 +3,6 @@ const { randomUUID } = require('crypto');
 // Il nostro "database" in-memory.
 const liveRooms = {};
 
-// --- FUNZIONI PRINCIPALI (CRUD per le Stanze) ---
-
 /**
  * Crea una nuova stanza e la salva in memoria.
  * @param {string} roomName - Il nome visualizzato della stanza.
@@ -13,6 +11,7 @@ const liveRooms = {};
  * @param {int} rounds - Numero di round della partita
  * @returns {string} L'ID della stanza appena creata.
  */
+
 const createRoom = (roomName, user, maxPlayers, rounds) => {
     const newRoomId = randomUUID().slice(0, 6).toUpperCase();
 

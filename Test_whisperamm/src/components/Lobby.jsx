@@ -5,23 +5,21 @@ import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthContext'; // <-- 1. IMPORTA
 import './Lobby.css';
 
-// Rimuoviamo lo socket da qui
-// const socket = io(...);
 
 function Lobby() {
-    // --- 2. STATI PRINCIPALI ---
+    // --- STATI PRINCIPALI ---
     const { gameId } = useParams();
     const navigate = useNavigate();
     // Prendiamo 'user' (per leggere) e 'setUser' (per scrivere)
-    const { user, setUser } = useAuth();
+    const { user, setUser } = useAuth();    //Secondo me un modo più efficiente c'è, ma chi sa... -pino
 
-    // --- 3. STATI DELLA LOBBY (i tuoi originali) ---
+    // --- 3. STATI DELLA LOBBY ---
     const [socket, setSocket] = useState(null); // Stato per lo socket
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [players, setPlayers] = useState([]);
 
-    // --- 4. STATI PER IL MINI-FORM (nuovi) ---
+    // --- 4. STATI PER IL MINI-FORM  ---
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null);
 
@@ -111,6 +109,8 @@ function Lobby() {
         navigate('/');
     };
 
+    
+
     // --- 8. RENDER CONDIZIONALE ---
 
     // CASO A: L'utente NON è loggato (mostra il mini-form)
@@ -152,8 +152,7 @@ function Lobby() {
     }
 
     // CASO B: L'utente È loggato (mostra la tua lobby originale)
-    // Questo è il tuo JSX originale, al 100%.
-    // L'unica modifica è 'handleSubmitChat' e 'user.username'.
+   
     return (
         <div className="lobby-page">
             <div className="lobby-layout">
