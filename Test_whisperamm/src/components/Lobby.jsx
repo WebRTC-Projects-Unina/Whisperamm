@@ -29,33 +29,78 @@ function Lobby() {
     // Si attiva una sola volta al montaggio per controllare se la stanza esiste
     useEffect(() => {
         const checkLobby = async () => {
+            // 1. Iniziamo la validazione
+            setIsValidating(true);
+
             try {
-                // Assicurati che questo endpoint esista sul tuo server
-                const response = await fetch(`/api/game/checkGame/${gameID}`, {
+                const response = await fetch(`/api/game/checkGame/${gameId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user: user }) // <-- 'user' è disponibile
+                    body: JSON.stringify({ user: user })
                 });
 
-                if (!res.ok) {
-                    if (res.status === 404) {
-                        throw new Error('Stanza non trovata.');
+                // È fondamentale leggere il body JSON *sempre*,
+                // perché contiene il messaggio di errore inviato dal server (es. "La stanza è piena")
+                const data = await response.json();
+
+                // 2. Controlliamo se la risposta NON è OK (status 4xx o 5xx)
+                if (!response.ok) {
+                    // Abbiamo ricevuto un errore, impostiamo il messaggio
+                    // che ci è arrivato direttamente dal server (data.message)
+
+                    // Gestiamo i casi specifici:
+                    if (response.status === 404) {
+                        // Stanza non trovata
+                        console.error("Errore 404:", data.message);
+                        setLobbyError(data.message || "Stanza non trovata.");
+                    } else if (response.status === 403) {
+                        // Stanza piena
+                        console.error("Errore 403:", data.message);
+                        setLobbyError(data.message || "La stanza è piena.");
+                    } else {
+                        // Altri errori (es. 400 Bad Request, 500 Server Error)
+                        console.error(`Errore ${response.status}:`, data.message);
+                        setLobbyError(data.message || "Errore sconosciuto.");
                     }
-                    throw new Error('Errore nel verificare la stanza.');
+
+                    // Interrompiamo la validazione (perché abbiamo fallito)
+                    setIsValidating(false);
+                    return; // Fermiamo l'esecuzione della funzione
                 }
 
-                // Tutto OK, possiamo smettere di validare
-                setIsValidating(false);
+                // 3. Se arriviamo qui, response.ok è true (status 200)
+                // Questo significa che la stanza esiste, non è piena,
+                // e l'utente è stato aggiunto (o era già dentro).
+                // Non impostiamo nessun errore.
+
+                console.log("Validazione lobby OK:", data.message);
+                setIsValidating(false); // Finito di validare, tutto a posto.
 
             } catch (err) {
-                console.error(err.message);
-                setLobbyError(err.message); // Imposta l'errore fatale
+                // Questo blocco 'catch' gestisce errori DI RETE
+                // (es. server irraggiungibile, no connessione internet)
+                console.error("Errore di connessione:", err);
+                setLobbyError("Impossibile connettersi al server."); // Imposta l'errore fatale
                 setIsValidating(false); // Finito, anche se con errore
             }
         };
 
-        checkLobby();
-    }, [gameId]); // Dipende solo da gameId
+        // Controlla se l'utente è loggato PRIMA di fare qualsiasi altra cosa
+        if (user && user.id) {
+            // Se l'utente C'È, controlliamo la validità della lobby (piena, esiste, ecc.)
+            checkLobby();
+        } else if (!user) {
+            // Se l'utente NON C'È mostra la registrazione
+            setIsValidating(false);
+            setLobbyError(null); // Assicurati che non ci siano errori precedenti
+        } else if (!gameId) {
+            // Caso di sicurezza: l'URL è rotto
+            setLobbyError("ID partita non trovato.");
+            setIsValidating(false);
+        }
+
+    }, [user]); // Metto 'user' nelle dipendenze, in questo modo sia quando la pagina si carica la prima volta con utente registrato
+                      // che quando l'utente si registra dopo la schermata di Registrazione questo useEffect viene invocato
 
     // --- 2. GESTORE REDIRECT SU ERRORE ---
     // Si attiva se 'lobbyError' cambia da null a un messaggio
@@ -64,7 +109,7 @@ function Lobby() {
             // Mostra l'errore per 3 secondi, poi reindirizza
             const timer = setTimeout(() => {
                 navigate('/'); // Reindirizza alla Home
-            }, 3000); // 3 secondi
+            }, 2000); // 2 secondi
 
             // Pulisce il timer se il componente viene smontato
             return () => clearTimeout(timer);
@@ -87,14 +132,7 @@ function Lobby() {
         });
         setSocket(newSocket);
 
-        newSocket.on('connect', () => {
-            console.log('Socket connesso, id:', newSocket.id);
-        });
-
-        // Entra nella stanza usando l'utente dal context
-        newSocket.emit('joinLobby', { gameId, user: user });
-
-        // Gestori per i messaggi dal server
+        // 1. Definisci i gestori (spostati qui sopra)
         const handleChatMessage = (msg) => {
             setMessages((prev) => [...prev, msg]);
         };
@@ -103,14 +141,32 @@ function Lobby() {
             setPlayers(payload.players || []);
         };
 
+        const handleLobbyError = (error) => {
+            // Errore ricevuto dal server socket (es. stanza piena)
+            console.error("Errore dalla lobby via socket:", error.message);
+            setLobbyError(error.message || "Errore dalla stanza");
+            newSocket.disconnect(); // Disconnetti se c'è un errore
+        };
+
+        // 2. Attacca i listener per gli eventi che ti aspetti dal server SUBITO
         newSocket.on('chatMessage', handleChatMessage);
         newSocket.on('lobbyPlayers', handleLobbyPlayers);
 
+        // 3. Gestisci l'evento 'connect'
+        newSocket.on('connect', () => {
+            console.log('Socket connesso, id:', newSocket.id);
+
+            // 4. Emetti 'joinLobby' SOLO DOPO che sei connesso
+            //    e dopo che tutti i tuoi listener sono pronti.
+            newSocket.emit('joinLobby', { gameId, user});
+        });
         // Funzione di pulizia
         return () => {
             newSocket.off('chatMessage', handleChatMessage);
             newSocket.off('lobbyPlayers', handleLobbyPlayers);
+            newSocket.off('lobbyError', handleLobbyError);
             newSocket.disconnect();
+            console.log('Socket disconnesso');
             setSocket(null); // Pulisci lo stato dello socket
         };
     }, [gameId, user, isValidating, lobbyError]); // Dipende da tutte queste condizioni

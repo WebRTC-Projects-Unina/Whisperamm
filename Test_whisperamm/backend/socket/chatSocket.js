@@ -4,21 +4,21 @@ const {
     removeUserFromRoom,
     roomExists,
 } = require("../services/rooms");
-// Struttura dati: Map<gameId, Map<username, Set<socket.id>>>
+
+// --- MODIFICA COMMENTO ---
+// Struttura dati: Map<gameId, Map<userId, Set<socket.id>>>
 const lobbies = new Map();
 
 module.exports = function registerChatHandlers(io) {
     // Attendiamo il connection event
     io.on('connection', (socket) => {
         console.log('Nuovo client connesso:', socket.id);
-        // A questo punto possiamo leggere il payload della socket per capire il tipo di messaggio
 
         socket.on('joinLobby', ({ gameId, user }) => {
-            // Errore: l'utente non ha inviato i dati
             if (!gameId || !user) return;
 
             const name = user.username;
-            const userId = user.id; // <-- CI SERVE L'ID!
+            const userId = user.id;
 
             // 1. Controlla lo stato UFFICIALE
             const room = getRoom(gameId);
@@ -27,27 +27,34 @@ module.exports = function registerChatHandlers(io) {
                 return;
             }
 
-            // Controlla se è piena (logica dal tuo file!)
-            if (room.players.length >= room.maxPlayers) {
-                socket.emit('lobbyError', { message: 'Stanza piena' });
+            // Controlliamo se l'utente è già nella stanza
+            const isUserAlreadyIn = room.players.some(p => p.id === userId);
+            const isRoomFull = room.players.length >= room.maxPlayers;
+
+            // Se la stanza è piena E l'utente non è già dentro, rifiuta.
+            if (isRoomFull && !isUserAlreadyIn) {
+                socket.emit('lobbyError', { message: 'La stanza è piena.' });
                 return;
             }
+            // --- FINE LOGICA MIGLIORATA ---
+
 
             // 2. Aggiungi l'utente alla lista UFFICIALE
-            // (la tua funzione addUserToRoom gestisce già i duplicati!)
+            // (La funzione gestisce già i duplicati, quindi è sicuro)
             addUserToRoom(gameId, user);
-            console.log('Client joined');
+            console.log(`[Socket] Utente ${name} aggiunto in ${gameId}`);
 
             // 3. Salva i dati sul socket per la disconnessione
             socket.data.gameId = gameId;
             socket.data.username = name;
-            socket.data.userId = userId; // <-- SALVA ANCHE L'ID
+            socket.data.userId = userId;
 
-            // 4. Gestisci la PRESENZA (il codice WebSocket di prima)
+            // 4. Gestisci la PRESENZA (Usando l'ID)
             if (!lobbies.has(gameId)) lobbies.set(gameId, new Map());
             const lobby = lobbies.get(gameId);
-            if (!lobby.has(name)) lobby.set(name, new Set());
-            const connections = lobby.get(name);
+
+            if (!lobby.has(userId)) lobby.set(userId, new Set());
+            const connections = lobby.get(userId);
 
             const isFirstConnection = connections.size === 0;
             connections.add(socket.id);
@@ -62,7 +69,8 @@ module.exports = function registerChatHandlers(io) {
             }
 
             // 6. Invia la lista giocatori UFFICIALE
-            const players = getRoom(gameId).players; // Prende la lista aggiornata
+            // Questa riga ora verrà eseguita anche se l'utente era già dentro
+            const players = getRoom(gameId).players;
             io.to(gameId).emit('lobbyPlayers', {
                 gameId,
                 players: players.map(p => p.username), // Invia solo i nomi
@@ -77,7 +85,7 @@ module.exports = function registerChatHandlers(io) {
 
             const lobby = lobbies.get(gameId);
             if (!lobby) return;
-            const connections = lobby.get(username);
+            const connections = lobby.get(userId);
             if (!connections) return;
 
             // Rimuovi dalla PRESENZA
@@ -88,9 +96,9 @@ module.exports = function registerChatHandlers(io) {
                 console.log(`${username} (ID: ${userId}) è offline da ${gameId}`);
 
                 // Rimuovi l'utente dalla mappa delle presenze
-                lobby.delete(username);
+                lobby.delete(userId);
 
-                // 1. Rimuovi l'utente dalla lista UFFICIALE
+                // Rimuovi l'utente dalla lista UFFICIALE
                 const updatedRoom = removeUserFromRoom(gameId, userId);
 
                 // Se la stanza è stata eliminata (era l'ultimo giocatore)
@@ -100,13 +108,13 @@ module.exports = function registerChatHandlers(io) {
                     return;
                 }
 
-                // 2. Invia l'aggiornamento a chi è rimasto
+                // Invia l'aggiornamento a chi è rimasto
                 io.to(gameId).emit('chatMessage', {
                     from: 'system',
                     text: `${username} ha lasciato la lobby`,
                 });
 
-                // 3. Invia la nuova lista giocatori UFFICIALE
+                // Invia la nuova lista giocatori UFFICIALE
                 const players = updatedRoom.players;
                 io.to(gameId).emit('lobbyPlayers', {
                     gameId,
@@ -118,16 +126,18 @@ module.exports = function registerChatHandlers(io) {
             }
         });
 
-        socket.on('chatMessage', ({ gameId, from, text }) => {
-            if (!gameId || !text) return;
+        // --- EVENTO CHAT ---
+        socket.on('chatMessage', ({ gameId, text }) => {
+            const { username } = socket.data || {};
+
+            if (!gameId || !text || !username) return; // Non inviare se il mittente non è valido
 
             io.to(gameId).emit('chatMessage', {
-                from: from || 'anonimo',
+                from: username, // Preso da socket.data
                 text,
                 timestamp: Date.now(),
             });
         });
-
 
     });
 };
