@@ -67,11 +67,11 @@ const Registrazione = () => {
     return (
         <div className="registration-container">
             <h1>Benvenuto a Whisperamm</h1>
-            <p>Inserisci il tuo nome per giocare.</p>
+            <p>Inserisci il nickname per giocare.</p>
 
             <form onSubmit={handleSubmit}>
                 <div className="form-group">
-                    <label htmlFor="username">Il tuo nome</label>
+                    <label htmlFor="username">Il tuo nickname</label>
                     <input
                         type="text"
                         id="username"

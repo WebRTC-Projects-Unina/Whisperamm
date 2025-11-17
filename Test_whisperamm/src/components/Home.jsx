@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { data, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import './Home.css';
 
@@ -67,16 +67,20 @@ const Home = () => {
     const handleSubmitJoinGame = async (e) => {
         e.preventDefault();
         setError(null);
-        if (gameID.length < 3) {
-            setError("L'ID della stanza è troppo corto");
-            return;
-        }
+
         // Mandiamo una GET ora, in modo da vedere solo se la partita esiste, il controllo sul numero di giocatori lo facciamo in Lobby
         try {
             const response = await fetch(`/api/game/checkGame/${gameID}`, {
                 method: 'GET'
             });
 
+            const data = await response.json(); // <--- LEGGI SEMPRE IL JSON
+
+            if (!response.ok) {
+                // se il backend ha mandato un messaggio lo usi, altrimenti fallback
+                throw new Error(data.message || 'Stanza non trovata');
+            }
+            
             console.log(response);
             if (!response.ok) {
                 throw new Error("Stanza non trovata");

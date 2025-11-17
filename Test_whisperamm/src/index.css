@@ -51,7 +51,8 @@ button:hover {
 }
 button:focus,
 button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  outline: none;                       /* tolgo il bordo blu di default */
+  box-shadow: 0 0 0 3px #c861fb;       /* colore focus personalizzato */
 }
 
 @media (prefers-color-scheme: dark) {

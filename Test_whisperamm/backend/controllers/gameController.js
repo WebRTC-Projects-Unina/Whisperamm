@@ -1,4 +1,5 @@
 const {createRoom, getRoom, roomExists, addUserToRoom, getNumberOfPlayers, getMaxPlayers, isUserInRoom} = require("../services/rooms");
+const { validateRoomName,validateRoomId } = require("../utils/validators");
 
 
 exports.createGame = (req, res) => {
@@ -8,16 +9,16 @@ exports.createGame = (req, res) => {
         if (!user || !user.username) {
             return res.status(401).json({ message: "Utente non autenticato." });
         }
-        if (!roomName || roomName.length) {
-            if (!roomName || roomName.length < 3) {
-                return res.status(400).json({ message: "Il nome della stanza deve essere di almeno 3 caratteri." });
-            }
+
+        const validation = validateRoomName(roomName);
+        if (!validation.valid) {
+            console.log("Nome stanza non valido:", validation.message);
+            return res.status(400).json({ message: validation.message });
         }
 
         // --- CREAZIONE STANZA ---
         // Ora 'createRoom' è una funzione REALE importata dallo store
         const roomId = createRoom(roomName, user, maxPlayers, rounds);
-
         console.log(`[SERVER] Stanza ${roomId} creata con successo in RAM.`);
 
         res.status(201).json({ roomId: roomId });
@@ -40,6 +41,11 @@ exports.checkGameP = (req, res) => {
         // Controlla dati utente
         if (!user || !user.username) {
             return res.status(400).json({ message: "Dati utente mancanti." });
+        }
+        const validation = validateRoomId(gameId);
+        if (!validation.valid) {
+            console.log("ID stanza non valido:", validation.message);
+            return res.status(400).json({ message: validation.message });
         }
 
         console.log(`[HTTP-POST] Ricevuta richiesta CHECK per ID: ${gameId}`);
@@ -100,6 +106,12 @@ exports.checkGameG = (req, res) => {
     try {
         const { gameId } = req.params; // L'ID dall'URL
         console.log(`[HTTP-GET] Ricevuta richiesta CHECK per ID: ${gameId}`);
+
+        const validation = validateRoomId(gameId);
+        if (!validation.valid) {
+            console.log("ID stanza non valido:", validation.message);
+            return res.status(400).json({ message: validation.message });
+        }
 
         // controlla se l'ID esiste usando la funzione REALE
         if (roomExists(gameId)) {
