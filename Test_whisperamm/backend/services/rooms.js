@@ -19,7 +19,9 @@ const createRoom = (roomName, user, maxPlayers, rounds) => {
         roomId: newRoomId,
         name: roomName,
         players: [user], // L'utente che la crea è il primo giocatore
-        host: user.username, // Il nome utente dell'host
+        // --- MODIFICA ---
+        hostId: user.id, // <-- Salviamo l'ID dell'host, non il nome
+        // --- FINE MODIFICA ---
         maxPlayers: maxPlayers,
         rounds: rounds,
         createdAt: new Date()
@@ -77,18 +79,21 @@ const getPlayers = (roomId) => {
  */
 const getNumberOfPlayers = (roomId) => {
     const room = getRoom(roomId);
-    // Se la stanza esiste, ritorna la lunghezza dell'array dei giocatori
     return room ? room.players.length : null;
 };
 
 /**
- * (GETTER) Recupera il nome utente dell'host di una stanza.
+ * (GETTER) Recupera l'oggetto utente completo dell'host di una stanza.
  * @param {string} roomId - L'ID della stanza.
- * @returns {string | null} Il nome utente dell'host o null.
+ * @returns {object | null} L'oggetto utente dell'host o null.
  */
 const getHost = (roomId) => {
-    const room = liveRooms[roomId];
-    return room ? room.host : null;
+    const room = getRoom(roomId);
+    // --- MODIFICA ---
+    // Troviamo l'host cercando l'ID salvato nella lista dei giocatori
+    if (!room || !room.hostId) return null;
+    return room.players.find(p => p.id === room.hostId) || null;
+    // --- FINE MODIFICA ---
 };
 
 /**
@@ -98,7 +103,6 @@ const getHost = (roomId) => {
  */
 const getMaxPlayers = (roomId) => {
     const room = getRoom(roomId);
-    // Se la stanza esiste, ritorna il valore di maxPlayers
     return room ? room.maxPlayers : null;
 };
 
@@ -118,6 +122,7 @@ const addUserToRoom = (roomId, user) => {
     }
 
     // Controlla se l'utente è già in stanza (per evitare duplicati)
+    // Questa funzione usava già user.id, quindi è corretta!
     const userExists = room.players.find(p => p.id === user.id);
 
     if (!userExists) {
@@ -137,8 +142,11 @@ const removeUserFromRoom = (roomId, userId) => {
     const room = getRoom(roomId);
     if (!room) return null; // Stanza già eliminata
 
-    const userToRemove = room.players.find(p => p.id === userId);
-    if (!userToRemove) return room; // Utente non trovato
+    // --- MODIFICA ---
+    // Controlliamo solo se l'utente esiste, non ci serve l'oggetto
+    const userExists = room.players.some(p => p.id === userId);
+    if (!userExists) return room; // Utente non trovato, non fare nulla
+    // --- FINE MODIFICA ---
 
     // Rimuove l'utente dall'array
     room.players = room.players.filter(p => p.id !== userId);
@@ -151,9 +159,9 @@ const removeUserFromRoom = (roomId, userId) => {
         return null; // Ritorna null per segnalare che la stanza non esiste più
     }
 
-    // 2. Se l'host ha lasciato, nomina un nuovo host (il primo della lista)
-    if (room.host === userToRemove.username) {
-        room.host = room.players[0].username;
+    // 2. Se l'host (per ID) ha lasciato, nomina un nuovo host (salvando il nuovo ID)
+    if (room.hostId === userId) {
+        room.hostId = room.players[0].id; // Assegna l'ID del primo giocatore rimasto
     }
 
     return room;
@@ -162,13 +170,15 @@ const removeUserFromRoom = (roomId, userId) => {
 /**
  * (SETTER) Aggiorna l'host di una stanza.
  * @param {string} roomId - L'ID della stanza.
- * @param {string} newHostUsername - Il nome utente del nuovo host.
+ * @param {string} newHostId - L'ID (non il nome) del nuovo host.
  * @returns {object} L'oggetto stanza aggiornato.
  */
-const updateHost = (roomId, newHostUsername) => {
+const updateHost = (roomId, newHostId) => {
     const room = getRoom(roomId);
     if (room) {
-        room.host = newHostUsername;
+        // --- MODIFICA ---
+        room.hostId = newHostId;
+        // --- FINE MODIFICA ---
         return room;
     }
     throw new Error('Stanza non trovata.');
@@ -180,15 +190,26 @@ const updateHost = (roomId, newHostUsername) => {
  * @returns {boolean} True se la stanza esiste, altrimenti false.
  */
 const roomExists = (roomId) => {
-    // !! (doppio punto esclamativo) converte il risultato
-    // in un booleano pulito (true/false).
-    // Se liveRooms[roomId] trova un oggetto, è "truthy" -> true.
-    // Se non trova nulla (undefined), è "falsy" -> false.
     return !!liveRooms[roomId];
-
-    // Un'alternativa più esplicita:
-    // return liveRooms.hasOwnProperty(roomId);
 };
+
+/**
+ * (BOOLEAN) Controlla se un utente (per ID) è già presente in una stanza.
+ * @param {string} roomId - L'ID della stanza da controllare.
+ * @param {string} userId - L'ID dell'utente da cercare (basato su user.id).
+ * @returns {boolean} True se l'utente è nella stanza, altrimenti false.
+ */
+const isUserInRoom = (roomId, userId) => {
+    const room = getRoom(roomId);
+
+    if (!room) {
+        return false;
+    }
+
+    // Controlla per ID
+    return room.players.some(player => player.id === userId);
+};
+
 
 // Esportiamo tutte le funzioni che vogliamo rendere pubbliche
 module.exports = {
@@ -198,8 +219,11 @@ module.exports = {
     getAllRooms,
     getPlayers,
     getHost,
+    getMaxPlayers,
+    getNumberOfPlayers,
     addUserToRoom,
     removeUserFromRoom,
     updateHost,
-    roomExists
+    roomExists,
+    isUserInRoom
 };
