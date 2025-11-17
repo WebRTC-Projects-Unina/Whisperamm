@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
-import { useAuth } from '../context/AuthContext'; // <-- IMPORTA
+import { useAuth } from '../context/AuthProvider'; // <-- IMPORTA
 import './Lobby.css';
 
 function Lobby() {
