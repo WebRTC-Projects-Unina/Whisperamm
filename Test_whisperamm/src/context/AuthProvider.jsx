@@ -49,7 +49,7 @@ export const AuthProvider = ({ children }) => {
 
     // Ora l'app può partire. 'user' sarà l'utente (se c'era sessione) o 'null' (se non c'era).
     return (
-        <AuthContext.Provider value={{ user, setUser, loading }}>
+        <AuthContext.Provider value={{ user, setUser }}>
             {children}
         </AuthContext.Provider>
     );
