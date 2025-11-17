@@ -1,7 +1,16 @@
 const { validateUsername } = require('../utils/validators');
+//Questi poi li sposto in server.js
+const jwt = require('jsonwebtoken');    
+
+
+const createToken = (id, username) => {
+    //Problema: id ce lo dovrebbe dare il DB..
+    //Dunque al momento tengo una struttura dati qui degli utenti attivi?
+    //Appena poi implemento redis, che penso mi darà un ID una volta che aggiungo una entry, lo modifico e lo tolgo.
+    return jwt.sign({id, username}, 'Segretissimostosegreto', { expiresIn: '3h' });
+}
 
 exports.register = (req, res) => {
-    console.log(req.body);
     const { username } = req.body;
 
     const result = validateUsername(username);
@@ -9,6 +18,8 @@ exports.register = (req, res) => {
         console.log("Username non valido");
         return res.status(400).json({ message: result.message });
     }
+/*
+        REFUSO DEL MERGE, NON SO SE VA TOLTO O MENO
 
     // La logica della sessione funziona ESATTAMENTE come prima
     // perché 'req' è lo stesso oggetto
@@ -18,20 +29,46 @@ exports.register = (req, res) => {
     };
 
     console.log(`Utente registrato: ${username} (ID: ${req.session.user.id})`);
+*/
+
+    try{
+        //Qui ci vuole l'inserimento in redis
+        
+        let id=crypto.randomUUID()
+      
+        const token = createToken(id,username); 
+        res.cookie('jwt', token, {
+            httpOnly: true,
+            maxAge: 3 * 60 * 60 * 1000 // 3 ore
+        });
+         console.log(`Utente registrato: ${username} )`);
+        //NOTA: Usa id temporaneo, poi appena metto db cambiamo.
+    }catch(err){
+        
+        return res.status(500).json({message: 'Errore del server, riprova più tardi.'});
+    }
 
     // Rimanda indietro l'utente registrato
     res.status(200).json({
         message: 'Registrazione avvenuta con successo!',
-        user: req.session.user
+        user: { username: username },
     });
 }
 
 
 
 exports.getMe = (req, res) => {
-    if (!req.session || !req.session.user) {
-        //controlla se esiste
-        return res.status(401).json({ error: 'Non autenticato' });
+    // Estrai il token dai cookie
+    const token = req.cookies.jwt;
+    if (!token) {
+        return res.status(401).json({ message: 'Non autenticato' });
     }
-    res.json({ user: req.session.user });
+    try {
+        // Verifica il token
+        
+        const decoded = jwt.verify(token, 'Segretissimostosegreto');
+        res.status(200).json({ user: { id: decoded.id, username: decoded.username} });
+    } catch (err) {
+        return res.status(401).json({ message: 'Token non valido o scaduto' });
+    }
   };

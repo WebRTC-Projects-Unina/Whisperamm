@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { data, useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthProvider';
 import './Home.css';
 
 const Home = () => {
-
+    
     // Prendiamo 'user' direttamente dal context
     const { user } = useAuth();
 
@@ -215,7 +215,7 @@ const Home = () => {
     // ---Menu---
     return (
         <div className="home-container">
-            <h2>Ciao, {user.username}!</h2> {/* <-- 'user' è disponibile */}
+            <h2>Ciao, {user.username}!</h2>
             <p>Cosa vuoi fare?</p>
             <div className="lobby-options">
                 <button className="btn btn-primary" onClick={handleShowCreate}>

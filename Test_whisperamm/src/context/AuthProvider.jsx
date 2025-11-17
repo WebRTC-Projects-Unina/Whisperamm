@@ -6,6 +6,7 @@ export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
+    //Al momento user contiene {username,id}, in futuro vediamo se togliere id.
 
     // Eseguito solo al mount, all'avvio dell'app dunque.
     useEffect(() => {
@@ -19,7 +20,6 @@ export const AuthProvider = ({ children }) => {
 
                 if (res.ok) {
                     const data = await res.json();
-                    console.log(data.user);
                     setUser(data.user); // Popoliamo il Context se l'utente è loggato
                 } else {
                     setUser(null); // Non loggato
@@ -49,10 +49,11 @@ export const AuthProvider = ({ children }) => {
 
     // Ora l'app può partire. 'user' sarà l'utente (se c'era sessione) o 'null' (se non c'era).
     return (
-        <AuthContext.Provider value={{ user, setUser, loading }}>
+        <AuthContext.Provider value={{ user, setUser }}>
             {children}
         </AuthContext.Provider>
     );
 };
+
 //useAuth è un custom hook per usare il context più facilmente
 export const useAuth = () => useContext(AuthContext);
