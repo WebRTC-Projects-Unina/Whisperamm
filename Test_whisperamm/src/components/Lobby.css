@@ -1,51 +1,102 @@
-/* --- Contenitore pagina Lobby (stesso mood di Registrazione/Home) --- */
+/* --- Contenitore pagina Lobby --- */
 .lobby-page {
   margin: 0;
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: center;
-  background-color: #1a1a1a; /* stesso sfondo scuro di Registrazione */
+  align-items: stretch;
+  background-color: #120220;
   color: #f0f0f0;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
 }
 
-/* Contenitore principale: card lobby + sidebar, stile simile ai box Home/Registrazione */
+/* Layout principale: chat | centro | players */
 .lobby-layout {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1.2fr 1.4fr 1fr;
   gap: 20px;
   width: 100%;
-  max-width: 900px;
+  max-width: 1200px;
   padding: 2.5rem;
-  background-color: #282c34;   /* come .registration-container e .home-container */
+  background-color: #171819;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 12px rgba(143, 64, 159, 0.4);
   border: 1px solid #444;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
-/* Card principale della lobby (chat / info stanza) */
+.mini-form-page {
+  display: flex;              /* override rispetto alla grid */
+  justify-content: center;
+  align-items: center;
+}
+
+.mini-form-page .lobby-card {
+  max-width: 450px;
+  width: 100%;
+}
+
+/* Colonna chat sinistra */
+.lobby-chat-column {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #444;
+  border-radius: 8px;
+  padding: 0.5rem;
+  background-color: #171819;
+}
+
+/* Card centrale lobby */
 .lobby-card {
-  background-color: #282c34;
+  background-color: #171819;
   border-radius: 12px;
   padding: 1.8rem;
   width: 100%;
   border: 1px solid #444;
   box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+/* Contenitore dei bottoni in fondo alla card */
+.lobby-buttons {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;  /* centra i bottoni */
+}
+/* Sidebar destra (lista giocatori) */
+.lobby-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background-color: #171819;
+  border-radius: 12px;
+  padding: 1.2rem 1rem;
+  border: 1px solid #444;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Titoli e testi allineati come in Registrazione/Home */
+/* Titoli e testi */
 .lobby-title {
   font-size: 1.6rem;
   margin: 0 0 0.75rem;
   text-align: center;
-  color: #e0e0e0;
+  color: #ffffff;
 }
 
 .lobby-subtitle {
   text-align: center;
   font-size: 0.95rem;
-  color: #aaa;
+  color: #ccc;
   margin-bottom: 1.25rem;
 }
 
@@ -68,12 +119,85 @@
   font-size: 1.4rem;
   font-weight: 700;
   letter-spacing: 0.18em;
+  color: #d249ff;
+}
+
+/* Bottone principale */
+.lobby-main-btn {
+  padding: 12px 30px;
+  border-radius: 8px;
+  border: none;
+  background-color: #a600ff;
+  color: white;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s, transform 0.1s;
+}
+
+.lobby-main-btn:hover {
+  background-color: #d249ff;
+}
+
+.lobby-main-btn:active {
+  transform: translateY(1px);
 }
 
 /* CHAT */
-/* qui puoi mantenere i tuoi stili di chat esistenti, adattando i colori se necessario */
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: 8px;
+  background-color: #222;
+  max-height: 53vh;
+}
 
-/* Pulsante invio chat: stile come .btn .btn-submit in Registrazione.css */
+.chat-message {
+  font-size: 0.9rem;
+  margin-bottom: 0.35rem;
+}
+
+.chat-message-system {
+  color: #999;
+  font-style: italic;
+}
+
+.chat-from {
+  font-weight: 600;
+  margin-right: 0.25rem;
+  color: #d249ff;
+}
+
+.chat-text {
+  word-break: break-word;
+}
+
+.chat-input-form {
+  display: flex;
+  gap: 0.5rem;
+  align-items: stretch;
+  margin-top: 0.25rem;
+}
+
+.chat-input {
+  flex: 1;
+  padding: 12px 15px;
+  border-radius: 8px;
+  border: 1px solid #555;
+  background-color: #333;
+  color: #f0f0f0;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.chat-input:focus {
+  border-color: #d946ff;
+  box-shadow: 0 0 12px 2px rgba(217, 70, 255, 0.9);
+}
+
 .chat-send-btn {
   padding: 12px 20px;
   font-size: 1rem;
@@ -81,41 +205,30 @@
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  background-color: #61dafb; /* come .btn-submit */
-  color: #1a1a1a;
+  background-color: #a600ff;
+  color: white;
   transition: background-color 0.2s, transform 0.1s;
+  margin-bottom: 0.75rem;
 }
 
 .chat-send-btn:hover {
-  background-color: #52b9d7; /* hover come .btn-submit:hover */
+  background-color: #d249ff;
 }
 
 .chat-send-btn:active {
   transform: translateY(1px);
 }
 
-/* --- Sidebar destra (lista giocatori) --- */
-.lobby-sidebar {
-  width: 260px;
-  flex-shrink: 0;
-  background-color: #282c34;
-  border-radius: 12px;
-  padding: 1.2rem 1rem;
-  border: 1px solid #444;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-}
-
+/* Sidebar giocatori */
 .sidebar-title {
   font-size: 1rem;
   margin: 0 0 0.25rem;
-  color: #e0e0e0;
+  color: #ffffff;
 }
 
 .sidebar-room-code {
   font-size: 0.85rem;
-  color: #aaa;
+  color: #ccc;
   margin: 0 0 0.6rem;
 }
 
@@ -142,15 +255,15 @@
 }
 
 .sidebar-player-me {
-  border: 1px solid #61dafb;
-  background-color: rgba(97, 218, 251, 0.08);
+  border: 1px solid #d249ff;
+  background-color: rgba(217, 73, 255, 0.12);
 }
 
 .sidebar-player-avatar {
   width: 26px;
   height: 26px;
   border-radius: 999px;
-  background: linear-gradient(135deg, #4caf50, #61dafb);
+  background: linear-gradient(135deg, #a600ff, #d249ff);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -162,32 +275,10 @@
   font-size: 0.9rem;
 }
 
-/* Bottone torna alla Home (allineato a .btn di Registrazione/Home) */
-.lobby-back-btn {
-  margin-top: 1rem;
-  width: 100%;
-  padding: 12px 20px;
-  border-radius: 8px;
-  border: none;
-  background-color: #555;
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s, transform 0.1s;
-}
-
-.lobby-back-btn:hover {
-  background-color: #666666;
-}
-
-.lobby-back-btn:active {
-  transform: translateY(1px);
-}
-
 /* --- Responsive --- */
 @media (max-width: 900px) {
   .lobby-layout {
+    display: flex;
     flex-direction: column;
     padding: 1.8rem;
   }

@@ -18,18 +18,6 @@ exports.register = (req, res) => {
         console.log("Username non valido");
         return res.status(400).json({ message: result.message });
     }
-/*
-        REFUSO DEL MERGE, NON SO SE VA TOLTO O MENO
-
-    // La logica della sessione funziona ESATTAMENTE come prima
-    // perché 'req' è lo stesso oggetto
-    req.session.user = { //
-        id: req.session.id,
-        username: username.trim()
-    };
-
-    console.log(`Utente registrato: ${username} (ID: ${req.session.user.id})`);
-*/
 
     try{
         //Qui ci vuole l'inserimento in redis

@@ -222,6 +222,10 @@ function Lobby() {
     };
 
     // --- 5. RENDER CONDIZIONALE ---
+/*
+
+    Ho disabilitato questo perchè dava problemi
+
 
     // CASO 0: Validazione in corso
     if (isValidating) {
@@ -233,7 +237,7 @@ function Lobby() {
             </div>
         );
     }
-
+*/
     // CASO 1: Errore fatale (stanza non trovata)
     if (lobbyError) {
         return (
@@ -250,37 +254,40 @@ function Lobby() {
     // CASO 2: Stanza valida, ma utente NON loggato (mostra il mini-form)
     if (!user) {
         return (
-            <div className="lobby-page">
-                <div className="lobby-layout">
-                    <div className="lobby-card">
-                        <h1 className="lobby-title">Unisciti alla partita</h1>
-                        <div className="lobby-info">
-                            <p className="lobby-label">Codice stanza</p>
-                            <p className="lobby-room-code">{gameId}</p>
-                        </div>
-                        <p className="lobby-subtitle">
-                            Inserisci un nome per entrare e giocare.
-                        </p>
+        <div className="lobby-page mini-form-page">
+            <div className="lobby-card">
+                <h1 className="lobby-title">Unisciti alla partita</h1>
 
-                        {/* Form di registrazione sul posto */}
-                        <form className="chat-input-form" onSubmit={handleJoinRegister}>
-                            <input
-                                type="text"
-                                className="chat-input"
-                                placeholder="Scrivi il tuo nome..."
-                                value={usernameInput}
-                                onChange={(e) => setUsernameInput(e.target.value)}
-                                autoFocus
-                            />
-                            <button type="submit" className="chat-send-btn">
-                                Entra
-                            </button>
-                        </form>
-                        {error && <p className="error-message" style={{ color: 'red', marginTop: '10px' }}>{error}</p>}
-                    </div>
-                    {/* Non mostriamo la sidebar dei player se non è loggato */}
+                <div className="lobby-info">
+                    <p className="lobby-label">Codice stanza</p>
+                    <p className="lobby-room-code">{gameId}</p>
                 </div>
+
+                <p className="lobby-subtitle">
+                    Inserisci un nome per entrare e giocare.
+                </p>
+
+                <form className="chat-input-form" onSubmit={handleJoinRegister}>
+                    <input
+                        type="text"
+                        className="chat-input"
+                        placeholder="Scrivi il tuo nome..."
+                        value={usernameInput}
+                        onChange={(e) => setUsernameInput(e.target.value)}
+                        autoFocus
+                    />
+                    <button type="submit" className="chat-send-btn">
+                        Entra
+                    </button>
+                </form>
+
+                {error && (
+                    <p className="error-message" style={{ color: 'red', marginTop: '10px' }}>
+                        {error}
+                    </p>
+                )}
             </div>
+        </div>
         );
     }
 
@@ -288,22 +295,11 @@ function Lobby() {
     return (
         <div className="lobby-page">
             <div className="lobby-layout">
-                <div className="lobby-card">
-                    <h1 className="lobby-title">Lobby partita</h1>
-
-                    <div className="lobby-info">
-                        <p className="lobby-label">Codice stanza</p>
-                        <p className="lobby-room-code">{gameId}</p>
-                    </div>
-
-                    <p className="lobby-subtitle">
-                        In attesa di altri giocatori... Nel frattempo puoi usare la chat.
-                    </p>
-
-                    {/* SEZIONE CHAT */}
+                {/* COLONNA SINISTRA: CHAT */}
+                <div className="lobby-chat-column">
                     <div className="chat-container">
                         <h2 className="chat-title">Chat lobby</h2>
-
+                        
                         <div className="chat-messages">
                             {messages.length === 0 && (
                                 <p className="chat-empty">Nessun messaggio. Scrivi qualcosa!</p>
@@ -326,7 +322,6 @@ function Lobby() {
                             ))}
                         </div>
 
-                        {/* Form della chat */}
                         <form className="chat-input-form" onSubmit={handleSubmitChat}>
                             <input
                                 type="text"
@@ -340,13 +335,33 @@ function Lobby() {
                             </button>
                         </form>
                     </div>
-
-                    <button className="lobby-back-btn" onClick={handleBackHome}>
-                        Torna alla Home
-                    </button>
                 </div>
 
-                {/* Sidebar dei giocatori */}
+                {/* COLONNA CENTRALE: INFO + BOTTONI */}
+                <div className="lobby-card">
+                    <h1 className="lobby-title">Lobby partita</h1>
+
+                    <div className="lobby-info">
+                        <p className="lobby-label">Codice stanza</p>
+                        <p className="lobby-room-code">{gameId}</p>
+                    </div>
+
+                    <p className="lobby-subtitle">
+                        In attesa di altri giocatori...
+                    </p>
+
+                    <div className="lobby-buttons">
+                        {/* Metti qui i pulsanti che vuoi (es. Pronto, Avvia partita, Esci, ecc.) */}
+                        <button className="lobby-main-btn" disabled>
+                            Pronto/Inizia partita (in arrivo...)
+                        </button>
+                        <button className="lobby-main-btn" onClick={handleBackHome}>
+                            Torna alla Home
+                        </button>
+                    </div>
+                </div>
+
+                {/* COLONNA DESTRA: LISTA GIOCATORI */}
                 <aside className="lobby-sidebar">
                     <h2 className="sidebar-title">Giocatori nella stanza</h2>
                     <p className="sidebar-room-code">{gameId}</p>
@@ -360,7 +375,7 @@ function Lobby() {
                             <div
                                 key={idx}
                                 className={
-                                    p === user.username // Usa 'user.username' dal context
+                                    p === user.username
                                         ? 'sidebar-player sidebar-player-me'
                                         : 'sidebar-player'
                                 }
@@ -370,7 +385,7 @@ function Lobby() {
                                 </span>
                                 <span className="sidebar-player-name">
                                     {p}
-                                    {p === user.username && ' (tu)'} {/* Usa 'user.username' */}
+                                    {p === user.username && ' (tu)'}
                                 </span>
                             </div>
                         ))}
