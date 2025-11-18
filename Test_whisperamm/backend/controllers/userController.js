@@ -1,12 +1,12 @@
 //Questi poi li sposto in server.js
 const jwt = require('jsonwebtoken');    
-
+const secret_jwt=process.env.SECRET_JWT;
 
 const createToken = (id, username) => {
     //Problema: id ce lo dovrebbe dare il DB..
     //Dunque al momento tengo una struttura dati qui degli utenti attivi?
     //Appena poi implemento redis, che penso mi darà un ID una volta che aggiungo una entry, lo modifico e lo tolgo.
-    return jwt.sign({id, username}, 'Segretissimostosegreto', { expiresIn: '3h' });
+    return jwt.sign({id, username}, secret_jwt, { expiresIn: '3h' });
 }
 
 exports.register = (req, res) => {
@@ -49,7 +49,7 @@ exports.getMe = (req, res) => {
     try {
         // Verifica il token
         
-        const decoded = jwt.verify(token, 'Segretissimostosegreto');
+        const decoded = jwt.verify(token, secret_jwt);
         res.status(200).json({ user: { id: decoded.id, username: decoded.username} });
     } catch (err) {
         return res.status(401).json({ message: 'Token non valido o scaduto' });

@@ -1,6 +1,7 @@
+require('dotenv').config(); //Importa e configura variabili d'ambiente dal file .env
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT || 8080;
+const PORT = process.env.PORT;
 const { randomUUID } = require('crypto'); // 'crypto' è un modulo built-in
 const cookieParser = require('cookie-parser');
 //Inizio aggiunta
@@ -13,7 +14,7 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
+    origin: 'http://localhost'+PORT.toString(),
     methods: ['GET', 'POST'],
   },
 });

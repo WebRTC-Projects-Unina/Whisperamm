@@ -22,3 +22,5 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+# Environment files per ora li faccio vedere, però in produzione andrebbero ignorati
+# .env
