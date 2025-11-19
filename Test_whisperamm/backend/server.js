@@ -13,7 +13,6 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
     connectionStateRecovery: {
-        enabled: true,         // Indica se recuperare lo stato di connessione in caso di disconnessione (es. ricarica)
     },
     cors: {
         origin: 'http://localhost:5173',
