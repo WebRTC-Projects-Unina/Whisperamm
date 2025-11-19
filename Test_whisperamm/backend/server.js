@@ -4,6 +4,8 @@ const app = express();
 const PORT = process.env.PORT;
 const { randomUUID } = require('crypto'); // 'crypto' è un modulo built-in
 const cookieParser = require('cookie-parser');
+const { connectRedis } = require('./config_redis/redis');
+
 //Inizio aggiunta
 // aggancio chatSocket.js
 const http = require('http');
@@ -22,7 +24,15 @@ const io = new Server(server, {
 
 registerChatHandlers(io);
 
-//fine aggiunta
+//Connessione a Redis e Test connessione
+connectRedis()
+  .then(() => {
+    console.log('Connessione a Redis avvenuta con successo') ;
+  })
+  .catch((err) => {
+    console.error('Errore di connessione a Redis:', err);
+  });
+
 
 const cors = require('cors');
 // Usa CORS con origine esplicita e credenziali abilitate
@@ -32,7 +42,6 @@ app.use(
     credentials: true,
   })
 );
-// --- fine CORS ---
 
 //Middleware
 app.use(cookieParser());
