@@ -32,7 +32,7 @@ function Lobby() {
             setIsValidating(false);
             return;
         }
-
+        console.log(user)
         if (!user) {
             setIsValidating(false);
             setLobbyError(null);
@@ -208,6 +208,7 @@ function Lobby() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username: usernameInput }),
+                credentials: 'include'
             });
             const data = await response.json();
             if (!response.ok) {
@@ -218,6 +219,7 @@ function Lobby() {
             // Questo fa ri-renderizzare il componente.
             // L'useEffect (n.3) vedrà il nuovo 'user' e connetterà lo socket.
             setUser(data.user);
+            console.log("User aggiornato")
         } catch (err) {
             setError(err.message);
         }

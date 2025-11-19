@@ -12,6 +12,8 @@ const createToken = (id, username) => {
 
 exports.register = (req, res) => {
     const { username } = req.body;
+    let id=crypto.randomUUID() // Ho spostato id qua sennò non va niente in Lobby, quando mettiamo
+                                                        // solo user e cambiamo tutto non dovrebbe dare problemi
 
     const result = validateUsername(username);
     if (!result.valid) {
@@ -21,15 +23,12 @@ exports.register = (req, res) => {
 
     try{
         //Qui ci vuole l'inserimento in redis
-        
-        let id=crypto.randomUUID()
-      
         const token = createToken(id,username); 
         res.cookie('jwt', token, {
             httpOnly: true,
             maxAge: 3 * 60 * 60 * 1000 // 3 ore
         });
-         console.log(`Utente registrato: ${username} )`);
+         console.log(`Utente registrato: ${username} ${id} )`);
         //NOTA: Usa id temporaneo, poi appena metto db cambiamo.
     }catch(err){
         
@@ -39,7 +38,7 @@ exports.register = (req, res) => {
     // Rimanda indietro l'utente registrato
     res.status(200).json({
         message: 'Registrazione avvenuta con successo!',
-        user: { username: username },
+        user: { username: username, id: id },
     });
 }
 

@@ -39,7 +39,7 @@ exports.checkGameP = (req, res) => {
         const { user } = req.body;
 
         // Controlla dati utente
-        if (!user || !user.username) {
+        if (!user.id && !user.username) {
             return res.status(400).json({ message: "Dati utente mancanti." });
         }
         const validation = validateRoomId(gameId);
@@ -60,7 +60,7 @@ exports.checkGameP = (req, res) => {
         }
 
         // Se arriviamo qui, la stanza esiste.
-        console.log(`[HTTP-POST] Stanza ${gameId} trovata.`);
+        console.log(`[HTTP-POST] Stanza ${gameId} trovata per ${user.id}.`);
 
         // Controlla se l'utente è già nella stanza
         if (isUserInRoom(gameId, user.id)) {
