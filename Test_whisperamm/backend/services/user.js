@@ -4,7 +4,7 @@ const crypto = require('crypto');
 // Stati validi (enum-like)
 const UserStatus = {
   ONLINE: 'online',
-  IN_GAME: 'inGame'
+  INGAME: 'ingame'
 };
 
 class User {
@@ -12,130 +12,83 @@ class User {
     const client = getRedisClient();
     
     // Verifica username duplicato
-    const existingUserId = await client.get(`username:${username}`);
-    if (existingUserId) {
+    const exists = await client.get(`username:${username}`);
+    if (exists) {
       throw new Error('Username già esistente');
     }
     
-    // Valida stato
-    if (!Object.values(UserStatus).includes(status)) {
-      throw new Error(`Stato non valido. Valori permessi: ${Object.values(UserStatus).join(', ')}`);
-    }
-    
-    const id = crypto.randomUUID();
+    // istante di creazione dello user
     const createdAt = new Date().toISOString();
+
+    //Per creare una transazione in redis, in modo da garantire atomicità ed 1 solo RTT 
+    //invece di multipli, invio l'oggetto intero e non le singole proprietà da aggiungere all'oggetto.
+    const multi = client.multi(); 
     
-    // HASH per dati utente (permette update parziali)
-    await client.hSet(`user:${id}`, {
-      id,
+    // HASH per dati utente (Uso hash perchè è pratico per oggetti con più campi)
+    await multi.hSet(`user:${username}`, {
       username,
-      status
+      status,
+      createdAt,
+      updatedAt: createdAt  //Ci potrebbe servire per eliminare gli utenti inattivi
     });
+
+    /*
+      Questo memorizza la seguente struttura in Redis:
+        Key: user:alice
+        Type: Hash
+        Content:
+          username   → "alice"
+          status     → "OFFLINE"
+          createdAt  → "2025-11-19T10:30:00.000Z"
+          updatedAt  → "2025-11-19T10:30:00.000Z"
+    */
     
-    // Mapping username → ID
-    await client.set(`username:${username}`, id);
+    // Valutare se possa essere utile
+    //multi.zAdd('users:activity', { score: Date.now(), value: username });
+    //Questo metodo crea una sorted list chiamato users:activity che ordina gli utenti in base alla loro ultima attività.
+    //Potrebbe essere utile per funzionalità future come "most active users" o "recently active users".
+    //E in generale per query più efficienti sugli utenti basate sull'attività.
     
-    // Aggiungi a SET dello stato (per query veloci)
-    await client.sAdd(`users:status:${status}`, id);
+    await multi.exec() // Esegui la transazione
+    return username
     
-    return { id, username, status, createdAt, updatedAt: createdAt };
   }
-  
-  static async findById(id) {
+
+  static async get(username) {
     const client = getRedisClient();
-    const user = await client.hGetAll(`user:${id}`);
-    return Object.keys(user).length > 0 ? user : null;
-  }
+    //const userData = await client.hGetAll(`user:${username}`);  
+    //Recupera tutti i campi e valori dell'hash in un'unica operazione
+
+    // Recupera solo username e status
+    const [usernameValue, status] = await client.hmGet(`user:${username}`, [
+      'username',
+      'status'
+    ]);
   
-  static async findByUsername(username) {
-    const client = getRedisClient();
-    const userId = await client.get(`username:${username}`);
-    if (!userId) return null;
-    return await User.findById(userId);
-  }
-  
-  // Aggiorna solo lo stato (efficiente!)
-  static async updateStatus(id, newStatus) {
-    const client = getRedisClient();
+    // Se username non esiste, ritorna null
+    if (!usernameValue) return null;
+
+    return {
+      username: usernameValue,
+      status: status
+    };
     
-    // Valida stato
-    if (!Object.values(UserStatus).includes(newStatus)) {
-      throw new Error(`Stato non valido. Valori permessi: ${Object.values(UserStatus).join(', ')}`);
+  }
+  /**
+ * Aggiorna lo stato di un utente specifico dato lo username.
+ * @param {string} username - Lo username dell'utente da aggiornare.
+ * @param {string} newStatus - Il nuovo stato (da UserStatus).
+ */
+  static async updateStatusByUsername(username, newStatus) {
+    const redisClient = getRedisClient();
+    const key = `user:${username}`;
+
+    const updatedCount = await redisClient.hSet(key, 'status', newStatus);
+    
+    if (updatedCount === 0 && !(await redisClient.exists(key))) {
+         throw new Error(`Utente non trovato: ${username}`);
     }
     
-    // Recupera stato attuale
-    const currentStatus = await client.hGet(`user:${id}`, 'status');
-    if (!currentStatus) {
-      throw new Error('Utente non trovato');
-    }
-    
-    // Se lo stato è già quello, non fare nulla
-    if (currentStatus === newStatus) {
-      return true;
-    }
-    
-    // Aggiorna stato e timestamp
-    await client.hSet(`user:${id}`, {
-      status: newStatus,
-      updatedAt: new Date().toISOString()
-    });
-    
-    // Sposta l'utente dal SET vecchio a quello nuovo
-    await client.sRem(`users:status:${currentStatus}`, id);
-    await client.sAdd(`users:status:${newStatus}`, id);
-    
-    return true;
-  }
-  
-  // Query: tutti gli utenti con un certo stato
-  static async findByStatus(status) {
-    const client = getRedisClient();
-    
-    // Recupera tutti gli ID con quello stato
-    const userIds = await client.sMembers(`users:status:${status}`);
-    
-    // Recupera i dati completi
-    const users = await Promise.all(
-      userIds.map(id => User.findById(id))
-    );
-    
-    return users.filter(user => user !== null);
-  }
-  
-  // Conta utenti per stato
-  static async countByStatus(status) {
-    const client = getRedisClient();
-    return await client.sCard(`users:status:${status}`);
-  }
-  
-  // Statistiche globali
-  static async getStatusStats() {
-    const client = getRedisClient();
-    
-    const stats = {};
-    for (const status of Object.values(UserStatus)) {
-      stats[status] = await client.sCard(`users:status:${status}`);
-    }
-    
-    return stats;
-  }
-  
-  static async delete(id) {
-    const client = getRedisClient();
-    const user = await User.findById(id);
-    if (!user) return false;
-    
-    // Rimuovi da tutte le strutture
-    await client.del(`user:${id}`);
-    await client.del(`username:${user.username}`);
-    await client.sRem(`users:status:${user.status}`, id);
-    
-    return true;
-  }
-  
-  // Validazione helper
-  static isValidStatus(status) {
-    return Object.values(UserStatus).includes(status);
   }
 }
 

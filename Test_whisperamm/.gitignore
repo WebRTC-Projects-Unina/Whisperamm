@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 # Environment files per ora li faccio vedere, però in produzione andrebbero ignorati
 # .env
+
+#node modules da escludere 
+backend/node_modules
+node_modules
