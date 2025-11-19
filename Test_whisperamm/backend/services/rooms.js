@@ -19,9 +19,7 @@ const createRoom = (roomName, user, maxPlayers, rounds) => {
         roomId: newRoomId,
         name: roomName,
         players: [user], // L'utente che la crea è il primo giocatore
-        // --- MODIFICA ---
-        hostId: user.id, // <-- Salviamo l'ID dell'host, non il nome
-        // --- FINE MODIFICA ---
+        hostId: user.username, // <-- Salviamo l'ID dell'host, non il nome
         maxPlayers: maxPlayers,
         rounds: rounds,
         createdAt: new Date()
@@ -123,7 +121,7 @@ const addUserToRoom = (roomId, user) => {
 
     // Controlla se l'utente è già in stanza (per evitare duplicati)
     // Questa funzione usava già user.id, quindi è corretta!
-    const userExists = room.players.find(p => p.id === user.id);
+    const userExists = room.players.find(p => p.id === user.username);
 
     if (!userExists) {
         room.players.push(user);

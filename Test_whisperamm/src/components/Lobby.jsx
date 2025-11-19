@@ -6,103 +6,77 @@ import { useAuth } from '../context/AuthProvider'; // <-- IMPORTA
 import './Lobby.css';
 
 function Lobby() {
-    // --- STATI PRINCIPALI ---
     const { gameId } = useParams();
     const navigate = useNavigate();
-    const { user, setUser } = useAuth(); // Prende l'utente e la funzione per impostarlo
+    const { user, setUser } = useAuth();
 
-    // --- STATI DELLA LOBBY ---
+    // Stati
     const [socket, setSocket] = useState(null);
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [players, setPlayers] = useState([]);
-
-    // --- STATI PER IL MINI-FORM ---
     const [usernameInput, setUsernameInput] = useState('');
-    const [error, setError] = useState(null); // Errore per il mini-form
+    const [error, setError] = useState(null);
 
-    // --- STATI DI VALIDAZIONE LOBBY ---
-    const [isValidating, setIsValidating] = useState(true); // Stiamo controllando...
-    const [lobbyError, setLobbyError] = useState(null); // Errore fatale della lobby
+    // Inizializza isValidating basandoti sulla presenza dell'utente
+    const [isValidating, setIsValidating] = useState(!!user);
+    const [lobbyError, setLobbyError] = useState(null);
 
-    // --- CONTROLLO VALIDITÀ LOBBY ---
-    // Si attiva una sola volta al montaggio per controllare se la stanza esiste
     useEffect(() => {
+        // Se non c'è gameId, errore
+        if (!gameId) {
+            setLobbyError("ID partita non trovato.");
+            setIsValidating(false);
+            return;
+        }
+
+        // Se non c'è utente, mostra form (nessuna validazione)
+        if (!user) {
+            setIsValidating(false);
+            setLobbyError(null);
+            return;
+        }
+
+        // C'è l'utente, valida
         const checkLobby = async () => {
-            // 1. Iniziamo la validazione
             setIsValidating(true);
+            setLobbyError(null); // Reset errori precedenti
 
             try {
                 const response = await fetch(`/api/game/checkGame/${gameId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user: user })
+                    body: JSON.stringify({ user })
                 });
 
-                // È fondamentale leggere il body JSON *sempre*,
-                // perché contiene il messaggio di errore inviato dal server (es. "La stanza è piena")
                 const data = await response.json();
 
-                // 2. Controlliamo se la risposta NON è OK (status 4xx o 5xx)
                 if (!response.ok) {
-                    // Abbiamo ricevuto un errore, impostiamo il messaggio
-                    // che ci è arrivato direttamente dal server (data.message)
-
-                    // Gestiamo i casi specifici:
                     if (response.status === 404) {
-                        // Stanza non trovata
-                        console.error("Errore 404:", data.message);
                         setLobbyError(data.message || "Stanza non trovata.");
                     } else if (response.status === 403) {
-                        // Stanza piena
-                        console.error("Errore 403:", data.message);
                         setLobbyError(data.message || "La stanza è piena.");
                     } else {
-                        // Altri errori (es. 400 Bad Request, 500 Server Error)
-                        console.error(`Errore ${response.status}:`, data.message);
                         setLobbyError(data.message || "Errore sconosciuto.");
                     }
-
-                    // Interrompiamo la validazione (perché abbiamo fallito)
                     setIsValidating(false);
-                    return; // Fermiamo l'esecuzione della funzione
+                    return;
                 }
-
-                // 3. Se arriviamo qui, response.ok è true (status 200)
-                // Questo significa che la stanza esiste, non è piena,
-                // e l'utente è stato aggiunto (o era già dentro).
-                // Non impostiamo nessun errore.
-
                 console.log("Validazione lobby OK:", data.message);
-                setIsValidating(false); // Finito di validare, tutto a posto.
+                setIsValidating(false);
 
             } catch (err) {
-                // Questo blocco 'catch' gestisce errori DI RETE
-                // (es. server irraggiungibile, no connessione internet)
                 console.error("Errore di connessione:", err);
-                setLobbyError("Impossibile connettersi al server."); // Imposta l'errore fatale
-                setIsValidating(false); // Finito, anche se con errore
+                setLobbyError("Impossibile connettersi al server.");
+                setIsValidating(false);
             }
         };
 
-        // Controlla se l'utente è loggato PRIMA di fare qualsiasi altra cosa
-        if (user && user.id) {
-            // Se l'utente C'È, controlliamo la validità della lobby (piena, esiste, ecc.)
-            checkLobby();
-        } else if (!user) {
-            // Se l'utente NON C'È mostra la registrazione
-            setIsValidating(false);
-            setLobbyError(null); // Assicurati che non ci siano errori precedenti
-        } else if (!gameId) {
-            // Caso di sicurezza: l'URL è rotto
-            setLobbyError("ID partita non trovato.");
-            setIsValidating(false);
-        }
+        checkLobby();
 
-    }, [user]); // Metto 'user' nelle dipendenze, in questo modo sia quando la pagina si carica la prima volta con utente registrato
-                      // che quando l'utente si registra dopo la schermata di Registrazione questo useEffect viene invocato
+    }, [user, gameId]);
 
-    // --- 2. GESTORE REDIRECT SU ERRORE ---
+    // --- GESTORE REDIRECT SU ERRORE ---
     // Si attiva se 'lobbyError' cambia da null a un messaggio
     useEffect(() => {
         if (lobbyError) {
@@ -120,9 +94,8 @@ function Lobby() {
     useEffect(() => {
         // GUARDIA: Non connetterti se:
         // 1. Non c'è un utente
-        // 2. Stiamo ancora validando la stanza
-        // 3. C'è stato un errore fatale con la stanza
-        if (!user || isValidating || lobbyError) {
+        // 2. C'è stato un errore fatale con la stanza
+        if (!user || lobbyError) {
             return;
         }
 
@@ -221,23 +194,20 @@ function Lobby() {
         navigate('/');
     };
 
-    // --- 5. RENDER CONDIZIONALE ---
-/*
-
-    Ho disabilitato questo perchè dava problemi
 
 
-    // CASO 0: Validazione in corso
+    // --- RENDER CONDIZIONALE ---
+
     if (isValidating) {
         return (
-            <div className="lobby-page">
+            <div className="lobby-page mini-form-page">
                 <div className="lobby-card">
-                    <h1 className="lobby-title">Verifica stanza...</h1>
+                    <h1 className="lobby-subtitle">Verifica stanza...</h1>
                 </div>
             </div>
         );
     }
-*/
+
     // CASO 1: Errore fatale (stanza non trovata)
     if (lobbyError) {
         return (
@@ -364,7 +334,7 @@ function Lobby() {
                 {/* COLONNA DESTRA: LISTA GIOCATORI */}
                 <aside className="lobby-sidebar">
                     <h2 className="sidebar-title">Giocatori nella stanza</h2>
-                    <p className="sidebar-room-code">{gameId}</p>
+                    <p className="sidebar-room-code">{players.length + '/' + 'max'}</p>
 
                     <div className="sidebar-players">
                         {players.length === 0 && (
