@@ -36,7 +36,7 @@ function Lobby() {
             setLobbyError(null);
             return;
         }
-
+        console.log(user)
         // C'è l'utente, valida
         const checkLobby = async () => {
             setIsValidating(true);
@@ -92,7 +92,7 @@ function Lobby() {
 
     // --- 3. LOGICA SOCKET (Si attiva solo se l'utente e la stanza sono validi) ---
     useEffect(() => {
-        // GUARDIA: Non connetterti se:
+        // Non connetterti se:
         // 1. Non c'è un utente
         // 2. C'è stato un errore fatale con la stanza
         if (!user || lobbyError) {
@@ -101,7 +101,7 @@ function Lobby() {
 
         // Se siamo qui, l'utente è loggato e la stanza è valida. Connettiamo.
         const newSocket = io('http://localhost:8080', {
-            withCredentials: false,
+            withCredentials: true,
         });
         setSocket(newSocket);
 
@@ -138,11 +138,12 @@ function Lobby() {
             newSocket.off('chatMessage', handleChatMessage);
             newSocket.off('lobbyPlayers', handleLobbyPlayers);
             newSocket.off('lobbyError', handleLobbyError);
-            newSocket.disconnect();
+
+            newSocket.disconnect()
             console.log('Socket disconnesso');
             setSocket(null); // Pulisci lo stato dello socket
         };
-    }, [gameId, user, isValidating, lobbyError]); // Dipende da tutte queste condizioni
+    }, [gameId, user, lobbyError]); // Dipende da tutte queste condizioni
 
     // --- 4. GESTORI DI EVENTI ---
 
@@ -334,7 +335,7 @@ function Lobby() {
                 {/* COLONNA DESTRA: LISTA GIOCATORI */}
                 <aside className="lobby-sidebar">
                     <h2 className="sidebar-title">Giocatori nella stanza</h2>
-                    <p className="sidebar-room-code">{players.length + '/' + 'max'}</p>
+                    <p className="sidebar-room-code">{players.length + ' / ' + 'max'}</p>
 
                     <div className="sidebar-players">
                         {players.length === 0 && (

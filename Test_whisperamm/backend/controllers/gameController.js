@@ -20,7 +20,7 @@ exports.createGame = (req, res) => {
         // Ora 'createRoom' è una funzione REALE importata dallo store
         const roomId = createRoom(roomName, user, maxPlayers, rounds);
         console.log(`[SERVER] Stanza ${roomId} creata con successo in RAM.`);
-
+        console.log(`[SERVER] Aggiungo ${user.username} alla stanza ${roomId}`);
         res.status(201).json({ roomId: roomId });
 
     } catch (error) {

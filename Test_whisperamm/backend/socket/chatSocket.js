@@ -8,6 +8,12 @@ const {
 // Struttura dati: Map<gameId, Map<userId, Set<socket.id>>>
 const lobbies = new Map();
 
+// --- NUOVE STRUTTURE PER GESTIONE RICONNESSIONE ---
+
+// Map<userId, Timeout> per tenere traccia dei timer di disconnessione
+const disconnectTimeouts = new Map();
+const RECONNECT_TOLERANCE_MS = 5000; // 5 secondi di tolleranza
+
 // --- FUNZIONI DI SUPPORTO MODULARI ---
 
 function getOrCreateLobbyPresence(gameId) {
@@ -37,9 +43,11 @@ function removePresence(gameId, userId, socketId) {
     const isLastConnection = connections.size === 0;
 
     if (isLastConnection) {
-        lobby.delete(userId);
-        if (lobby.size === 0) {
-            lobbies.delete(gameId);
+        // Non eliminiamo l'utente/lobby qui, lo faremo dopo il timeout in handleDisconnect
+        // Manteniamo solo la pulizia della struttura di presenza del socket
+        if (connections.size === 0) {
+            lobby.delete(userId);
+            // La lobby non viene cancellata qui, handleDisconnect farà partire il timer
         }
     }
 
@@ -61,6 +69,13 @@ function handleJoinLobby(io, socket, { gameId, user }) {
 
     const name = user.username;
     const userId = user.id;
+
+    // 💡 1. ANNULLA IL TIMER se l'utente si è riconnesso
+    if (disconnectTimeouts.has(userId)) {
+        clearTimeout(disconnectTimeouts.get(userId));
+        disconnectTimeouts.delete(userId);
+        console.log(`[Socket] Riconnessione riuscita! Timer di disconnessione per ${name} annullato.`);
+    }
 
     const room = getRoom(gameId);
     if (!room) {
@@ -90,6 +105,10 @@ function handleJoinLobby(io, socket, { gameId, user }) {
     const { isFirstConnection } = addPresence(gameId, userId, socket.id);
     socket.join(gameId);
 
+    // Se l'utente si ricollega, isFirstConnection sarà false se ci sono
+    // altre connessioni attive (improbabile con un reload) o se la sessione
+    // è stata recuperata (socket.recovered), ma inviamo il messaggio solo se è
+    // la prima connessione assoluta dell'utente (è entrato ora).
     if (isFirstConnection) {
         socket.to(gameId).emit('chatMessage', {
             from: 'system',
@@ -109,26 +128,49 @@ function handleDisconnect(io, socket) {
     if (!gameId || !username || !userId) return;
 
     const { isLastConnection } = removePresence(gameId, userId, socket.id);
-    if (!isLastConnection) return;
+    if (!isLastConnection) return; // Non è l'ultima connessione di questo utente, ignora
 
-    console.log(`${username} (ID: ${userId}) è offline da ${gameId}`);
+    console.log(`${username} (ID: ${userId}) è offline da ${gameId}. Avvio timer di tolleranza...`);
 
-    const updatedRoom = removeUserFromRoom(gameId, userId);
-    if (!updatedRoom) {
-        console.log(`Stanza ${gameId} vuota, eliminata.`);
-        return;
+    // 1. Pulisci un eventuale vecchio timer (sicurezza)
+    if (disconnectTimeouts.has(userId)) {
+        clearTimeout(disconnectTimeouts.get(userId));
     }
 
-    io.to(gameId).emit('chatMessage', {
-        from: 'system',
-        text: `${username} ha lasciato la lobby`,
-    });
+    // 2. Avvia il timer di tolleranza
+    const timeout = setTimeout(() => {
+        // Questa funzione viene eseguita se l'utente NON si è riconnesso entro RECONNECT_TOLERANCE_MS
 
-    const players = updatedRoom.players;
-    io.to(gameId).emit('lobbyPlayers', {
-        gameId,
-        players: players.map(p => p.username),
-    });
+        // Rimuovi l'utente dalla stanza
+        const updatedRoom = removeUserFromRoom(gameId, userId);
+
+        if (!updatedRoom) {
+            console.log(`[Timer] Stanza ${gameId} vuota, eliminata.`);
+            // Nessuna notifica se la stanza non esiste più (eliminata da removeUserFromRoom)
+            disconnectTimeouts.delete(userId);
+            return;
+        }
+
+        console.log(`[Timer] Timeout scaduto. ${username} rimosso definitivamente da ${gameId}.`);
+
+        // Notifica la rimozione definitiva
+        io.to(gameId).emit('chatMessage', {
+            from: 'system',
+            text: `${username} ha lasciato la lobby`,
+        });
+
+        // Aggiorna la lista dei giocatori
+        const players = updatedRoom.players;
+        io.to(gameId).emit('lobbyPlayers', {
+            gameId,
+            players: players.map(p => p.username),
+        });
+
+        disconnectTimeouts.delete(userId); // Rimuovi il timer dalla mappa
+
+    }, RECONNECT_TOLERANCE_MS);
+
+    disconnectTimeouts.set(userId, timeout);
 }
 
 function handleChatMessage(io, socket, { gameId, text }) {
@@ -146,8 +188,19 @@ function handleChatMessage(io, socket, { gameId, text }) {
 
 module.exports = function registerChatHandlers(io) {
     io.on('connection', (socket) => {
-        console.log('Nuovo client connesso:', socket.id);
+        console.log('Nuovo socket connesso:', socket.id);
 
+        // Controlla se il socket si è riconnesso e ha recuperato la vecchia sessione
+        const isNewSession = socket.recovered;
+
+        if (isNewSession) {
+            console.log(`Riconnessione riuscita, sessione recuperata. ${isNewSession}`);
+        } else {
+            console.log('Nuova sessione, mi unisco alla lobby.');
+        }
+
+        // Il client DEVE emettere 'joinLobby' ad ogni connessione riuscita (nuova O recuperata).
+        // L'handler di 'joinLobby' ora gestisce l'annullamento del timer di disconnessione.
         socket.on('joinLobby', (payload) => handleJoinLobby(io, socket, payload));
         socket.on('disconnect', () => handleDisconnect(io, socket));
         socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));

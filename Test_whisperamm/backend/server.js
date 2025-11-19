@@ -12,10 +12,14 @@ const registerChatHandlers = require('./socket/chatSocket');
 const server = http.createServer(app);
 
 const io = new Server(server, {
-  cors: {
-    origin: 'http://localhost:5173',
-    methods: ['GET', 'POST'],
-  },
+    connectionStateRecovery: {
+        enabled: true,         // Indica se recuperare lo stato di connessione in caso di disconnessione (es. ricarica)
+    },
+    cors: {
+        origin: 'http://localhost:5173',
+        methods: ['GET', 'POST'],
+        credentials: true
+    },
 });
 
 
