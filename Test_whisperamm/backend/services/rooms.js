@@ -75,7 +75,7 @@ class Room {
             return null;
         }
         
-        return {
+        const room = {
             roomId: roomData.roomId,
             name: roomData.name,
             host: roomData.host,
@@ -87,13 +87,14 @@ class Room {
             createdAt: roomData.createdAt,
             updatedAt: roomData.updatedAt
         };
+          return room
     }
 
     // Recupera il numero di giocatori in una stanza.
     static async getNumberOfPlayers(roomId) {
         const client = getRedisClient();
+        
         const number = await client.sCard(`room:${roomId}:players`);
-        console.log(number);
         return number;
     }
 
@@ -102,6 +103,16 @@ class Room {
         const client = getRedisClient();
         const maxPlayers = await client.hGet(`room:${roomId}`, 'maxPlayers');
         return parseInt(maxPlayers);
+    }
+
+
+
+    static async isUserAlreadyIn(roomId, username) {
+        const players = await Room.getPlayers(roomId);
+        const isUserAlreadyIn = players.includes(username);
+        //const isRoomFull = players.length >= room.maxPlayers;
+        //const canJoin = !isRoomFull || isUserAlreadyIn;
+        return isUserAlreadyIn;
     }
 
 
@@ -306,9 +317,11 @@ class Room {
      * @returns {Array<string>} Array di username.
      */
     static async getPlayers(roomId) {
+        // Aggiungi un console.log di debug qui
         const client = getRedisClient();
-        return await client.sMembers(`room:${roomId}:players`);
+        const players = await client.sMembers(`room:${roomId}:players`);
+    return players
     }
 }
 
-module.exports = { Room, RoomStatus };
+module.exports = { Room };

@@ -1,3 +1,5 @@
+const {Room} = require("../services/rooms")
+
 const {
     getRoom,
     addUserToRoom,
@@ -21,7 +23,7 @@ function getOrCreateLobbyPresence(gameId) {
     return lobbies.get(gameId);
 }
 
-function addPresence(gameId, userId, socketId) {
+function addPresence(gameId, username, socketId) {
     const lobby = getOrCreateLobbyPresence(gameId);
     if (!lobby.has(userId)) lobby.set(userId, new Set());
     const connections = lobby.get(userId);
@@ -54,36 +56,42 @@ function removePresence(gameId, userId, socketId) {
     return { lobby, isLastConnection };
 }
 
-function canUserJoinRoom(room, userId) {
-    const isUserAlreadyIn = room.players.some(p => p.id === userId);
-    const isRoomFull = room.players.length >= room.maxPlayers;
-    const canJoin = !isRoomFull || isUserAlreadyIn;
 
-    return { isUserAlreadyIn, isRoomFull, canJoin };
+async function canUserJoinRoom(room, username) {
+    const players = await Room.getPlayers(room.roomId);
+    const isUserAlreadyIn = players.includes(username);
+    const isRoomFull = players.length >= room.maxPlayers;
+    const canJoin = !isRoomFull || isUserAlreadyIn;
+    return { isUserAlreadyIn, isRoomFull, canJoin, players};
+    
 }
+
 
 // --- HANDLER MODULARI ---
 
-function handleJoinLobby(io, socket, { gameId, user }) {
+async function handleJoinLobby(io, socket, { gameId, user }) {
     if (!gameId || !user) return;
 
-    const name = user.username;
-    const userId = user.id;
-
-    // 💡 1. ANNULLA IL TIMER se l'utente si è riconnesso
+    const username = user.username;
+    /*1. ANNULLA IL TIMER se l'utente si è riconnesso
     if (disconnectTimeouts.has(userId)) {
         clearTimeout(disconnectTimeouts.get(userId));
         disconnectTimeouts.delete(userId);
         console.log(`[Socket] Riconnessione riuscita! Timer di disconnessione per ${name} annullato.`);
     }
+    */
 
-    const room = getRoom(gameId);
+    const room = await Room.get(gameId);
     if (!room) {
         socket.emit('lobbyError', { message: 'Stanza non trovata' });
         return;
     }
+    //Fino a qui tutto ok
 
-    const { isUserAlreadyIn, isRoomFull, canJoin } = canUserJoinRoom(room, userId);
+    //L'utente può entrare solo se: 
+    // 1. l'utente non è già dentro
+    // 2. la room non è piena
+    const { isUserAlreadyIn, isRoomFull, canJoin, players} = await canUserJoinRoom(room, username);
 
     if (!canJoin) {
         socket.emit('lobbyError', { message: 'La stanza è piena.' });
@@ -92,37 +100,36 @@ function handleJoinLobby(io, socket, { gameId, user }) {
 
     if (!isUserAlreadyIn) {
         addUserToRoom(gameId, user);
-        console.log(`[Socket] Utente ${name} aggiunto in ${gameId}`);
+        console.log(`[Socket] Utente ${username} aggiunto in ${gameId}`);
     } else {
-        console.log(`[Socket] Utente ${name} già presente in ${gameId}, non lo ri-aggiungo`);
+        console.log(`[Socket] Utente ${username} già presente in ${gameId}, non lo ri-aggiungo`);
     }
 
     // Metadati sul socket
     socket.data.gameId = gameId;
-    socket.data.username = name;
-    socket.data.userId = userId;
+    socket.data.username = username;
 
-    const { isFirstConnection } = addPresence(gameId, userId, socket.id);
-    socket.join(gameId);
+    //const { isFirstConnection } = addPresence(gameId, username, socket.id);
+    //socket.join(gameId);
 
     // Se l'utente si ricollega, isFirstConnection sarà false se ci sono
     // altre connessioni attive (improbabile con un reload) o se la sessione
     // è stata recuperata (socket.recovered), ma inviamo il messaggio solo se è
     // la prima connessione assoluta dell'utente (è entrato ora).
-    if (isFirstConnection) {
+    /*if (isFirstConnection) {
         socket.to(gameId).emit('chatMessage', {
             from: 'system',
             text: `${name} è entrato nella lobby`,
         });
-    }
+    }*/
 
-    const players = getRoom(gameId).players;
-    io.to(gameId).emit('lobbyPlayers', {
-        gameId,
-        players: players.map(p => p.username),
+   
+    socket.emit('lobbyPlayers', { 
+        players: players
     });
-}
 
+}
+/*
 function handleDisconnect(io, socket) {
     const { gameId, username, userId } = socket.data || {};
     if (!gameId || !username || !userId) return;
@@ -183,26 +190,34 @@ function handleChatMessage(io, socket, { gameId, text }) {
         timestamp: Date.now(),
     });
 }
+*/
 
-// --- REGISTRAZIONE HANDLER PRINCIPALE ---
+// --- REGISTRAZIONE HANDLER PRINCIPALE e secondari.
+//  Dopo l'handshaking, il client emette un 'connection' e dunque qui quando lo rileva parte sta funzione
 
+//Al momento sono solo stampe
 module.exports = function registerChatHandlers(io) {
     io.on('connection', (socket) => {
-        console.log('Nuovo socket connesso:', socket.id);
 
+
+        //console.log('Nuovo socket connesso:', socket.id);
+        
         // Controlla se il socket si è riconnesso e ha recuperato la vecchia sessione
-        const isNewSession = socket.recovered;
+        /*const isNewSession = socket.recovered;
 
         if (isNewSession) {
             console.log(`Riconnessione riuscita, sessione recuperata. ${isNewSession}`);
         } else {
             console.log('Nuova sessione, mi unisco alla lobby.');
-        }
+        }*/ 
+
 
         // Il client DEVE emettere 'joinLobby' ad ogni connessione riuscita (nuova O recuperata).
         // L'handler di 'joinLobby' ora gestisce l'annullamento del timer di disconnessione.
         socket.on('joinLobby', (payload) => handleJoinLobby(io, socket, payload));
-        socket.on('disconnect', () => handleDisconnect(io, socket));
-        socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));
+        //payload {user,gameId}
+
+        //socket.on('disconnect', () => handleDisconnect(io, socket));
+        //socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));*/
     });
 };

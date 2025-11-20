@@ -6,9 +6,19 @@ import { useAuth } from '../context/AuthProvider'; // <-- IMPORTA
 import './Lobby.css';
 
 function Lobby() {
-    const { gameId } = useParams();
-    const navigate = useNavigate();
+    
+    //Con questa inizializzazione di user, inizializziamo isValidating con un valore
     const { user, setUser } = useAuth();
+    //Inizializza isValidating basandoti sulla presenza dell'utente
+    const [isValidating, setIsValidating] = useState(!!user);
+    //Recuperiamo dunque anche il gameId.
+    const { gameId } = useParams();
+
+    //Poichè user e gameId sono inclusi nella dipendenza dell'useEffect1 (HTTP)
+    //ne causa l'attivazione immediata al primo render
+
+
+    const navigate = useNavigate();
 
     // Stati
     const socketRef = useRef(null);
@@ -21,10 +31,10 @@ function Lobby() {
     const [error, setError] = useState(null);
     const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
 
-    // Inizializza isValidating basandoti sulla presenza dell'utente
-    const [isValidating, setIsValidating] = useState(!!user);
+
     const [lobbyError, setLobbyError] = useState(null);
 
+    //useEffect1
     useEffect(() => {
         // Flag per evitare race conditions se il componente si smonta o gameId cambia
         let ignore = false;
@@ -45,7 +55,9 @@ function Lobby() {
         // 2. Avviamo validazione
         const checkLobby = async () => {
             // IMPORTANTE: Diciamo a tutti "Sto lavorando, fermi!"
-            setIsValidating(true);
+            setIsValidating(true);  
+            //Non dovrebbe servire, dato che entro qui proprio grazie a user, 
+            //Ma user ha già settato isValidating=(!!user).
             setLobbyError(null);
 
             try {
@@ -70,8 +82,7 @@ function Lobby() {
                         setLobbyError(data.message || "Errore sconosciuto.");
                     }
                 } else {
-                    console.log("Validazione lobby OK");
-                    // Se tutto ok, l'errore deve essere null
+                    //Se è tutto ok..
                     setLobbyError(null);
                     setRoomName(data.roomName || '');
                     setMaxPlayers(data.maxPlayers || null);
@@ -94,13 +105,11 @@ function Lobby() {
 
         // Se gameId cambia mentre stavo facendo la fetch,
         // ignora il risultato della fetch vecchia.
-        return () => {
-            ignore = true;
-        };
+        return () => {ignore = true;};
 
-    }, [user, gameId]); // Rimuovi setLobbyError ecc dalle dipendenze, non servono
+    }, [user, gameId]); //forse non dovrebbe servire osservare gameID
 
-    // --- GESTORE REDIRECT SU ERRORE ---
+
     // Si attiva se 'lobbyError' cambia da null a un messaggio
     useEffect(() => {
         if (lobbyError) {
@@ -114,10 +123,10 @@ function Lobby() {
         }
     }, [lobbyError, navigate]); // Dipende da lobbyError e navigate
 
-    // --- 3. LOGICA SOCKET (Si attiva solo se l'utente e la stanza sono validi) ---
 
+    // LOGICA SOCKET (Si attiva solo se l'utente e la stanza sono validi) ---
+    //useEffect2
     useEffect(() => {
-
         // Uso isValidating come semaforo -> Attendo la validazione
         if(isValidating) {
             console.log("Socket in attesa di validazione...");
@@ -129,28 +138,41 @@ function Lobby() {
             return;
         }
 
-        // Non connetterti se:
-        // 1. Non c'è un utente
-        // 2. C'è stato un errore fatale con la stanza
+        // Non connetterti se non c'è un utente, infatti isValidating sta nel finally precedente, 
+        // dunque mettere il controllo sul lobby error anche qui in or è ridondante.
         if (!user || lobbyError) {
             return;
         }
 
         console.log("Validazione passata, connessione Socket in corso...");
-
+        
+        //Creo l'oggetto socket client che tenterà la connessione al mio server
         const socket = io('http://localhost:8080', {
-            withCredentials: true,
+            withCredentials: true,  
+            //per includere il cookie jwt nella
+            //Http request che precede l'upgrade a webSocket
         });
 
+        //Salvataggio dell'isanza in un useRef, così che possano usarla per inviare messaggi
         socketRef.current = socket;
 
-        // Gestori
+        //Creata la socket però non è immediatamente stabilita, ma
+        //il client invia HTTP Request per poi Upgradare a webSocket --> emesso l'evento 'connect'
+        // Gestisci l'evento 'connect'
+        socket.on('connect', () => {
+            console.log('Socket connesso, id:', socket.id);
+            socket.emit('joinLobby', { gameId, user});
+        });
+
+
+        const handleLobbyPlayers = (payload) => {
+            console.log("dio porco"+payload.players)
+            setPlayers(payload.players || []);
+        };
+
+        /*// Gestori
         const handleChatMessage = (msg) => {
             setMessages((prev) => [...prev, msg]);
-        };
-        const handleLobbyPlayers = (payload) => {
-            if (payload?.gameId !== gameId) return;
-            setPlayers(payload.players || []);
         };
 
         const handleLobbyError = (error) => {
@@ -162,15 +184,12 @@ function Lobby() {
 
         //Attacco i listener
         socket.on('chatMessage', handleChatMessage);
-        socket.on('lobbyPlayers', handleLobbyPlayers);
+        
         socket.on('lobbyError', handleLobbyError);
 
-        // Gestisci l'evento 'connect'
-        socket.on('connect', () => {
-            console.log('Socket connesso, id:', socket.id);
-            socket.emit('joinLobby', { gameId, user});
-        });
+        */
 
+        socket.on('lobbyPlayers', handleLobbyPlayers);
         // Funzione di cleanup
         return () => {
             socket.off('chatMessage', handleChatMessage);
@@ -181,6 +200,7 @@ function Lobby() {
             console.log('Socket disconnesso');
             socketRef.current = null; // Pulisci lo stato dello socket
         };
+        
     }, [gameId, user, lobbyError, isValidating]); // Dipende da tutte queste condizioni
 
     // --- 4. GESTORI DI EVENTI ---
