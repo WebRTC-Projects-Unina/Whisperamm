@@ -1,4 +1,4 @@
-const {createRoom, getRoom, roomExists, addUserToRoom, getNumberOfPlayers, getMaxPlayers, isUserInRoom, getRoomName} = require("../services/rooms");
+const {createRoom, getRoom, roomExists, addUserToRoom, getNumberOfPlayers, getMaxPlayers, isUserInRoom, getHost} = require("../services/rooms");
 const { validateRoomName,validateRoomId } = require("../utils/validators");
 
 
@@ -67,13 +67,17 @@ exports.checkGameP = (req, res) => {
             console.log(`[HTTP-POST] Utente ${user.username} è già nella stanza ${gameId}.`);
             const room = getRoom(gameId);
 
+        // ✅ AGGIUNGI QUESTE RIGHE: Confronta l'ID dell'utente con l'hostId
+        const isAdmin = user.username === room.hostId;
+
             // Invia 200 OK, ma con un flag speciale.
             return res.status(200).json({
                 message: "L'utente è già nella stanza.",
                 roomExists: true,
                 userAlreadyExists: true, // Possiamo usare questo flag per implementare un pop up diverso da STANZA NON ESISTE
                 roomName: room.name,
-                maxPlayers: room.maxPlayers
+                maxPlayers: room.maxPlayers,
+                isAdmin: isAdmin // ✅ AGGIUNGI QUESTO CAMPO
             });
         }
 
@@ -92,13 +96,16 @@ exports.checkGameP = (req, res) => {
         console.log(`[HTTP-POST] Aggiungo ${user.username} alla stanza ${gameId}`);
         addUserToRoom(gameId, user);
         const room = getRoom(gameId);
+        const isAdmin = user.id === room.hostId;
+
         // Invia 200 OK (Successo standard)
         return res.status(200).json({
             message: `Stanza trovata, utente ${user.username} aggiunto.`,
             roomExists: true,
             userAdded: true, // Un altro flag che può essere utile, l'utente è stato aggiunto, magari per mettere una schermata di benvenuto
             roomName: room.name,
-            maxPlayers: room.maxPlayers
+            maxPlayers: room.maxPlayers,
+            isAdmin: isAdmin // ✅ AGGIUNGI QUESTO CAMPO
         });
     } catch (error) {
         console.error("Errore in checkGame:", error);

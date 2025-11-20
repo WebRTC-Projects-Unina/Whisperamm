@@ -275,6 +275,18 @@
   font-size: 0.9rem;
 }
 
+.lobby-role-admin {
+    color: #d249ff;  
+    font-weight: bold;
+}
+
+.lobby-role-player {
+    color: #d249ff;
+    font-weight: normal;
+}
+
+
+
 /* --- Responsive --- */
 @media (max-width: 900px) {
   .lobby-layout {

@@ -3,6 +3,8 @@ const {
     addUserToRoom,
     removeUserFromRoom,
     roomExists,
+    getPlayers,
+    updateHost
 } = require("../services/rooms");
 
 // Struttura dati: Map<gameId, Map<userId, Set<socket.id>>>
@@ -140,9 +142,11 @@ function handleDisconnect(io, socket) {
     // 2. Avvia il timer di tolleranza
     const timeout = setTimeout(() => {
         // Questa funzione viene eseguita se l'utente NON si è riconnesso entro RECONNECT_TOLERANCE_MS
-
+        // ✅ AGGIUNGI QUESTA LOGICA: Prendi il room PRIMA di rimuovere l'utente
+        const room = getRoom(gameId);
+        const wasAdmin = room && room.hostId === username;
         // Rimuovi l'utente dalla stanza
-        const updatedRoom = removeUserFromRoom(gameId, userId);
+        const updatedRoom = removeUserFromRoom(gameId, username);
 
         if (!updatedRoom) {
             console.log(`[Timer] Stanza ${gameId} vuota, eliminata.`);
@@ -151,6 +155,27 @@ function handleDisconnect(io, socket) {
             return;
         }
 
+        // ✅ AGGIUNGI: Se era admin e ci sono ancora giocatori
+        if (wasAdmin) {
+            const remainingPlayers = getPlayers(gameId);
+            
+            if (remainingPlayers && remainingPlayers.length > 0) {
+                const newAdmin = remainingPlayers[0];
+                
+                // ✅ USA updateHost per cambiare l'admin
+                updateHost(gameId, newAdmin.id);
+                
+                console.log(`[Timer] Admin disconnesso. Nuovo admin: ${newAdmin.username}`);
+                
+                // ✅ NOTIFICA: Informa tutti i giocatori del cambio admin
+                io.to(gameId).emit('adminChanged', {
+                    newAdmin: newAdmin.username,
+                    newAdminId: newAdmin.id,
+                    message: `${username} è disconnesso. ${newAdmin.username} è il nuovo admin.`
+                });
+            }
+        }
+    
         console.log(`[Timer] Timeout scaduto. ${username} rimosso definitivamente da ${gameId}.`);
 
         // Notifica la rimozione definitiva

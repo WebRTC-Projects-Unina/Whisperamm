@@ -103,10 +103,7 @@ const getMaxPlayers = (roomId) => {
     const room = getRoom(roomId);
     return room ? room.maxPlayers : null;
 };
-const getRoomName = (roomId) => {
-    const room = getRoom(roomId);
-    return room ? room.name : null;
-}
+
 // --- SETTERS / MUTATORS (per modificare i dati) ---
 
 /**
@@ -160,11 +157,11 @@ const removeUserFromRoom = (roomId, userId) => {
         return null; // Ritorna null per segnalare che la stanza non esiste più
     }
 
-    // 2. Se l'host (per ID) ha lasciato, nomina un nuovo host (salvando il nuovo ID)
     if (room.hostId === userId) {
-        room.hostId = room.players[0].id; // Assegna l'ID del primo giocatore rimasto
+        const newHostId = room.players[0].id;
+        updateHost(roomId, newHostId); // ✅ USLA QUI
+        console.log(`[ROOMS] Nuovo host assegnato: ${newHostId}`);
     }
-
     return room;
 };
 

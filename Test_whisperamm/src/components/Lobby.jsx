@@ -9,7 +9,7 @@ function Lobby() {
     const { gameId } = useParams();
     const navigate = useNavigate();
     const { user, setUser } = useAuth();
-
+    
     // Stati
     const socketRef = useRef(null);
     const [messages, setMessages] = useState([]);
@@ -20,6 +20,7 @@ function Lobby() {
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null);
     const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
+    const [isAdmin, setIsAdmin] = useState(false); // ✅ AGGIUNGI QUESTA RIGA
 
     // Inizializza isValidating basandoti sulla presenza dell'utente
     const [isValidating, setIsValidating] = useState(!!user);
@@ -75,6 +76,11 @@ function Lobby() {
                     setLobbyError(null);
                     setRoomName(data.roomName || '');
                     setMaxPlayers(data.maxPlayers || null);
+                    // ✅ AGGIUNGI QUESTE RIGHE
+                    if (data.isAdmin !== undefined) {
+                        setIsAdmin(data.isAdmin);
+                        console.log("Utente è admin?", data.isAdmin);
+                    }
                 }
 
             } catch (err) {
@@ -164,6 +170,8 @@ function Lobby() {
         socket.on('chatMessage', handleChatMessage);
         socket.on('lobbyPlayers', handleLobbyPlayers);
         socket.on('lobbyError', handleLobbyError);
+        socket.on('adminChanged', handleAdminChanged);
+
 
         // Gestisci l'evento 'connect'
         socket.on('connect', () => {
@@ -176,7 +184,7 @@ function Lobby() {
             socket.off('chatMessage', handleChatMessage);
             socket.off('lobbyPlayers', handleLobbyPlayers);
             socket.off('lobbyError', handleLobbyError);
-
+            socket.off('adminChanged', handleAdminChanged);
             socket.disconnect()
             console.log('Socket disconnesso');
             socketRef.current = null; // Pulisci lo stato dello socket
@@ -228,6 +236,25 @@ function Lobby() {
         } catch (err) {
             setError(err.message);
         }
+    };
+
+    const handleAdminChanged = (payload) => {
+        console.log("Admin cambiato:", payload);
+
+        // Se l'utente corrente è il nuovo admin
+        if (payload.newAdmin.username === user.username) {
+            setIsAdmin(true);
+            console.log("Sei diventato admin!");
+        } else {
+            // Se eri admin e non sei più il nuovo admin, rimani player
+            setIsAdmin(false);
+        }
+
+        // Opzionale: mostra un messaggio di sistema
+        setMessages(prev => [...prev, {
+            from: 'system',
+            text: payload.message
+        }]);
     };
 
     // Gestore per tornare alla Home
@@ -370,11 +397,33 @@ function Lobby() {
                         {roomFull}
                     </p>
 
+                    <div>
+                        <p>
+                            In questa stanza sei {''}
+                            <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
+                                {isAdmin ? 'Admin' : 'Player'}
+                            </span>
+                        </p>
+                    </div>
                     <div className="lobby-buttons">
-                        {/* Metti qui i pulsanti che vuoi (es. Pronto, Avvia partita, Esci, ecc.) */}
-                        <button className="lobby-main-btn" disabled>
-                            Pronto/Inizia partita (in arrivo...)
-                        </button>
+                        {isAdmin ? (
+                            // VISTA ADMIN: Pulsante "Inizia partita"
+                            <button 
+                                className="lobby-main-btn" 
+                                disabled//onClick={handleStartGame}
+                                //disabled={players.length < 2}
+                            >
+                                Inizia partita
+                            </button>
+                        ) : (
+                            // VISTA UTENTE NORMALE: Pulsante "Pronto"
+                            <button 
+                                className="lobby-main-btn"
+                                disabled //onClick={handleReady}
+                            >
+                                Pronto
+                            </button>
+                        )}
                         <button className="lobby-main-btn" onClick={handleBackHome}>
                             Torna alla Home
                         </button>
