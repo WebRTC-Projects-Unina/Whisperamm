@@ -103,7 +103,10 @@ const getMaxPlayers = (roomId) => {
     const room = getRoom(roomId);
     return room ? room.maxPlayers : null;
 };
-
+const getRoomName = (roomId) => {
+    const room = getRoom(roomId);
+    return room ? room.name : null;
+}
 // --- SETTERS / MUTATORS (per modificare i dati) ---
 
 /**

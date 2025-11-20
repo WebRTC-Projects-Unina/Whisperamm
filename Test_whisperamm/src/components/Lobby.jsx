@@ -15,8 +15,11 @@ function Lobby() {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [players, setPlayers] = useState([]);
+    const [roomName, setRoomName] = useState('');
+    const [maxPlayers, setMaxPlayers] = useState(null);
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null);
+    const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
 
     // Inizializza isValidating basandoti sulla presenza dell'utente
     const [isValidating, setIsValidating] = useState(!!user);
@@ -70,6 +73,8 @@ function Lobby() {
                     console.log("Validazione lobby OK");
                     // Se tutto ok, l'errore deve essere null
                     setLobbyError(null);
+                    setRoomName(data.roomName || '');
+                    setMaxPlayers(data.maxPlayers || null);
                 }
 
             } catch (err) {
@@ -230,6 +235,13 @@ function Lobby() {
         navigate('/');
     };
 
+    useEffect(() => {
+        if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
+            setRoomFull("Stanza piena, preparati a giocare!");
+        }else {
+            setRoomFull("In attesa di altri giocatori...");
+        }
+    }, [players]);
 
 
     // --- RENDER CONDIZIONALE ---
@@ -348,12 +360,14 @@ function Lobby() {
                     <h1 className="lobby-title">Lobby partita</h1>
 
                     <div className="lobby-info">
+                        <p className="lobby-label">Nome stanza</p>
+                        <p className="lobby-room-name">{roomName || 'Sconosciuto'}</p>
                         <p className="lobby-label">Codice stanza</p>
                         <p className="lobby-room-code">{gameId}</p>
                     </div>
 
                     <p className="lobby-subtitle">
-                        In attesa di altri giocatori...
+                        {roomFull}
                     </p>
 
                     <div className="lobby-buttons">
@@ -370,7 +384,7 @@ function Lobby() {
                 {/* COLONNA DESTRA: LISTA GIOCATORI */}
                 <aside className="lobby-sidebar">
                     <h2 className="sidebar-title">Giocatori nella stanza</h2>
-                    <p className="sidebar-room-code">{players.length + ' / ' + 'max'}</p>
+                    <p className="sidebar-room-code">{players.length + ' / ' + maxPlayers}</p>
 
                     <div className="sidebar-players">
                         {players.length === 0 && (
