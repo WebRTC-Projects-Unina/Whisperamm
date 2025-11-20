@@ -1,205 +1,314 @@
-const { randomUUID } = require('crypto');
+const { getRedisClient } = require('../config_redis/redis');
+const crypto = require('crypto');
 
-// Il nostro "database" in-memory.
-const liveRooms = {};
-
-/**
- * Crea una nuova stanza e la salva in memoria.
- * @param {string} roomName - Il nome visualizzato della stanza.
- * @param {object} user - L'oggetto utente che crea la stanza (host).
- * @param {int} maxPlayers - Numero massimo di giocatori
- * @param {int} rounds - Numero di round della partita
- * @returns {string} L'ID della stanza appena creata.
- */
-
-const createRoom = (roomName, user, maxPlayers, rounds) => {
-    const newRoomId = randomUUID().slice(0, 6).toUpperCase();
-
-    liveRooms[newRoomId] = {
-        roomId: newRoomId,
-        name: roomName,
-        players: [user], // L'utente che la crea è il primo giocatore
-        host: user.username, // Il nome utente dell'host
-        maxPlayers: maxPlayers,
-        rounds: rounds,
-        createdAt: new Date()
-    };
-
-    return newRoomId;
+// Stati validi per le stanze
+const RoomStatus = {
+    WAITING: 'waiting',    // In attesa di giocatori
+    PLAYING: 'playing',    // Partita in corso
+    FINISHED: 'finished'   // Partita terminata
 };
 
-/**
- * Elimina una stanza dalla memoria.
- * @param {string} roomId - L'ID della stanza da eliminare.
- * @returns {boolean} True se l'eliminazione ha avuto successo.
- */
-const deleteRoom = (roomId) => {
-    if (liveRooms[roomId]) {
-        delete liveRooms[roomId];
-        return true;
+class Room {
+    /**
+     * Crea una nuova stanza e la salva in Redis.
+     * @param {string} roomName - Il nome visualizzato della stanza.
+     * @param {string} hostUsername - Lo username dell'host.
+     * @param {number} maxPlayers - Numero massimo di giocatori.
+     * @param {number} rounds - Numero di round della partita.
+     * @returns {string} L'ID della stanza appena creata.
+     */
+    static async create(roomName, hostUsername, maxPlayers = 4, rounds = 5) {
+        const client = getRedisClient();
+        
+        // Genera un ID univoco di 6 caratteri
+        const roomId = crypto.randomUUID().slice(0, 6).toUpperCase();
+        
+        // Verifica che l'host esista
+        const hostExists = await client.exists(`user:${hostUsername}`);
+        if (!hostExists) {
+            throw new Error('Host non trovato');
+        }
+        
+        const createdAt = new Date().toISOString();
+        const multi = client.multi();
+        
+        // HASH per dati della stanza
+        multi.hSet(`room:${roomId}`, {
+            roomId,
+            name: roomName,
+            host: hostUsername,
+            maxPlayers: maxPlayers.toString(),
+            rounds: rounds.toString(),
+            status: RoomStatus.WAITING,
+            createdAt,
+            updatedAt: createdAt
+        });
+        
+        //E' più efficiente creare la lista di giocatori esterna all'hash
+        multi.sAdd(`room:${roomId}:players`, hostUsername);
+        // Aggiungere la stanza all'indice globale delle stanze attive
+        multi.sAdd('rooms:active', roomId);
+        
+        await multi.exec();
+
+        console.log("Room creata in Redis")
+        
+        return roomId;
     }
-    return false;
-};
-
-// --- GETTERS (per leggere i dati) ---
-
-/**
- * (GETTER) Recupera l'oggetto completo di una singola stanza.
- * @param {string} roomId - L'ID della stanza da cercare.
- * @returns {object | undefined} L'oggetto stanza o undefined se non trovato.
- */
-const getRoom = (roomId) => {
-    return liveRooms[roomId];
-};
-
-/**
- * (GETTER) Recupera un array con tutte le stanze attive.
- * @returns {Array<object>} Un array di oggetti stanza.
- */
-const getAllRooms = () => {
-    return Object.values(liveRooms);
-};
-
-/**
- * (GETTER) Recupera solo la lista dei giocatori in una stanza.
- * @param {string} roomId - L'ID della stanza.
- * @returns {Array<object> | null} Un array di oggetti utente o null.
- */
-const getPlayers = (roomId) => {
-    const room = liveRooms[roomId];
-    return room ? room.players : null;
-};
-
-/**
- * (GETTER) Recupera il numero di giocatori ATTUALI in una stanza.
- * @param {string} roomId - L'ID della stanza.
- * @returns {number | null} Il numero di giocatori o null se la stanza non esiste.
- */
-const getNumberOfPlayers = (roomId) => {
-    const room = getRoom(roomId);
-    // Se la stanza esiste, ritorna la lunghezza dell'array dei giocatori
-    return room ? room.players.length : null;
-};
-
-/**
- * (GETTER) Recupera il nome utente dell'host di una stanza.
- * @param {string} roomId - L'ID della stanza.
- * @returns {string | null} Il nome utente dell'host o null.
- */
-const getHost = (roomId) => {
-    const room = liveRooms[roomId];
-    return room ? room.host : null;
-};
-
-/**
- * (GETTER) Recupera il numero massimo di giocatori consentiti in una stanza.
- * @param {string} roomId - L'ID della stanza.
- * @returns {number | null} Il numero massimo di giocatori o null se la stanza non esiste.
- */
-const getMaxPlayers = (roomId) => {
-    const room = getRoom(roomId);
-    // Se la stanza esiste, ritorna il valore di maxPlayers
-    return room ? room.maxPlayers : null;
-};
-
-// --- SETTERS / MUTATORS (per modificare i dati) ---
-
-/**
- * (SETTER) Aggiunge un utente alla lista giocatori di una stanza.
- * @param {string} roomId - L'ID della stanza a cui unirsi.
- * @param {object} user - L'oggetto utente da aggiungere.
- * @returns {object} L'oggetto stanza aggiornato.
- */
-const addUserToRoom = (roomId, user) => {
-    const room = getRoom(roomId);
-
-    if (!room) {
-        throw new Error('Stanza non trovata. Impossibile unirsi.');
+    
+    /**
+     * Recupera i dati completi di una stanza.
+     * @param {string} roomId - L'ID della stanza.
+     * @returns {object|null} L'oggetto stanza o null se non esiste.
+     */
+    static async get(roomId) {
+        const client = getRedisClient();
+        
+        // Recupera i dati della stanza e la lista giocatori in parallelo
+        const [roomData, players] = await Promise.all([
+            client.hGetAll(`room:${roomId}`),
+            client.sMembers(`room:${roomId}:players`)
+        ]);
+        
+        // Se la stanza non esiste
+        if (!roomData || !roomData.roomId) {
+            return null;
+        }
+        
+        return {
+            roomId: roomData.roomId,
+            name: roomData.name,
+            host: roomData.host,
+            maxPlayers: parseInt(roomData.maxPlayers),
+            rounds: parseInt(roomData.rounds),
+            status: roomData.status,
+            players,
+            currentPlayers: players.length,
+            createdAt: roomData.createdAt,
+            updatedAt: roomData.updatedAt
+        };
     }
 
-    // Controlla se l'utente è già in stanza (per evitare duplicati)
-    const userExists = room.players.find(p => p.id === user.id);
-
-    if (!userExists) {
-        room.players.push(user);
+    // Recupera il numero di giocatori in una stanza.
+    static async getNumberOfPlayers(roomId) {
+        const client = getRedisClient();
+        const number = await client.sCard(`room:${roomId}:players`);
+        console.log(number);
+        return number;
     }
 
-    return room;
-};
-
-/**
- * (SETTER) Rimuove un utente da una stanza.
- * @param {string} roomId - L'ID della stanza.
- * @param {string} userId - L'ID dell'utente da rimuovere.
- * @returns {object | null} L'oggetto stanza aggiornato, o null se la stanza è stata eliminata.
- */
-const removeUserFromRoom = (roomId, userId) => {
-    const room = getRoom(roomId);
-    if (!room) return null; // Stanza già eliminata
-
-    const userToRemove = room.players.find(p => p.id === userId);
-    if (!userToRemove) return room; // Utente non trovato
-
-    // Rimuove l'utente dall'array
-    room.players = room.players.filter(p => p.id !== userId);
-
-    // --- Logica di pulizia automatica ---
-
-    // 1. Se la stanza ora è vuota, eliminala per liberare memoria.
-    if (room.players.length === 0) {
-        deleteRoom(roomId);
-        return null; // Ritorna null per segnalare che la stanza non esiste più
+    // Recupera il numero massimo di giocatori consentiti in una stanza.
+    static async getMaxPlayers(roomId) {
+        const client = getRedisClient();
+        const maxPlayers = await client.hGet(`room:${roomId}`, 'maxPlayers');
+        return parseInt(maxPlayers);
     }
 
-    // 2. Se l'host ha lasciato, nomina un nuovo host (il primo della lista)
-    if (room.host === userToRemove.username) {
-        room.host = room.players[0].username;
+
+    /**
+     * Recupera tutte le stanze attive.
+     * @returns {Array<object>} Array di oggetti stanza.
+     */
+    static async getAll() {
+        const client = getRedisClient();
+        
+        // Recupera tutti gli ID delle stanze attive
+        const roomIds = await client.sMembers('rooms:active');
+        
+        if (roomIds.length === 0) {
+            return [];
+        }
+        
+        // Recupera i dati di tutte le stanze in parallelo
+        const rooms = await Promise.all(
+            roomIds.map(roomId => Room.get(roomId))
+        );
+        
+        // Filtra eventuali null (stanze che non esistono più)
+        return rooms.filter(room => room !== null);
     }
+    
+    /**
+     * Aggiunge un giocatore a una stanza.
+     * @param {string} roomId - L'ID della stanza.
+     * @param {string} username - Lo username del giocatore.
+     * @returns {object} La stanza aggiornata.
+     */
+    static async addPlayer(roomId, username) {
+        const client = getRedisClient();
 
-    return room;
-};
+        const room = await Room.get(roomId);
+        if(!room){  
+            throw new Error('Stanza non trovata');
+        }
 
-/**
- * (SETTER) Aggiorna l'host di una stanza.
- * @param {string} roomId - L'ID della stanza.
- * @param {string} newHostUsername - Il nome utente del nuovo host.
- * @returns {object} L'oggetto stanza aggiornato.
- */
-const updateHost = (roomId, newHostUsername) => {
-    const room = getRoom(roomId);
-    if (room) {
-        room.host = newHostUsername;
-        return room;
+        // Verifica che l'utente esista
+        const userExists = await client.exists(`user:${username}`);
+        if (!userExists) {
+            throw new Error('Utente non trovato');
+        }
+        
+        // Verifica che la stanza non sia piena
+        //mget per prendere più valori contemporaneamente
+        /*const [currentPlayers, maxPlayers, status] = await client.hmGet(
+            `room:${roomId}`,
+            ['maxPlayers', 'status']
+        );*/
+        
+        const playersCount = await client.sCard(`room:${roomId}:players`);
+        
+        if (playersCount >= parseInt(room.maxPlayers)) {
+            throw new Error('Stanza piena');
+        }
+        
+        if (room.status !== RoomStatus.WAITING) {
+            throw new Error('La partita è già iniziata');
+        }
+        
+        const multi = client.multi();
+        
+        // Aggiungi il giocatore al SET
+        multi.sAdd(`room:${roomId}:players`, username);
+        
+        // Aggiorna il timestamp
+        multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
+        
+        await multi.exec();
+        
+        return await Room.get(roomId);
     }
-    throw new Error('Stanza non trovata.');
-};
+    
+    /**
+     * Rimuove un giocatore da una stanza.
+     * @param {string} roomId - L'ID della stanza.
+     * @param {string} username - Lo username del giocatore.
+     * @returns {object|null} La stanza aggiornata o null se è stata eliminata.
+     */
+    static async removePlayer(roomId, username) {
+        const client = getRedisClient();
+        
+        const room = await Room.get(roomId);
+        if (!room) {
+            return null;
+        }
+        
+        // Rimuovi il giocatore
+        await client.sRem(`room:${roomId}:players`, username);
+        
+        // Recupera i giocatori rimanenti
+        const remainingPlayers = await client.sMembers(`room:${roomId}:players`);
+        
+        // Se la stanza è vuota, eliminala
+        if (remainingPlayers.length === 0) {
+            await Room.delete(roomId);
+            return null;
+        }
+        
+        // Se l'host ha lasciato, nomina un nuovo host
+        if (room.host === username) {
+            await client.hSet(`room:${roomId}`, 'host', remainingPlayers[0]);
+        }
+        
+        // Aggiorna il timestamp
+        await client.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
+        
+        return await Room.get(roomId);
+    }
+    
+    /**
+     * Aggiorna lo status di una stanza.
+     * @param {string} roomId - L'ID della stanza.
+     * @param {string} newStatus - Il nuovo status (da RoomStatus).
+     */
+    static async updateStatus(roomId, newStatus) {
+        const client = getRedisClient();
+        
+        const exists = await client.exists(`room:${roomId}`);
+        if (!exists) {
+            throw new Error('Stanza non trovata');
+        }
+        
+        if (!Object.values(RoomStatus).includes(newStatus)) {
+            throw new Error('Status non valido');
+        }
+        
+        const multi = client.multi();
+        multi.hSet(`room:${roomId}`, 'status', newStatus);
+        multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
+        
+        await multi.exec();
+    }
+    
+    /**
+     * Aggiorna l'host di una stanza.
+     * @param {string} roomId - L'ID della stanza.
+     * @param {string} newHostUsername - Il nuovo host.
+     */
+    static async updateHost(roomId, newHostUsername) {
+        const client = getRedisClient();
+        
+        const room = await Room.get(roomId);
+        if (!room) {
+            throw new Error('Stanza non trovata');
+        }
+        
+        // Verifica che il nuovo host sia nella stanza
+        if (!room.players.includes(newHostUsername)) {
+            throw new Error('Il nuovo host deve essere un giocatore della stanza');
+        }
+        
+        const multi = client.multi();
+        multi.hSet(`room:${roomId}`, 'host', newHostUsername);
+        multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
+        
+        await multi.exec();
+    }
+    
+    /**
+     * Elimina una stanza.
+     * @param {string} roomId - L'ID della stanza da eliminare.
+     * @returns {boolean} True se l'eliminazione ha avuto successo.
+     */
+    static async delete(roomId) {
+        const client = getRedisClient();
+        
+        const multi = client.multi();
+        
+        // Elimina l'hash della stanza
+        multi.del(`room:${roomId}`);
+        
+        // Elimina il SET dei giocatori
+        multi.del(`room:${roomId}:players`);
+        
+        // Rimuovi dagli indici globali
+        multi.sRem('rooms:active', roomId);
+        multi.zRem('rooms:by_creation', roomId);
+        
+        const results = await multi.exec();
+        
+        // Verifica se almeno una chiave è stata eliminata
+        return results.some(result => result > 0);
+    }
+    
+    /**
+     * Verifica se una stanza esiste.
+     * @param {string} roomId - L'ID della stanza.
+     * @returns {boolean} True se esiste, false altrimenti.
+     */
+    static async exists(roomId) {
+        const client = getRedisClient();
+        return await client.exists(`room:${roomId}`) === 1;
+    }
+    
+    /**
+     * Recupera i giocatori di una stanza.
+     * @param {string} roomId - L'ID della stanza.
+     * @returns {Array<string>} Array di username.
+     */
+    static async getPlayers(roomId) {
+        const client = getRedisClient();
+        return await client.sMembers(`room:${roomId}:players`);
+    }
+}
 
-/**
- * (BOOLEAN) Controlla se una stanza esiste.
- * @param {string} roomId - L'ID della stanza da controllare.
- * @returns {boolean} True se la stanza esiste, altrimenti false.
- */
-const roomExists = (roomId) => {
-    // !! (doppio punto esclamativo) converte il risultato
-    // in un booleano pulito (true/false).
-    // Se liveRooms[roomId] trova un oggetto, è "truthy" -> true.
-    // Se non trova nulla (undefined), è "falsy" -> false.
-    return !!liveRooms[roomId];
-
-    // Un'alternativa più esplicita:
-    // return liveRooms.hasOwnProperty(roomId);
-};
-
-// Esportiamo tutte le funzioni che vogliamo rendere pubbliche
-module.exports = {
-    createRoom,
-    deleteRoom,
-    getRoom,
-    getAllRooms,
-    getPlayers,
-    getHost,
-    addUserToRoom,
-    removeUserFromRoom,
-    updateHost,
-    roomExists
-};
+module.exports = { Room, RoomStatus };

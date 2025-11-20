@@ -21,7 +21,7 @@ function Lobby() {
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null); // Errore per il mini-form
 
-    // --- STATI DI VALIDAZIONE LOBBY ---
+    // - STATI DI VALIDAZIONE LOBBY -
     const [isValidating, setIsValidating] = useState(true); // Stiamo controllando...
     const [lobbyError, setLobbyError] = useState(null); // Errore fatale della lobby
 
@@ -30,12 +30,15 @@ function Lobby() {
     useEffect(() => {
         const checkLobby = async () => {
             try {
+                console.log("")
                 // Assicurati che questo endpoint esista sul tuo server
-                const response = await fetch(`/api/game/checkGame/${gameID}`, {
+                const res = await fetch(`/api/game/checkGame/${gameId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user: user }) // <-- 'user' è disponibile
                 });
+
+                console.log("Risposta checkLobby:", res);
 
                 if (!res.ok) {
                     if (res.status === 404) {
@@ -43,7 +46,7 @@ function Lobby() {
                     }
                     throw new Error('Errore nel verificare la stanza.');
                 }
-
+                
                 // Tutto OK, possiamo smettere di validare
                 setIsValidating(false);
 

@@ -55,6 +55,7 @@ const Home = () => {
             }
 
             console.log("Stanza creata, ID:", data.roomId);
+            console.log("Reindirizzo a /match/".concat(data.roomId));
             navigate(`/match/${data.roomId}`);
 
         } catch (err) {

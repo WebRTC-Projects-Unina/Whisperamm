@@ -54,6 +54,17 @@ class User {
     
   }
 
+  static async exists(username) {
+    const client = getRedisClient();
+    const exists = await client.exists(`user:${username}`);
+    return exists === 1;
+  }
+
+  /**
+   * Recupera i dati di un utente specifico dato lo username.
+   * @param {string} username - Lo username dell'utente da recuperare.
+   * @returns {Object|null} Un oggetto con i dati dell'utente o null se non trovato.
+   */
   static async get(username) {
     const client = getRedisClient();
     //const userData = await client.hGetAll(`user:${username}`);  
