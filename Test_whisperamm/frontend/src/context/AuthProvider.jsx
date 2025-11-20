@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const loadUserFromSession = async () => {
             try {
-                const res = await fetch('http://localhost:8080/api/me', {
+                const res = await fetch('http://localhost:8080/api/user/me', {
                     credentials: 'include', // Invia il cookie di sessione
                     //Con 'include' invia il Cookie sessioni
                     //'same-origin' se front e back sono sullo stesso dominio
@@ -25,7 +25,7 @@ export const AuthProvider = ({ children }) => {
                     setUser(null); // Non loggato
                 }
             } catch (err) {
-                console.error('Errore caricando /api/me:', err);
+                console.error('Errore caricando /api/user/me:', err);
                 setUser(null); // In caso di errore di rete, ecc.
             } finally {
                 // In ogni caso, abbiamo finito di caricare il contesto, 

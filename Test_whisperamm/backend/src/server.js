@@ -11,8 +11,8 @@ const registerChatHandlers = require('../socket/chatSocket');
 const server = http.createServer(app);
 
 //Importo le rotte
-const userRoutes = require('./routes/user.route.js');
-const gameRoutes = require('./routes/game.route.js');
+const userRoutes = require('./routes/user.route');
+const gameRoutes = require('./routes/game.route');
 
 const io = new Server(server, {
     connectionStateRecovery: {
