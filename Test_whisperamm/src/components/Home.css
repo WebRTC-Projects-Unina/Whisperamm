@@ -5,10 +5,10 @@
 
 /* --- Contenitore Principale (per Menu, Crea e Unisciti) --- */
 .home-container {
-    background-color: #282c34; /* Grigio scuro per il box */
+    background-color: #171819; /* Grigio scuro per il box */
     padding: 2.5rem;
     border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    box-shadow: 0 4px 12px rgba(143, 64, 159, 0.4);
     width: 100%;
     max-width: 400px;
     border: 1px solid #444;
@@ -57,17 +57,20 @@ select {
 
 input[type="text"]:focus,
 select:focus {
-    outline: none;
-    border-color: #61dafb; /* Colore React-like per il focus */
-    box-shadow: 0 0 0 3px rgba(97, 218, 251, 0.2);
+    outline: none !important;
+    border-color: #d946ff !important; /* viola neon acceso */
+    box-shadow: 0 0 12px 2px rgba(217, 70, 255, 0.9) !important; /* alone viola neon */
 }
 
+input[type="text"]::placeholder {
+    color: #aaa; /* Colore del placeholder */
+}
 /* * 1. Applica il colore del placeholder (#aaa) quando il
  * select è "invalido" (cioè quando è selezionata
  * l'opzione con value="").
 */
 select.select-placeholder:invalid {
-    color: #aaa;
+    color: rgb(255, 255, 255);
 }
 
 /* * 2. Quando l'utente sceglie un'opzione valida,
@@ -75,7 +78,7 @@ select.select-placeholder:invalid {
  * al colore di testo normale (#f0f0f0).
 */
 select.select-placeholder {
-    color: #f0f0f0;
+    color: white;
 }
 
 /* * 3. Assicura che le opzioni nel menu a tendina
@@ -83,7 +86,7 @@ select.select-placeholder {
  * Questo esclude il placeholder stesso.
 */
 select.select-placeholder option {
-    color: #f0f0f0;
+    color: white;
 }
 
 /* --- Stile dei Pulsanti (Generico) --- */
@@ -103,20 +106,22 @@ select.select-placeholder option {
 
 /* Pulsante "Primario" (Verde per Conferma/Crea) */
 .btn-primary {
-    background-color: #4caf50; /* Verde */
+    background-color: #a600ff; /* Verde */
     color: white;
 }
 .btn-primary:hover {
-    background-color: #45a049;
+    background-color: #d249ff;
 }
 
-/* Pulsante "Secondario" (Grigio per Annulla/Unisciti) */
+/* Pulsante "Secondario" (Grigio per Annulla/Unisciti)
+    lo tengo solo per futuri cambiamenti
+*/
 .btn-secondary {
-    background-color: #555;
+    background-color: #a600ff;
     color: white;
 }
 .btn-secondary:hover {
-    background-color: #666;
+    background-color: #d249ff;
 }
 
 
@@ -138,12 +143,15 @@ select.select-placeholder option {
 
 /* --- Stile per l'errore ---*/
 .form-error-message {
-    color: #a94442; /* Un rosso scuro per il testo */
-    background-color: #f2dede; /* Uno sfondo rosa chiaro */
-    border: 1px solid #ebccd1; /* Un bordo rosso chiaro */
+    color: #ff6b6b;
+    background-color: rgba(255, 107, 107, 0.1);
+    border: 1px solid #ff6b6b; 
     padding: 10px;
     border-radius: 5px;
     margin-bottom: 15px; /* Spazio prima del form */
     text-align: center;
     font-weight: bold;
 }
+
+
+

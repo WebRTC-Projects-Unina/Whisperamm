@@ -40,8 +40,13 @@ exports.checkGameP = async (req, res) => {
         if (!user || !user.username) {
             return res.status(400).json({ message: "Dati utente mancanti." });
         }
+        const validation = validateRoomId(gameId);
+        if (!validation.valid) {
+            console.log("ID stanza non valido:", validation.message);
+            return res.status(400).json({ message: validation.message });
+        }
 
-        console.log(`[HTTP] Ricevuta richiesta CHECK per ID: ${gameId}`);
+        console.log(`[HTTP-POST] Ricevuta richiesta CHECK per ID: ${gameId}`);
 
         // Controlla se la stanza esiste
         if (!Room.exists(gameId)) {
@@ -49,12 +54,27 @@ exports.checkGameP = async (req, res) => {
             // Invia 404 e FERMA L'ESECUZIONE
             return res.status(404).json({
                 message: "Stanza non trovata o ID errato.",
-                roomExists: false
+                roomExists: false // Manda roomExist = false
             });
         }
 
-        // Se arriviamo qui, la stanza esiste
-        console.log(`[HTTP] Stanza ${gameId} trovata.`);
+        // Se arriviamo qui, la stanza esiste.
+        console.log(`[HTTP-POST] Stanza ${gameId} trovata per ${user.id}.`);
+
+        // Controlla se l'utente è già nella stanza
+        if (isUserInRoom(gameId, user.id)) {
+            console.log(`[HTTP-POST] Utente ${user.username} è già nella stanza ${gameId}.`);
+            const room = getRoom(gameId);
+
+            // Invia 200 OK, ma con un flag speciale.
+            return res.status(200).json({
+                message: "L'utente è già nella stanza.",
+                roomExists: true,
+                userAlreadyExists: true, // Possiamo usare questo flag per implementare un pop up diverso da STANZA NON ESISTE
+                roomName: room.name,
+                maxPlayers: room.maxPlayers
+            });
+        }
 
         //Controlla se la stanza è piena
         if (await Room.getNumberOfPlayers(gameId) >= await Room.getMaxPlayers(gameId)) {
@@ -62,7 +82,8 @@ exports.checkGameP = async (req, res) => {
             // Invia 403 (Proibito) e FERMA L'ESECUZIONE
             return res.status(403).json({
                 message: "La stanza è piena.",
-                roomExists: true // La stanza esiste, ma è piena
+                roomExists: true,
+                isFull: true // Possiamo usare questo flag per implementare un pop up diverso da STANZA NON ESISTE
             });
         }
 
@@ -74,19 +95,28 @@ exports.checkGameP = async (req, res) => {
         // Invia 200 (OK) e FERMA L'ESECUZIONE
         return res.status(200).json({
             message: `Stanza trovata, utente ${user.username} aggiunto.`,
-            roomExists: true
+            roomExists: true,
+            userAdded: true, // Un altro flag che può essere utile, l'utente è stato aggiunto, magari per mettere una schermata di benvenuto
+            roomName: room.name,
+            maxPlayers: room.maxPlayers
         });
     } catch (error) {
-        // Se qualsiasi cosa sopra fallisce (es. addUserToRoom lancia un errore)
         console.error("Errore in checkGame:", error);
         return res.status(500).json({ message: "Errore interno del server." });
     }
 }
 
+// Controlla solamente se la stanza esiste
 exports.checkGameG = (req, res) => {
     try {
         const { gameId } = req.params; // L'ID dall'URL
-        console.log(`[HTTP] Ricevuta richiesta CHECK per ID: ${gameId}`);
+        console.log(`[HTTP-GET] Ricevuta richiesta CHECK per ID: ${gameId}`);
+
+        const validation = validateRoomId(gameId);
+        if (!validation.valid) {
+            console.log("ID stanza non valido:", validation.message);
+            return res.status(400).json({ message: validation.message });
+        }
 
         // controlla se l'ID esiste usando la funzione REALE
         if (!Room.exists(gameId)) {
