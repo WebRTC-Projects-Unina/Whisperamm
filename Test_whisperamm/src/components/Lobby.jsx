@@ -166,30 +166,24 @@ function Lobby() {
 
 
         const handleLobbyPlayers = (payload) => {
-            console.log("dio porco"+payload.players)
             setPlayers(payload.players || []);
         };
 
-        /*// Gestori
         const handleChatMessage = (msg) => {
             setMessages((prev) => [...prev, msg]);
         };
-
+        
+        
         const handleLobbyError = (error) => {
-            // Errore ricevuto dalla socket
-            console.error("Errore dalla lobby via socket:", error.message);
             setLobbyError(error.message || "Errore dalla stanza");
             socketRef.current.disconnect();
         };
-
-        //Attacco i listener
-        socket.on('chatMessage', handleChatMessage);
         
-        socket.on('lobbyError', handleLobbyError);
-
-        */
-
-        socket.on('lobbyPlayers', handleLobbyPlayers);
+        
+        socket.on('lobbyError', handleLobbyError); //gestione errori lobby
+        socket.on('lobbyPlayers', handleLobbyPlayers); //gestione player in room
+        socket.on('chatMessage', handleChatMessage); //gestione messaggi chat
+        
         // Funzione di cleanup
         return () => {
             socket.off('chatMessage', handleChatMessage);
@@ -197,7 +191,6 @@ function Lobby() {
             socket.off('lobbyError', handleLobbyError);
 
             socket.disconnect()
-            console.log('Socket disconnesso');
             socketRef.current = null; // Pulisci lo stato dello socket
         };
         
@@ -208,6 +201,7 @@ function Lobby() {
     // Gestore per l'invio di messaggi in chat
     const handleSubmitChat = (e) => {
         e.preventDefault();
+       
         if (!newMessage.trim() || !socketRef || !user) return;
 
         socketRef.current.emit('chatMessage', {
@@ -252,6 +246,11 @@ function Lobby() {
 
     // Gestore per tornare alla Home
     const handleBackHome = () => {
+        //forse qui ci vuole anche la disconnessione socket
+        if (socketRef.current) {
+            socketRef.current.disconnect();
+            socketRef.current = null;
+        }
         navigate('/');
     };
 

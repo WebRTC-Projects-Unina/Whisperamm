@@ -1,4 +1,4 @@
-const {Room, RoomStatus} = require('../services/rooms');
+const {Room} = require('../services/rooms');
 const {User} = require('../services/user');
 
 exports.createGame = async (req, res) => {
@@ -51,7 +51,6 @@ exports.checkGameP = async (req, res) => {
         }
 
         // Se arriviamo qui, la stanza esiste.
-
         const room = await Room.get(gameId);
 
         //qui ci andrà il check se l'utente è già nella room
@@ -102,14 +101,18 @@ exports.checkGameP = async (req, res) => {
     }
 }
 
-// Controlla solamente se la stanza esiste
-exports.checkGameG = (req, res) => {
+
+/*
+    Da togliere, però dunque da modificare anche la get in home
+*/
+//Controlla solamente se la stanza esiste
+exports.checkGameG = async (req, res) => {
     try {
         const { gameId } = req.params; // L'ID dall'URL
         console.log(`[HTTP-GET] Ricevuta richiesta CHECK per ID: ${gameId}`);
 
-        // controlla se l'ID esiste usando la funzione REALE
-        if (Room.exists(gameId)) {
+        // controlla se l'ID esiste usando la funzione statica
+        if (await Room.exists(gameId)) {
             // Se esiste, aggiungi l'utente usando la funzione REALE
             console.log(`[HTTP] Stanza ${gameId} trovata.`);
 

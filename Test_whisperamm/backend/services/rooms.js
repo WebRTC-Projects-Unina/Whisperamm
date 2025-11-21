@@ -9,6 +9,7 @@ const RoomStatus = {
 };
 
 class Room {
+
     /**
      * Crea una nuova stanza e la salva in Redis.
      * @param {string} roomName - Il nome visualizzato della stanza.
@@ -60,7 +61,7 @@ class Room {
      * Recupera i dati completi di una stanza.
      * @param {string} roomId - L'ID della stanza.
      * @returns {object|null} L'oggetto stanza o null se non esiste.
-     */
+    */
     static async get(roomId) {
         const client = getRedisClient();
         
@@ -105,13 +106,10 @@ class Room {
         return parseInt(maxPlayers);
     }
 
-
-
+    
     static async isUserAlreadyIn(roomId, username) {
         const players = await Room.getPlayers(roomId);
         const isUserAlreadyIn = players.includes(username);
-        //const isRoomFull = players.length >= room.maxPlayers;
-        //const canJoin = !isRoomFull || isUserAlreadyIn;
         return isUserAlreadyIn;
     }
 
@@ -160,12 +158,6 @@ class Room {
         }
         
         // Verifica che la stanza non sia piena
-        //mget per prendere più valori contemporaneamente
-        /*const [currentPlayers, maxPlayers, status] = await client.hmGet(
-            `room:${roomId}`,
-            ['maxPlayers', 'status']
-        );*/
-        
         const playersCount = await client.sCard(`room:${roomId}:players`);
         
         if (playersCount >= parseInt(room.maxPlayers)) {
@@ -183,10 +175,15 @@ class Room {
         
         // Aggiorna il timestamp
         multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
-        
+
+        //Se dunque siamo arrivati al massimo di giocatori, la stanza passa automaticamente a PLAYING
+        if(playersCount + 1 >= parseInt(room.maxPlayers)) {
+            multi.hSet(`room:${roomId}`, 'status', RoomStatus.PLAYING);
+        }   
+
         await multi.exec();
         
-        return await Room.get(roomId);
+        return 0;
     }
     
     /**

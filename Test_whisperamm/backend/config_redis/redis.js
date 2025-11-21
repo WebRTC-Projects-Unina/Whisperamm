@@ -1,6 +1,6 @@
 const redis = require('redis');
 
-// Configurazione e connessione a Redis
+// Configurazione e connessione a Redis, pattern Singleton
 let redisClient = null;
 
 // Funzione per connettersi a Redis
