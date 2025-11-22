@@ -30,7 +30,7 @@ exports.createGame = async (req, res) => {
 }
 
 // Da modificare
-exports.checkGameP = async (req, res) => {
+exports.checkGame = async (req, res) => {
     try {
         const { gameId } = req.params;
         const { user } = req.body;
@@ -41,7 +41,8 @@ exports.checkGameP = async (req, res) => {
         }
 
         // Controlla se la stanza esiste
-        if (!Room.exists(gameId)) {
+        const roomExists = await Room.exists(gameId);
+        if (!roomExists) {
             console.log(`[HTTP] Stanza ${gameId} NON trovata.`);
             // Invia 404 e FERMA L'ESECUZIONE
             return res.status(404).json({
@@ -57,9 +58,9 @@ exports.checkGameP = async (req, res) => {
         const numberOfPlayers = await Room.getNumberOfPlayers(gameId)
         const maxNumberOfPlayers = room.maxPlayers; //qui cambiare con un getter
 
-
         // Controlla se l'utente è già nella stanza
-        if (Room.isUserAlreadyIn(room.roomId, user.username)) {
+        const isUserAlreadyIn = await Room.isUserAlreadyIn(gameId, user.username);
+        if (isUserAlreadyIn) {
        
             // Invia 200 OK, ma con un flag speciale.
             return res.status(200).json({ //andrebbe cambiato lo status code
@@ -70,7 +71,8 @@ exports.checkGameP = async (req, res) => {
                 maxPlayers: room.maxPlayers
             });
         }else{ //utente non nella stanza, ma adesso dobbiamo contrallare altre cose
-                //Controlla se la stanza è piena
+                //Controlla se la stanza è piena 
+
             if (numberOfPlayers >= maxNumberOfPlayers) {
                 // Invia 403 (Proibito) e FERMA L'ESECUZIONE
                 return res.status(403).json({
@@ -104,7 +106,7 @@ exports.checkGameP = async (req, res) => {
 
 /*
     Da togliere, però dunque da modificare anche la get in home
-*/
+
 //Controlla solamente se la stanza esiste
 exports.checkGameG = async (req, res) => {
     try {
@@ -134,3 +136,4 @@ exports.checkGameG = async (req, res) => {
         res.status(500).json({ message: "Errore interno del server." });
     }
 }
+*/

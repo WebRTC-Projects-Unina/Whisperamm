@@ -52,8 +52,10 @@ app.use(cookieParser());
 app.use(express.json());
 
 // Importo le rotte
-const routes = require('./routes/userRoutes');
-routes(app); // Registra le rotte
+const userRoutes = require('./routes/userRoutes');
+const roomRoutes = require('./routes/roomRoutes');
+userRoutes(app); // Registra le rotte
+roomRoutes(app); // Registra le rotte
 
 server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);

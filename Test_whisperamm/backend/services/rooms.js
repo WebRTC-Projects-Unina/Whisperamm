@@ -177,9 +177,11 @@ class Room {
         multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
 
         //Se dunque siamo arrivati al massimo di giocatori, la stanza passa automaticamente a PLAYING
+        /*
         if(playersCount + 1 >= parseInt(room.maxPlayers)) {
             multi.hSet(`room:${roomId}`, 'status', RoomStatus.PLAYING);
         }   
+        */
 
         await multi.exec();
         
