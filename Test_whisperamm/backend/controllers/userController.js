@@ -1,61 +1,121 @@
-const { validateUsername } = require('../utils/validators');
-//Questi poi li sposto in server.js
-const jwt = require('jsonwebtoken');    
+// controllers/userController.js
+const jwt = require('jsonwebtoken');
+const { User, UserStatus } = require('../services/user');
 
+const secret_jwt = process.env.SECRET_JWT;
 
-const createToken = (id, username) => {
-    //Problema: id ce lo dovrebbe dare il DB..
-    //Dunque al momento tengo una struttura dati qui degli utenti attivi?
-    //Appena poi implemento redis, che penso mi darà un ID una volta che aggiungo una entry, lo modifico e lo tolgo.
-    return jwt.sign({id, username}, 'Segretissimostosegreto', { expiresIn: '3h' });
-}
+// Aggiunta (richiede npm install uuid)
+const { v4: uuidv4 } = require('uuid'); 
 
-exports.register = (req, res) => {
+// Modifica di createToken
+const createToken = (username) => {
+  // Questo rende il token unico per ogni sessione
+  const jti = uuidv4(); 
+  
+  // Il payload conterrà { username: '...', jti: '...' }
+  return jwt.sign({ username, jti }, secret_jwt, { expiresIn: '3h' });
+};
+
+const validateUsername = (username) => {
+  if (!username || typeof username !== 'string') {
+    return { valid: false, error: 'Username mancante' };
+  }
+  
+  username = username.trim();
+  
+  if (username.length < 3 || username.length > 20) {
+    return { valid: false, error: 'Username deve essere tra 3 e 20 caratteri' };
+  }
+  
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    return { valid: false, error: 'Username può contenere solo lettere, numeri e underscore' };
+  }
+  
+  return { valid: true, username };
+};
+
+exports.register = async (req, res) => {
+  try {
     const { username } = req.body;
-    let id=crypto.randomUUID() // Ho spostato id qua sennò non va niente in Lobby, quando mettiamo
-                                                        // solo user e cambiamo tutto non dovrebbe dare problemi
-
-    const result = validateUsername(username);
-    if (!result.valid) {
-        console.log("Username non valido");
-        return res.status(400).json({ message: result.message });
+    
+    const validation = validateUsername(username);
+    if (!validation.valid) {
+      return res.status(400).json({ message: validation.error });
     }
-
-    try{
-        //Qui ci vuole l'inserimento in redis
-        const token = createToken(id,username); 
-        res.cookie('jwt', token, {
-            httpOnly: true,
-            maxAge: 3 * 60 * 60 * 1000 // 3 ore
-        });
-         console.log(`Utente registrato: ${username} ${id} )`);
-        //NOTA: Usa id temporaneo, poi appena metto db cambiamo.
-    }catch(err){
-        
-        return res.status(500).json({message: 'Errore del server, riprova più tardi.'});
-    }
-
-    // Rimanda indietro l'utente registrato
-    res.status(200).json({
-        message: 'Registrazione avvenuta con successo!',
-        user: { username: username, id: id },
+    
+    // Crea utente con stato iniziale ONLINE
+    const createdUsername = await User.create(validation.username, UserStatus.ONLINE);
+    
+    // Crea token con username, poi ci sarà l'id del token semplicemente che varia, ma non lo salviamo
+    const token = createToken(createdUsername);
+    
+    res.cookie('jwt', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 3 * 60 * 60 * 1000
     });
-}
+    
+    console.log(`Utente registrato: ${createdUsername} (Status: ${UserStatus.ONLINE})`);
+    
+    res.status(201).json({
+      message: 'Registrazione avvenuta con successo!',
+      user: { 
+        username: createdUsername,
+        status: UserStatus.ONLINE
+      }
+    });
+    
+  } catch (err) {
+    console.error('Errore durante registrazione:', err);
+    
+    if (err.message === 'Username già esistente') {
+      return res.status(409).json({ message: err.message });
+    }
+    
+    return res.status(500).json({ message: 'Errore del server, riprova più tardi.' });
+  }
+};
 
-
-
-exports.getMe = (req, res) => {
-    // Estrai il token dai cookie
+exports.getMe = async (req, res) => {
+  try {
     const token = req.cookies.jwt;
+    
     if (!token) {
-        return res.status(401).json({ message: 'Non autenticato' });
+      return res.status(401).json({ message: 'Non autenticato' });
     }
-    try {
-        // Verifica il token
-        
-        const decoded = jwt.verify(token, 'Segretissimostosegreto');
-        res.status(200).json({ user: { id: decoded.id, username: decoded.username} });
-    } catch (err) {
-        return res.status(401).json({ message: 'Token non valido o scaduto' });
+    
+    const decoded = jwt.verify(token, secret_jwt);
+    
+    if (!decoded.username) {
+      return res.status(401).json({ message: 'Token non valido' });
     }
-  };
+    
+    const username = decoded.username;
+    const user = await User.get(username);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'Utente non trovato' });
+    }
+    
+    res.status(200).json({ 
+      user: { 
+        username: user.username,
+        status: user.status
+      } 
+    });
+    
+  } catch (err) {
+    console.error('Errore in getMe:', err);
+    
+    if (err.name === 'JsonWebTokenError') {
+      return res.status(401).json({ message: 'Token non valido' });
+    }
+    
+    if (err.name === 'TokenExpiredError') {
+      return res.status(401).json({ message: 'Token scaduto' });
+    }
+    
+    return res.status(500).json({ message: 'Errore del server' });
+  }
+};
