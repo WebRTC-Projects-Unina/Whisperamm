@@ -1,9 +1,12 @@
+const { Game } = require('../services/game');
+const { lobbies } = require('./state');
+
 import { useEffect } from "react";
-import { use } from "react";
 
 
 
-const Game = ({socket}) => {
+
+const Game = ({ gameId, user, socket }) => {
 
     useEffect(() => {
 
@@ -25,7 +28,7 @@ const Game = ({socket}) => {
     return (
         <div>
             <h2>Game Component</h2>
-            <button onClick={() => socket.emit('DiceRoll')}>Lancia dadi</button>
+            <button onClick={() => {socket.emit('DiceRoll')}}>Lancia dadi</button>
         </div>
     );
 

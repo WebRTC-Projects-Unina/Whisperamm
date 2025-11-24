@@ -11,6 +11,7 @@ const { connectRedis } = require('./config_redis/redis');
 const http = require('http');
 const { Server } = require('socket.io');
 const registerChatHandlers = require('./socket/chatSocket');
+const registerGameHandlers = require('./socket/gameSocket');
 
 const server = http.createServer(app);
 
@@ -24,9 +25,8 @@ const io = new Server(server, {
   
 });
 
-
 registerChatHandlers(io);
-
+registerGameHandlers(io);
 
 //Connessione a Redis e Test connessione
 connectRedis()
@@ -54,6 +54,8 @@ app.use(express.json());
 // Importo le rotte
 const userRoutes = require('./routes/userRoutes');
 const roomRoutes = require('./routes/roomRoutes');
+const gameSocket = require('./socket/gameSocket');
+const { register } = require('module');
 userRoutes(app); // Registra le rotte
 roomRoutes(app); // Registra le rotte
 
