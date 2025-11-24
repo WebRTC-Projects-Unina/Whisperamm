@@ -1,47 +1,12 @@
-<<<<<<< HEAD
-const { Game } = require('../services/game');
-const { lobbies } = require('./state');
+const { lobbies } = require('./stateSocket');
 
-import { useEffect } from "react";
-
-
-
-
-const Game = ({ gameId, user, socket }) => {
-
-    useEffect(() => {
-
-        socket.on('DiceRollResult', handleDiceRoll);
-        
-        // Cleanup alla disconnessione del componente
-        return () => {
-            socket.off('DiceRollResult', handleDiceRoll);
-        }
-    }, [socket]);
-
-    const handleDiceRoll = (data) => {
-        console.log("Dadi lanciati:", data);
-        // Qui posso fare altre azioni
-    };
-
-
-    
-    return (
-        <div>
-            <h2>Game Component</h2>
-            <button onClick={() => {socket.emit('DiceRoll')}}>Lancia dadi</button>
-        </div>
-    );
-
-
-}
-=======
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import '../style/Game.css';
 
-function Game() {
+
+const Game = () => {
     const { gameId } = useParams();
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -61,6 +26,22 @@ function Game() {
         //bisogna vedere la socket che cosa combina a sto punto
     };
 
+    /* INIZIO LANCIO DADI
+    useEffect(() => {
+
+        socket.on('DiceRollResult', handleDiceRoll);
+        
+        // Cleanup alla disconnessione del componente
+        return () => {
+            socket.off('DiceRollResult', handleDiceRoll);
+        }
+    }, [socket]);
+
+    const handleDiceRoll = (data) => {
+        console.log("Dadi lanciati:", data);
+        // Qui posso fare altre azioni
+    };
+    */
     if (isLoading) {
         return (
             <div className="game-page">
@@ -87,6 +68,9 @@ function Game() {
                 <p className="game-message">La tua partita è in corso...</p>
 
                 <div className="game-buttons">
+                    <button onClick={() => {socket.emit('DiceRoll')}}>
+                        Lancia dadi
+                    </button>
                     <button className="game-btn" onClick={handleBackToLobby}>
                         Torna alla Lobby
                     </button>
@@ -97,4 +81,3 @@ function Game() {
 }
 
 export default Game;
->>>>>>> origin/PPS

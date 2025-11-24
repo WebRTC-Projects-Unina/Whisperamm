@@ -1,7 +1,7 @@
 require('dotenv').config(); //Importa e configura variabili d'ambiente dal file .env
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 8080;
 const { randomUUID } = require('crypto'); // 'crypto' è un modulo built-in
 const cookieParser = require('cookie-parser');
 const { connectRedis } = require('./config_redis/redis');
@@ -58,4 +58,14 @@ roomRoutes(app); // Registra le rotte
 
 server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);
+});
+
+// Miglior debug: registra errori non gestiti
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+  // In produzione potresti terminare il processo: process.exit(1)
 });
