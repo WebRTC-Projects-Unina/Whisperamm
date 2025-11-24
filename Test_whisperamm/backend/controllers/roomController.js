@@ -30,7 +30,7 @@ exports.createGame = async (req, res) => {
 }
 
 // Da modificare
-exports.checkGame = async (req, res) => {
+exports.checkRoom = async (req, res) => {
     try {
         const { gameId } = req.params;
         const { user } = req.body;
@@ -68,6 +68,7 @@ exports.checkGame = async (req, res) => {
                 roomExists: true,
                 userAlreadyExists: true, // Possiamo usare questo flag per implementare un pop up diverso da STANZA NON ESISTE
                 roomName: room.name,
+                host: room.host,
                 maxPlayers: room.maxPlayers
             });
         }else{ //utente non nella stanza, ma adesso dobbiamo contrallare altre cose

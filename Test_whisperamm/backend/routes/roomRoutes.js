@@ -4,8 +4,8 @@ module.exports = (app) => {
     app.route('/api/createGame')
         .post(roomController.createGame);
 
-    app.route('/api/game/checkGame/:gameId')
-        .post(roomController.checkGame)
+    app.route('/api/game/checkRoom/:gameId')
+        .post(roomController.checkRoom)
     
 }
 

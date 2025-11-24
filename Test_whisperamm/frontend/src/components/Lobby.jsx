@@ -30,7 +30,9 @@ function Lobby() {
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null);
     const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
-
+    //bottone avvia partita abilitato solo per admin
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [adminPlayer, setAdminPlayer] = useState(null);
 
     const [lobbyError, setLobbyError] = useState(null);
 
@@ -61,14 +63,13 @@ function Lobby() {
             setLobbyError(null);
 
             try {
-                const response = await fetch(`/api/game/checkGame/${gameId}`, {
+                const response = await fetch(`/api/game/checkRoom/${gameId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user })
                 });
 
                 const data = await response.json();
-
                 // Se nel frattempo il componente è stato smontato (ignore=true), fermati.
                 if (ignore) return;
 
@@ -86,6 +87,10 @@ function Lobby() {
                     setLobbyError(null);
                     setRoomName(data.roomName || '');
                     setMaxPlayers(data.maxPlayers || null);
+                    setAdminPlayer(data.host);
+                    if(user.username === data.host){
+                        setIsAdmin(true);
+                    }
                 }
 
             } catch (err) {
@@ -393,11 +398,30 @@ function Lobby() {
                         {roomFull}
                     </p>
 
+                    <div>
+                        <p>
+                            In questa stanza sei {''}
+                            <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
+                                {isAdmin ? 'Admin' : 'Player'}
+                            </span>
+                        </p>
+                    </div>
+                    
                     <div className="lobby-buttons">
-                        {/* Metti qui i pulsanti che vuoi (es. Pronto, Avvia partita, Esci, ecc.) */}
-                        <button className="lobby-main-btn" disabled>
-                            Pronto/Inizia partita (in arrivo...)
-                        </button>
+                        {isAdmin ? (
+                            <button className="lobby-main-btn" 
+                            disabled//Onclick={handleStartGame}
+                            //disabled={ready_counter < players.length}
+                            >
+                                Inizia Partita
+                            </button>
+                        ) : (
+                            <button className="lobby-main-btn" 
+                            disabled //Onclick={handleReadyUp}
+                            >
+                                Pronto
+                            </button>
+                        )}
                         <button className="lobby-main-btn" onClick={handleBackHome}>
                             Torna alla Home
                         </button>
@@ -426,9 +450,14 @@ function Lobby() {
                                 <span className="sidebar-player-avatar">
                                     {p?.[0]?.toUpperCase() || '?'}
                                 </span>
-                                <span className="sidebar-player-name">
+                                <span className={
+                                    p === adminPlayer
+                                        ? 'sidebar-player-name sidebar-player-admin'
+                                        : 'sidebar-player-name'
+                                }>
                                     {p}
                                     {p === user.username && ' (tu)'}
+                                    {p === adminPlayer && ' (admin)'}
                                 </span>
                             </div>
                         ))}

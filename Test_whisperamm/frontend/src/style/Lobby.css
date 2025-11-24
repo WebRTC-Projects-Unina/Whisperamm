@@ -275,6 +275,22 @@
   font-size: 0.9rem;
 }
 
+.lobby-role-admin {
+    color: #d249ff;  
+    font-weight: bold;
+}
+
+.lobby-role-player {
+    color: #d249ff;
+    font-weight: normal;
+}
+
+.sidebar-player-admin {
+    color: #39ff14; /* Oro */
+    font-weight: bold;
+}
+
+
 /* --- Responsive --- */
 @media (max-width: 900px) {
   .lobby-layout {
