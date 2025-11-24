@@ -332,6 +332,7 @@ class Room {
         const players = await client.sMembers(`room:${roomId}:players`);
     return players
     }
+
 }
 
 module.exports = { Room };

@@ -71,7 +71,7 @@ const Home = () => {
 
         // Mandiamo una POST per controllare l'esistenza della stanza e la possibilità di entrare
         try {
-            const response = await fetch(`/api/game/checkGame/${gameID}`, {
+            const response = await fetch(`/api/game/checkRoom/${gameID}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user })

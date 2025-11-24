@@ -31,10 +31,17 @@ const Lobby = () => {
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null);
     const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
-
+    //bottone avvia partita abilitato solo per admin
+    const [isAdmin, setIsAdmin] = useState(false);
+    const [adminPlayer, setAdminPlayer] = useState(null);
 
     const [lobbyError, setLobbyError] = useState(null);
-
+   
+    const [isReady, setIsReady] = useState(false); // ✅ NUOVO: stato ready locale
+    const [canStartGame, setCanStartGame] = useState(false); // ✅ NUOVO: se admin può iniziare
+    const [allReady, setAllReady] = useState(false); // ✅ NUOVO: se tutti sono pronti
+    const [readyStates, setReadyStates] = useState({}); // ✅ NUOVO: stato ready di ogni giocatore
+  
     //useEffect1
     useEffect(() => {
         // Flag per evitare race conditions se il componente si smonta o gameId cambia
@@ -62,14 +69,13 @@ const Lobby = () => {
             setLobbyError(null);
 
             try {
-                const response = await fetch(`/api/game/checkGame/${gameId}`, {
+                const response = await fetch(`/api/game/checkRoom/${gameId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user })
                 });
 
                 const data = await response.json();
-
                 // Se nel frattempo il componente è stato smontato (ignore=true), fermati.
                 if (ignore) return;
 
@@ -87,6 +93,10 @@ const Lobby = () => {
                     setLobbyError(null);
                     setRoomName(data.roomName || '');
                     setMaxPlayers(data.maxPlayers || null);
+                    setAdminPlayer(data.host);
+                    if(user.username === data.host){
+                        setIsAdmin(true);
+                    }
                 }
 
             } catch (err) {
@@ -166,8 +176,36 @@ const Lobby = () => {
             });
 
 
+            // ✅ NUOVO: Aggiornamento lista giocatori + stato ready
             const handleLobbyPlayers = (payload) => {
                 setPlayers(payload.players || []);
+                setReadyStates(payload.readyStates || {});
+            };
+
+            // ✅ NUOVO: Quando un utente diventa pronto
+            const handleUserReadyUpdate = (payload) => {
+                setReadyStates(payload.readyStates);
+                
+                // Se sono IO che ho premuto pronto
+                if (payload.username === user.username) {
+                    setIsReady(true);
+                }
+            };
+
+            // ✅ NUOVO: Quando TUTTI sono pronti
+            const handleGameCanStart = (payload) => {
+                setAllReady(true);
+                if (isAdmin) {
+                    setCanStartGame(true);
+                }
+            };
+
+            // ✅ NUOVO: Quando tutti pronti, aggiorna i readyStates
+            const handleAllUsersReady = (payload) => {
+                setAllReady(payload.allReady);
+                if (payload.allReady && isAdmin) {
+                    setCanStartGame(true);
+                }
             };
 
             const handleChatMessage = (msg) => {
@@ -180,28 +218,64 @@ const Lobby = () => {
                 socketRef.current.disconnect();
             };
             
-            
+            const handleHostChanged = (payload) => {
+                setAdminPlayer(payload.newHost);
+                setIsAdmin(user.username === payload.newHost);
+                console.log(`Nuovo admin: ${payload.newHost}`);
+            };
+
             socket.on('lobbyError', handleLobbyError); //gestione errori lobby
             socket.on('lobbyPlayers', handleLobbyPlayers); //gestione player in room
             socket.on('chatMessage', handleChatMessage); //gestione messaggi chat
-            
+            socket.on('hostChanged', handleHostChanged); //gestione cambio host
+            socket.on('userReadyUpdate', handleUserReadyUpdate); // ✅ NUOVO: gestione utente pronto
+            socket.on('gameCanStart', handleGameCanStart); // ✅ NUOVO: gestione gioco può iniziare
+            socket.on('allUsersReady', handleAllUsersReady); // ✅ NUOVO: gestione tutti pronti
+            socket.on('gameStarted', handleGameStarted); // ✅ NUOVO
+
         };
         
         socketConnect();
 
             // Funzione di cleanup
         return () => {
-            socket.off('chatMessage', handleChatMessage);
-            socket.off('lobbyPlayers', handleLobbyPlayers);
-            socket.off('lobbyError', handleLobbyError);
+            if (socketRef.current) {
+                socketRef.current.off('chatMessage');
+                socketRef.current.off('lobbyPlayers');
+                socketRef.current.off('lobbyError');
+                socketRef.current.off('hostChanged');
+                socketRef.current.off('userReadyUpdate');
+                socketRef.current.off('gameCanStart');
+                socketRef.current.off('allUsersReady');
+                socketRef.current.off('gameStarted');
 
-            socket.disconnect()
-            socketRef.current = null; // Pulisci lo stato dello socket
+                socketRef.current.disconnect();
+                socketRef.current = null;
+            }
         };
         
     }, [gameId, user, lobbyError, isValidating]); // Dipende da tutte queste condizioni
 
     // --- 4. GESTORI DI EVENTI ---
+
+    // ✅ NUOVO: Gestore per il tasto "Pronto"
+    const handleReady = () => {
+        if (isReady || !socketRef.current) return;
+
+        socketRef.current.emit('userReady', { gameId });
+    };
+
+    // ✅ NUOVO: Gestore per il tasto "Inizia Partita"
+
+    // ✅ MODIFICA: handleStartGame ora invia l'evento al server
+    const handleStartGame = () => {
+        if (!canStartGame || !socketRef.current) return;
+
+        console.log("Admin ha premuto Inizia Partita");
+
+        // Invia l'evento al server, che lo ritrasmette a TUTTI
+        socketRef.current.emit('gameStarted', { gameId });
+    };
 
     // Gestore per l'invio di messaggi in chat
     const handleSubmitChat = (e) => {
@@ -258,6 +332,13 @@ const Lobby = () => {
         }
         navigate('/');
     };
+
+    // ✅ NUOVO: Quando server invia gameStarted, TUTTI navigano
+    const handleGameStarted = (payload) => {
+        console.log("Partita iniziata da admin! Navigazione in corso...");
+        navigate(`/match/${payload.gameId}/game`);
+    };    
+
 
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
@@ -394,11 +475,41 @@ const Lobby = () => {
                         {roomFull}
                     </p>
 
+                    <div>
+                        <p>
+                            In questa stanza sei {''}
+                            <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
+                                {isAdmin ? 'Admin' : 'Player'}
+                            </span>
+                        </p>
+                    </div>
+                    
                     <div className="lobby-buttons">
-                        {/* Metti qui i pulsanti che vuoi (es. Pronto, Avvia partita, Esci, ecc.) */}
-                        <button className="lobby-main-btn" disabled>
-                            Pronto/Inizia partita (in arrivo...)
-                        </button>
+                        {isAdmin ? (
+                            <button 
+                                className="lobby-main-btn" 
+                                onClick={handleStartGame}
+                                disabled={!canStartGame}
+                                style={{
+                                    backgroundColor: canStartGame ? '#2196F3' : '#ccc',
+                                    cursor: canStartGame ? 'pointer' : 'not-allowed'
+                                }}
+                            >
+                                {canStartGame ? '✅ Inizia Partita' : '⏳ In Attesa'}
+                            </button>
+                        ) : (
+                            <button 
+                                className="lobby-main-btn" 
+                                onClick={handleReady}
+                                disabled={isReady}
+                                style={{
+                                    backgroundColor: isReady ? '#4CAF50' : '#2196F3',
+                                    cursor: isReady ? 'not-allowed' : 'pointer'
+                                }}
+                            >
+                                {isReady ? '✅ Pronto' : 'Pronto'}
+                            </button>
+                        )}
                         <button className="lobby-main-btn" onClick={handleBackHome}>
                             Torna alla Home
                         </button>
@@ -427,9 +538,16 @@ const Lobby = () => {
                                 <span className="sidebar-player-avatar">
                                     {p?.[0]?.toUpperCase() || '?'}
                                 </span>
-                                <span className="sidebar-player-name">
+                                <span className={
+                                    p === adminPlayer
+                                        ? 'sidebar-player-name sidebar-player-admin'
+                                        : 'sidebar-player-name'
+                                }>
                                     {p}
                                     {p === user.username && ' (tu)'}
+                                    {p === adminPlayer && ' (admin)'}
+                                    {/* ✅ NUOVO: Mostra il check se l'utente è pronto */}
+                                    {readyStates[p] && <span className="ready-check">✅</span>}                                    
                                 </span>
                             </div>
                         ))}
@@ -438,6 +556,8 @@ const Lobby = () => {
             </div>
         </div>
     );
+
+
 }
 
 export default Lobby;

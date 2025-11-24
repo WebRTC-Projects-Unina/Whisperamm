@@ -1,5 +1,61 @@
 const { lobbies, disconnectTimeouts, RECONNECT_TOLERANCE_MS, registerUserSocket, unregisterUserSocket } = require('./stateSocket');
 const { Room } = require("../services/rooms"); // Assicurati che il percorso sia corretto
+// ✅ NUOVA FUNZIONE: Controlla se tutti gli utenti sono pronti (ESCLUSO L'ADMIN)
+async function checkAllUsersReady(io, gameId) {
+    const client = getRedisClient();
+    const room = await Room.get(gameId);
+    
+    if (!room) return;
+
+    // Filtra i giocatori ESCLUDENDO l'admin
+    const playersToCheck = room.players.filter(p => p !== room.host);
+
+    // Se non ci sono giocatori da controllare (solo admin), considera tutti pronti
+    if (playersToCheck.length === 0) {
+        io.to(gameId).emit('allUsersReady', { allReady: true });
+        return true;
+    }
+
+    // Recupera lo stato "ready" di tutti i giocatori (ESCLUSO ADMIN)
+    const readyStates = await Promise.all(
+        playersToCheck.map(async (username) => {
+            const isReady = await client.hGet(`user:${username}`, 'isready');
+            return isReady === 'true';
+        })
+    );
+
+    // Se TUTTI i giocatori (escluso admin) sono pronti
+    const allReady = readyStates.every(state => state === true);
+    
+    io.to(gameId).emit('allUsersReady', { allReady });
+    
+    return allReady;
+}
+
+// ✅ NUOVA FUNZIONE: Ottiene lo stato "ready" di tutti i giocatori (ESCLUSO L'ADMIN)
+async function getReadyStates(gameId) {
+    const client = getRedisClient();
+    const room = await Room.get(gameId);
+    
+    if (!room) return {};
+
+    const readyStates = {};
+    
+    // Escludiamo l'admin dalla lista
+    const playersToCheck = room.players.filter(p => p !== room.host);
+    
+    for (const username of playersToCheck) {
+        const isReady = await client.hGet(`user:${username}`, 'isready');
+        readyStates[username] = isReady === 'true';
+    }
+
+    // L'admin è sempre considerato "ready" (non ha il bottone)
+    readyStates[room.host] = true;
+
+    return readyStates;
+}
+
+>>>>>>> origin/PPS
 
 // --- HANDLERS ---
 async function handleJoinLobby(io, socket, { gameId, user }) {
@@ -84,6 +140,15 @@ async function handleJoinLobby(io, socket, { gameId, user }) {
     });
 }
 
+async function notifyHostChange(io, gameId) {
+    const room = await Room.get(gameId);
+    if (room) {
+        io.to(gameId).emit('hostChanged', { 
+            newHost: room.host 
+        });
+    }
+}
+
 function handleDisconnect(io, socket) {
     const { gameId, username } = socket.data;
     
@@ -114,6 +179,11 @@ function handleDisconnect(io, socket) {
             if (!updatedRoom) {
                 console.log(`[Redis] Stanza ${gameId} svuotata ed eliminata.`);
                 return; 
+            }
+
+            // Notifica cambio host
+            if (updatedRoom.host !== username) {
+                notifyHostChange(io, gameId);
             }
 
             // Notifica chi è rimasto
@@ -152,8 +222,76 @@ function handleChatMessage(io, socket, { gameId, text }) {
     });
 }
 
+
+// ✅ NUOVO HANDLER: Utente dichiara di essere pronto
+async function handleUserReady(io, socket, { gameId }) {
+    const { username } = socket.data;
+    
+    if (!gameId || !username) {
+        socket.emit('lobbyError', { message: 'Dati mancanti.' });
+        return;
+    }
+
+    const client = getRedisClient();
+
+    // Imposta isready a true
+    await client.hSet(`user:${username}`, 'isready', 'true');
+
+    console.log(`[Socket] ${username} è pronto in ${gameId}`);
+
+    // Recupera lo stato di TUTTI
+    const readyStates = await getReadyStates(gameId);
+
+    // Notifica tutti nella stanza
+    io.to(gameId).emit('userReadyUpdate', { 
+        username,
+        readyStates 
+    });
+
+    // Controlla se TUTTI sono pronti
+    const allReady = await checkAllUsersReady(io, gameId);
+    
+    if (allReady) {
+        io.to(gameId).emit('gameCanStart', { message: 'Tutti i giocatori sono pronti!' });
+    }
+}
+
+// ✅ NUOVO HANDLER: Reset stato ready (quando torna alla lobby)
+async function handleResetReady(io, socket, { gameId }) {
+    const { username } = socket.data;
+    
+    if (!gameId || !username) return;
+
+    const client = getRedisClient();
+    await client.hSet(`user:${username}`, 'isready', 'false');
+
+    console.log(`[Socket] ${username} ha resettato lo stato ready`);
+
+    const readyStates = await getReadyStates(gameId);
+    io.to(gameId).emit('userReadyUpdate', { 
+        username,
+        readyStates 
+    });
+}
+
+// ✅ NUOVO HANDLER: Admin avvia la partita
+async function handleGameStarted(io, socket, { gameId }) {
+    const { username } = socket.data;
+    const room = await Room.get(gameId);
+
+    if (!room || room.host !== username) {
+        socket.emit('lobbyError', { message: 'Solo l\'admin può avviare la partita.' });
+        return;
+    }
+
+    console.log(`[Socket] Admin ${username} ha avviato la partita in ${gameId}`);
+
+    // Notifica TUTTI nella stanza (incluso l'admin)
+    io.to(gameId).emit('gameStarted', { gameId });
+}
 // --- EXPORT E REGISTRAZIONE ---
 
+<<<<<<< HEAD
 function attach(socket, io) {
     // 1. Ingresso in Lobby
     socket.on('joinLobby', (payload) => handleJoinLobby(io, socket, payload));
@@ -166,3 +304,24 @@ function attach(socket, io) {
 }
 
 module.exports = { attach };
+=======
+module.exports = function registerChatHandlers(io) {
+    io.on('connection', (socket) => {
+        
+        // 1. Ingresso in Lobby
+        socket.on('joinLobby', (payload) => handleJoinLobby(io, socket, payload));
+        
+        // 2. Messaggi Chat
+        socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));
+        
+        // 3. Disconnessione (Nativa di Socket.IO)
+        socket.on('disconnect', () => handleDisconnect(io, socket));
+
+        // 4. Utente pronto
+        socket.on('userReady', (payload) => handleUserReady(io, socket, payload));
+        // 5. Reset stato ready
+        socket.on('resetReady', (payload) => handleResetReady(io, socket, payload));
+        // 6. Admin avvia la partita
+        socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
+    });
+};
