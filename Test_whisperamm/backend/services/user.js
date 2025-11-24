@@ -4,7 +4,7 @@ const crypto = require('crypto');
 // Stati validi (enum-like)
 const UserStatus = {
   ONLINE: 'online',
-  INGAME: 'ingame'
+  INGAME: 'inGame'
 };
 
 class User {

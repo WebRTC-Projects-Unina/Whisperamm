@@ -14,9 +14,10 @@ async function handleDiceRoll(io, socket) {
 
 }
 
-module.exports = function registerGameHandlers(io) {
-    io.on('connection', (socket) => {
-        // 1. Gestione del lancio dei dadi
-        socket.on('diceRoll', (payload) => handleDiceRoll(io, socket, payload));
-    });
+function attach(socket, io) {
+    
+    socket.on('diceRoll', (payload) => handleDiceRoll(io, socket, payload));
+    
 }
+
+module.exports = { attach };

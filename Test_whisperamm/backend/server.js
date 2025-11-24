@@ -7,11 +7,10 @@ const cookieParser = require('cookie-parser');
 const { connectRedis } = require('./config_redis/redis');
 
 //Inizio aggiunta
-// aggancio chatSocket.js
+// aggancio socket controller
 const http = require('http');
 const { Server } = require('socket.io');
-const registerChatHandlers = require('./socket/chatSocket');
-const registerGameHandlers = require('./socket/gameSocket');
+const registerSocketController = require('./socket/socketController');
 
 const server = http.createServer(app);
 
@@ -25,8 +24,8 @@ const io = new Server(server, {
   
 });
 
-registerChatHandlers(io);
-registerGameHandlers(io);
+// Registra un unico controller che attacca tutti gli handler per connessione
+registerSocketController(io);
 
 //Connessione a Redis e Test connessione
 connectRedis()
@@ -54,8 +53,6 @@ app.use(express.json());
 // Importo le rotte
 const userRoutes = require('./routes/userRoutes');
 const roomRoutes = require('./routes/roomRoutes');
-const gameSocket = require('./socket/gameSocket');
-const { register } = require('module');
 userRoutes(app); // Registra le rotte
 roomRoutes(app); // Registra le rotte
 

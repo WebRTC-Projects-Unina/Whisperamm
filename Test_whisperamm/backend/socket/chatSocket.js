@@ -154,16 +154,15 @@ function handleChatMessage(io, socket, { gameId, text }) {
 
 // --- EXPORT E REGISTRAZIONE ---
 
-module.exports = function registerChatHandlers(io) {
-    io.on('connection', (socket) => {
-        
-        // 1. Ingresso in Lobby
-        socket.on('joinLobby', (payload) => handleJoinLobby(io, socket, payload));
-        
-        // 2. Messaggi Chat
-        socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));
-        
-        // 3. Disconnessione (Nativa di Socket.IO)
-        socket.on('disconnect', () => handleDisconnect(io, socket));
-    });
-};
+function attach(socket, io) {
+    // 1. Ingresso in Lobby
+    socket.on('joinLobby', (payload) => handleJoinLobby(io, socket, payload));
+
+    // 2. Messaggi Chat
+    socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));
+
+    // 3. Disconnessione (Nativa di Socket.IO)
+    socket.on('disconnect', () => handleDisconnect(io, socket));
+}
+
+module.exports = { attach };
