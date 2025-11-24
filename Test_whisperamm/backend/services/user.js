@@ -28,6 +28,7 @@ class User {
     await multi.hSet(`user:${username}`, {
       username,
       status,
+      isready : 'false', //utile per il gioco
       createdAt,
       updatedAt: createdAt  //Ci potrebbe servire per eliminare gli utenti inattivi
     });

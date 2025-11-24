@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 const { Game } = require('../services/game');
 const { lobbies } = require('./state');
 
@@ -34,6 +35,7 @@ const Game = ({ gameId, user, socket }) => {
 
 
 }
+=======
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
@@ -95,3 +97,4 @@ function Game() {
 }
 
 export default Game;
+>>>>>>> origin/PPS
