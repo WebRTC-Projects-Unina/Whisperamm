@@ -5,7 +5,8 @@ import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthProvider'; // <-- IMPORTA
 import '../style/Lobby.css';
 
-function Lobby() {
+
+const Lobby = () => {
     
     //Con questa inizializzazione di user, inizializziamo isValidating con un valore
     const { user, setUser } = useAuth();
