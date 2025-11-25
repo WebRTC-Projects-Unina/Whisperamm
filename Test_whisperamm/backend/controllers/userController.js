@@ -53,7 +53,7 @@ exports.register = async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
-      maxAge: 3 * 60 * 60 * 1000
+      maxAge: 3 * 60 * 60 * 1000 // Il cookie scade in 3 ore
     });
     
     console.log(`Utente registrato: ${createdUsername} (Status: ${UserStatus.ONLINE})`);

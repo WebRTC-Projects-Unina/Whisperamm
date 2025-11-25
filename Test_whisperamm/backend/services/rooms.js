@@ -1,5 +1,6 @@
 const { getRedisClient } = require('../config_redis/redis');
 const crypto = require('crypto');
+const { Game } = require('./game');
 
 // Stati validi per le stanze
 const RoomStatus = {
@@ -177,9 +178,11 @@ class Room {
         multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
 
         //Se dunque siamo arrivati al massimo di giocatori, la stanza passa automaticamente a PLAYING
+        /*
         if(playersCount + 1 >= parseInt(room.maxPlayers)) {
             multi.hSet(`room:${roomId}`, 'status', RoomStatus.PLAYING);
         }   
+        */
 
         await multi.exec();
         
@@ -202,6 +205,16 @@ class Room {
         
         // Rimuovi il giocatore
         await client.sRem(`room:${roomId}:players`, username);
+
+        // Sincronizza la rimozione anche nelle eventuali partita associate a questa stanza
+        try {
+            const games = await Game.getByRoom(roomId);
+            if (games && games.length > 0) {
+                await Promise.all(games.map(g => Game.removePlayer(g.gameId, username).catch(() => {})));
+            }
+        } catch (e) {
+            console.error('Errore sincronizzazione removal player su games:', e);
+        }
         
         // Recupera i giocatori rimanenti
         const remainingPlayers = await client.sMembers(`room:${roomId}:players`);
@@ -319,6 +332,7 @@ class Room {
         const players = await client.sMembers(`room:${roomId}:players`);
     return players
     }
+
 }
 
 module.exports = { Room };

@@ -1,16 +1,16 @@
 require('dotenv').config(); //Importa e configura variabili d'ambiente dal file .env
 const express = require('express');
 const app = express();
-const PORT = process.env.PORT;
+const PORT = process.env.PORT || 8080;
 const { randomUUID } = require('crypto'); // 'crypto' è un modulo built-in
 const cookieParser = require('cookie-parser');
 const { connectRedis } = require('./config_redis/redis');
 
 //Inizio aggiunta
-// aggancio chatSocket.js
+// aggancio socket controller
 const http = require('http');
 const { Server } = require('socket.io');
-const registerChatHandlers = require('./socket/chatSocket');
+const registerSocketController = require('./socket/socketController');
 
 const server = http.createServer(app);
 
@@ -24,9 +24,8 @@ const io = new Server(server, {
   
 });
 
-
-registerChatHandlers(io);
-
+// Registra un unico controller che attacca tutti gli handler per connessione
+registerSocketController(io);
 
 //Connessione a Redis e Test connessione
 connectRedis()
@@ -52,9 +51,21 @@ app.use(cookieParser());
 app.use(express.json());
 
 // Importo le rotte
-const routes = require('./routes/userRoutes');
-routes(app); // Registra le rotte
+const userRoutes = require('./routes/userRoutes');
+const roomRoutes = require('./routes/roomRoutes');
+userRoutes(app); // Registra le rotte
+roomRoutes(app); // Registra le rotte
 
 server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);
+});
+
+// Miglior debug: registra errori non gestiti
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
+  // In produzione potresti terminare il processo: process.exit(1)
 });
