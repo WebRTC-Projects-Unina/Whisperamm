@@ -1,5 +1,6 @@
 const { lobbies, disconnectTimeouts, RECONNECT_TOLERANCE_MS, registerUserSocket, unregisterUserSocket } = require('./stateSocket');
 const { Room } = require("../services/rooms"); // Assicurati che il percorso sia corretto
+const { getRedisClient } = require('../config_redis/redis');   
 
 // ✅ NUOVA FUNZIONE: Controlla se tutti gli utenti sono pronti (ESCLUSO L'ADMIN)
 async function checkAllUsersReady(io, gameId) {
