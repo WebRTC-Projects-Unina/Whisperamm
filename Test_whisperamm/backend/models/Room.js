@@ -1,5 +1,5 @@
 // models/Room.js
-const { getRedisClient } = require('../config_redis/redis');
+const { getRedisClient } = require('./redis');
 const crypto = require('crypto');
 
 // Stati validi per le stanze

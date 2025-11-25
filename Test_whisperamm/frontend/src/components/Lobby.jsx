@@ -13,10 +13,10 @@ const Lobby = () => {
     const { user, setUser } = useAuth();
     //Inizializza isValidating basandoti sulla presenza dell'utente
     const [isValidating, setIsValidating] = useState(!!user);
-    //Recuperiamo dunque anche il gameId.
-    const { gameId } = useParams();
+    //Recuperiamo dunque anche il roomId.
+    const { roomId } = useParams();
 
-    //Poichè user e gameId sono inclusi nella dipendenza dell'useEffect1 (HTTP)
+    //Poichè user e roomId sono inclusi nella dipendenza dell'useEffect1 (HTTP)
     //ne causa l'attivazione immediata al primo render
 
 
@@ -47,11 +47,11 @@ const Lobby = () => {
 
     //useEffect1
     useEffect(() => {
-        // Flag per evitare race conditions se il componente si smonta o gameId cambia
+        // Flag per evitare race conditions se il componente si smonta o roomId cambia
         let ignore = false;
 
         // 1. Reset preventivo
-        if (!gameId) {
+        if (!roomId) {
             setLobbyError("ID partita non trovato.");
             setIsValidating(false);
             return;
@@ -72,7 +72,7 @@ const Lobby = () => {
             setLobbyError(null);
 
             try {
-                const response = await fetch(`/api/game/checkRoom/${gameId}`, {
+                const response = await fetch(`/api/game/checkRoom/${roomId}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ user })
@@ -117,11 +117,11 @@ const Lobby = () => {
 
         checkLobby();
 
-        // Se gameId cambia mentre stavo facendo la fetch,
+        // Se roomId cambia mentre stavo facendo la fetch,
         // ignora il risultato della fetch vecchia.
         return () => {ignore = true;};
 
-    }, [user, gameId]); //forse non dovrebbe servire osservare gameID
+    }, [user, roomId]); //forse non dovrebbe servire osservare gameID
 
 
     // Si attiva se 'lobbyError' cambia da null a un messaggio
@@ -175,7 +175,7 @@ const Lobby = () => {
             // Gestisci l'evento 'connect'
             socket.on('connect', () => {
                 console.log('Socket connesso, id:', socket.id);
-                socket.emit('joinLobby', { gameId, user});
+                socket.emit('joinLobby', { roomId, user});
             });
 
 
@@ -257,7 +257,7 @@ const Lobby = () => {
             }
         };
         
-    }, [gameId, user, lobbyError, isValidating]); // Dipende da tutte queste condizioni
+    }, [roomId, user, lobbyError, isValidating]); // Dipende da tutte queste condizioni
 
     // --- 4. GESTORI DI EVENTI ---
 
@@ -265,7 +265,7 @@ const Lobby = () => {
     const handleReady = () => {
         if (isReady || !socketRef.current) return;
 
-        socketRef.current.emit('userReady', { gameId });
+        socketRef.current.emit('userReady', { roomId });
     };
 
     // ✅ NUOVO: Gestore per il tasto "Inizia Partita"
@@ -277,7 +277,7 @@ const Lobby = () => {
         console.log("Admin ha premuto Inizia Partita");
 
         // Invia l'evento al server, che lo ritrasmette a TUTTI
-        socketRef.current.emit('gameStarted', { gameId });
+        socketRef.current.emit('gameStarted', { roomId });
     };
 
     // Gestore per l'invio di messaggi in chat
@@ -287,7 +287,7 @@ const Lobby = () => {
         if (!newMessage.trim() || !socketRef || !user) return;
 
         socketRef.current.emit('chatMessage', {
-            gameId,
+            roomId,
             from: user.username, // Usa l'utente del context
             text: newMessage.trim(),
         });
@@ -340,7 +340,7 @@ const Lobby = () => {
     const handleGameStarted = (payload) => {
         console.log("Partita iniziata da admin! Navigazione in corso...");
         setGameLoading(true);
-//        navigate(`/match/${payload.gameId}/game`);
+        navigate(`/match/${payload.roomId}/game`);
     };    
 
 
@@ -393,7 +393,7 @@ const Lobby = () => {
 
                 <div className="lobby-info">
                     <p className="lobby-label">Codice stanza</p>
-                    <p className="lobby-room-code">{gameId}</p>
+                    <p className="lobby-room-code">{roomId}</p>
                 </div>
 
                 <p className="lobby-subtitle">
@@ -478,7 +478,7 @@ const Lobby = () => {
                         <p className="lobby-label">Nome stanza</p>
                         <p className="lobby-room-name">{roomName || 'Sconosciuto'}</p>
                         <p className="lobby-label">Codice stanza</p>
-                        <p className="lobby-room-code">{gameId}</p>
+                        <p className="lobby-room-code">{roomId}</p>
                     </div>
 
                     <p className="lobby-subtitle">

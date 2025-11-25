@@ -1,9 +1,8 @@
 const chatSocket = require('./chatSocket');
 const gameSocket = require('./gameSocket');
 
-/**
- * Central socket controller
- */
+//Central socket controller
+
 module.exports = function registerSocketController(io) {
     io.on('connection', (socket) => {
         // Possiamo aggiungere un middleware per ogni socket.

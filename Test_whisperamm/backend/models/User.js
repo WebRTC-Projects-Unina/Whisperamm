@@ -1,5 +1,5 @@
 // models/User.js
-const { getRedisClient } = require('../config_redis/redis');
+const { getRedisClient } = require('./redis');
 
 const UserStatus = {
   ONLINE: 'online',

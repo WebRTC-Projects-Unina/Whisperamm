@@ -4,7 +4,7 @@ const app = express();
 const PORT = process.env.PORT || 8080;
 const { randomUUID } = require('crypto'); // 'crypto' è un modulo built-in
 const cookieParser = require('cookie-parser');
-const { connectRedis } = require('./config_redis/redis');
+const { connectRedis } = require('./models/redis');
 
 //Inizio aggiunta
 // aggancio socket controller

@@ -13,7 +13,7 @@ const Home = () => {
     const [isCreating, setIsCreating] = useState(false);
     // Stati per la partita
     const [lobbyName, setLobbyName] = useState('');
-    const [gameID, setGameID] = useState('');
+    const [roomId, setRoomId] = useState('');
     const [maxPlayers, setMaxPlayers] = useState('');
     const [rounds, setRounds] = useState('');
 
@@ -71,7 +71,7 @@ const Home = () => {
 
         // Mandiamo una POST per controllare l'esistenza della stanza e la possibilità di entrare
         try {
-            const response = await fetch(`/api/game/checkRoom/${gameID}`, {
+            const response = await fetch(`/api/game/checkRoom/${roomId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ user })
@@ -92,7 +92,7 @@ const Home = () => {
                 console.log("Stanza trovata e accessibile.");
                 // Se tutto va bene, reindirizza alla pagina della partita
                 //Qui forse user malevolo potrebbe accedere anche se non esiste, togliendo il check sulla response.ok
-                navigate(`/match/${gameID}`);
+                navigate(`/match/${roomId}`);
             }
 
         } catch (err) {
@@ -195,11 +195,11 @@ const Home = () => {
                 )}
                 <form onSubmit={handleSubmitJoinGame}>
                     <div className="form-group">
-                        <label htmlFor='gameId'>ID Stanza</label>
+                        <label htmlFor='roomId'>ID Stanza</label>
                         <input type='text'
-                               id="gameID"
-                               value={gameID}
-                               onChange={(e) => setGameID(e.target.value)}
+                               id="roomId"
+                               value={roomId}
+                               onChange={(e) => setRoomId(e.target.value)}
                                placeholder='Es. C2929'
                                autoFocus
                         />

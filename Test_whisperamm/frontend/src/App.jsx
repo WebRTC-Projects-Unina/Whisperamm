@@ -13,7 +13,7 @@ const router = createBrowserRouter([
 
     //Se uno ha il link può entrare nella partita..DEVE ESSERE REGISTRATO
     {
-        path: "/match/:gameId", // URL della partita con un ID dinamico
+        path: "/match/:roomId", // URL della partita con un ID dinamico
         element: <Lobby/>, // Mostra il componente Match
     }
 ]);
