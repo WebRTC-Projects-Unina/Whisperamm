@@ -4,7 +4,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { useAuth } from '../context/AuthProvider'; // <-- IMPORTA
 import '../style/Lobby.css';
-
+import Game from './Game';
+import { use } from 'react';
 
 const Lobby = () => {
     
@@ -41,7 +42,9 @@ const Lobby = () => {
     const [canStartGame, setCanStartGame] = useState(false); // ✅ NUOVO: se admin può iniziare
     const [allReady, setAllReady] = useState(false); // ✅ NUOVO: se tutti sono pronti
     const [readyStates, setReadyStates] = useState({}); // ✅ NUOVO: stato ready di ogni giocatore
-  
+    const [gameLoading, setGameLoading] = useState(false); // Per gestire il caricamento della partita
+
+
     //useEffect1
     useEffect(() => {
         // Flag per evitare race conditions se il componente si smonta o gameId cambia
@@ -336,7 +339,8 @@ const Lobby = () => {
     // ✅ NUOVO: Quando server invia gameStarted, TUTTI navigano
     const handleGameStarted = (payload) => {
         console.log("Partita iniziata da admin! Navigazione in corso...");
-        navigate(`/match/${payload.gameId}/game`);
+        setGameLoading(true);
+//        navigate(`/match/${payload.gameId}/game`);
     };    
 
 
@@ -348,8 +352,14 @@ const Lobby = () => {
         }
     }, [players]);
 
+    
 
     // --- RENDER CONDIZIONALE ---
+
+    if (gameLoading) {
+        console.log("Caricamento partita...");
+        return <Game />;
+    }
 
     if (isValidating) {
         return (
@@ -546,8 +556,8 @@ const Lobby = () => {
                                     {p}
                                     {p === user.username && ' (tu)'}
                                     {p === adminPlayer && ' (admin)'}
-                                    {/* ✅ NUOVO: Mostra il check se l'utente è pronto */}
-                                    {readyStates[p] && <span className="ready-check">✅</span>}                                    
+                                    {/* ✅ NUOVO: Mostra il check se l'utente è pronto (NON per admin) */}
+                                    {readyStates[p] && p !== adminPlayer && <span className="ready-check">✅</span>}    
                                 </span>
                             </div>
                         ))}
