@@ -59,13 +59,3 @@ roomRoutes(app); // Registra le rotte
 server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);
 });
-
-// Miglior debug: registra errori non gestiti
-process.on('unhandledRejection', (reason, promise) => {
-  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-});
-
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception thrown:', err);
-  // In produzione potresti terminare il processo: process.exit(1)
-});
