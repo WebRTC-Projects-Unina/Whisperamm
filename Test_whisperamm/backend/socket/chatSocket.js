@@ -2,13 +2,11 @@
 const { lobbies, disconnectTimeouts, RECONNECT_TOLERANCE_MS, registerUserSocket, unregisterUserSocket } = require('./stateSocket');
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
-const GameService = require('../services/gameService');
 
 // --- HANDLERS ---
 async function handleJoinLobby(io, socket, { roomId, user }) {
     // Validazione input base
     console.log(`[Socket] Utente tenta di entrare in lobby ${roomId}`);
-    console.log(user);
     if (!roomId || !user || !user.username) {
         socket.emit('lobbyError', { message: 'Dati mancanti per l\'ingresso.' });
         return;

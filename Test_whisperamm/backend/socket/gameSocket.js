@@ -7,6 +7,15 @@ const PayloadUtils = require('../utils/gamePayloadUtils')
 async function handleGameStarted(io, socket, { roomId }) {
     const { username } = socket.data;
 
+    gamePayload = {roomId}
+    console.log("Game Payload"+gamePayload)
+    NotificationService.broadcastToRoom(
+        io,             // 1. io
+        roomId,         // 2. roomId (Corretto: prima la stanza)
+        'gameStarted',  // 3. eventName (Corretto: poi il nome evento)
+        gamePayload     // 4. payload (Serve al frontend per il navigate!)
+    );
+
     try {
         // 1. VALIDAZIONE, boh nun serv pens
         const isHost = await RoomService.isUserHost(roomId, username);
@@ -24,10 +33,12 @@ async function handleGameStarted(io, socket, { roomId }) {
         // 3. STEP A: BROADCAST (Dati Pubblici, round e phase)
         const publicPayload = PayloadUtils.buildPublicGameData(game);
         
+
+
         NotificationService.broadcastToRoom(
             io, 
             roomId, 
-            'gameStarted', //Sennò front-end non sa quando passare a component..  
+            'parametri', //Sennò front-end non sa quando passare a component..  
             publicPayload
         );
 
@@ -37,7 +48,7 @@ async function handleGameStarted(io, socket, { roomId }) {
         // Diciamo a ciascuno: "Ecco chi sei tu segretamente".
         // Il Frontend userà questo per mostrare la parola segreta.
         NotificationService.sendPersonalizedToRoom(
-            io, 
+            io,
             roomId, 
             game.players, 
             'identityAssigned', // <--- Evento B (Privato)
