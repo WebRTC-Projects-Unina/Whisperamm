@@ -1,4 +1,4 @@
-const { getRedisClient } = require('../config_redis/redis');
+const { getRedisClient } = require('./redis');
 const crypto = require('crypto');
 
 // Definiamo gli stati qui o in un file constants, per ora li teniamo qui
@@ -12,13 +12,13 @@ const GameStatus = {
 
 class Game {
 
-    /**
+    /*
      * Crea la struttura dati su Redis
      */
+
     static async create(roomId, playersList) {
         const client = getRedisClient();
         const gameId = crypto.randomUUID();
-        const createdAt = new Date().toISOString();
 
         const multi = client.multi();
 
@@ -26,9 +26,7 @@ class Game {
         multi.hSet(`game:${gameId}`, {
             gameId,
             roomId,
-            status: GameStatus.DICE_ROLLING,
-            createdAt,
-            updatedAt: createdAt,
+            status: GameStatus.ASSIGNMENT,
             round: 1
         });
 

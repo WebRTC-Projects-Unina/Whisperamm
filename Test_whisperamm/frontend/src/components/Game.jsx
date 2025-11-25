@@ -24,22 +24,7 @@ const Game = () => {
         //bisogna vedere la socket che cosa combina a sto punto
     };
 
-    /* INIZIO LANCIO DADI
-    useEffect(() => {
-
-        socket.on('DiceRollResult', handleDiceRoll);
-        
-        // Cleanup alla disconnessione del componente
-        return () => {
-            socket.off('DiceRollResult', handleDiceRoll);
-        }
-    }, [socket]);
-
-    const handleDiceRoll = (data) => {
-        console.log("Dadi lanciati:", data);
-        // Qui posso fare altre azioni
-    };
-    */
+    
     if (isLoading) {
         return (
             <div className="game-page">
