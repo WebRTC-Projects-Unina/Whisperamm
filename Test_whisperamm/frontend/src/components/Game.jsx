@@ -1,51 +1,84 @@
-import { io } from 'socket.io-client';
+// src/pages/Game.jsx
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
+import { useSocket } from '../context/SocketProvider'; 
 import '../style/Game.css';
 
-
 const Game = () => {
-    const { gameId } = useParams();
+    const { roomId } = useParams(); 
     const { user } = useAuth();
     const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(true);
+    
+    // Recuperiamo la socket dal Context (connessione già attiva dalla Lobby)
+    const { socket, disconnectSocket } = useSocket(); 
+    
+    // STATI PER I DATI DI GIOCO
+    const [gameState, setGameState] = useState(null);      // Dati pubblici (da 'parametri')
+    const [userIdentity, setUserIdentity] = useState(null); // Dati privati (da 'identityAssigned')
+    const [revealSecret, setRevealSecret] = useState(false); // UI: per nascondere/mostrare la parola
 
+
+
+    // --- SETUP LISTENER ---
     useEffect(() => {
-        // Simula il caricamento
-        const timer = setTimeout(() => {
-            setIsLoading(false);
-        }, 500);
-
-        return () => clearTimeout(timer);
-    }, []);
-
-    const handleBackToLobby = () => {
-        navigate(`/`);
-        //bisogna vedere la socket che cosa combina a sto punto
-    };
-
-    /* INIZIO LANCIO DADI
-    useEffect(() => {
-
-        socket.on('DiceRollResult', handleDiceRoll);
-        
-        // Cleanup alla disconnessione del componente
-        return () => {
-            socket.off('DiceRollResult', handleDiceRoll);
+        if (!socket) {
+            navigate('/');
+            return;
         }
-    }, [socket]);
 
-    const handleDiceRoll = (data) => {
-        console.log("Dadi lanciati:", data);
-        // Qui posso fare altre azioni
+        console.log("🎮 Game montato. Setup listener...");
+
+        const handleGameParams = (payload) => {
+            console.log("Dati pubblici ricevuti:", payload);
+            setGameState(payload);
+        };
+
+        const handleIdentity = (payload) => {
+            console.log("Identità ricevuta:", payload);
+            setUserIdentity(payload);
+        };
+
+        // 1. Attiviamo le orecchie
+        socket.on('parametri', handleGameParams);
+        socket.on('identityAssigned', handleIdentity);
+
+        // Cleanup
+        return () => {
+            if (socket) {
+                socket.off('parametri', handleGameParams);
+                socket.off('identityAssigned', handleIdentity);
+            }
+        };
+    }, [socket, navigate, roomId]); // Aggiunto roomId alle dipendenze
+
+
+
+
+    // --- HANDLERS AZIONI ---
+    const handleLeaveGame = () => {
+        if (window.confirm("Sei sicuro di voler abbandonare la partita?")) {
+            disconnectSocket(); // Chiude la connessione
+            navigate(`/`);
+        }
     };
-    */
-    if (isLoading) {
+
+    const handleDiceRoll = () => {
+        if(socket) {
+            // Esempio azione
+            socket.emit('DiceRoll', { roomId });
+        }
+    };
+
+    // --- RENDER ---
+    
+    // Se non abbiamo ancora i dati essenziali, mostriamo un loader
+    if (!socket || !gameState) {
         return (
             <div className="game-page">
                 <div className="game-card">
-                    <h1 className="game-subtitle">Caricamento partita...</h1>
+                    <h1 className="game-subtitle">In attesa dei dati di gioco...</h1>
+                    <div className="spinner"></div> {/* Aggiungi css spinner se vuoi */}
                 </div>
             </div>
         );
@@ -54,24 +87,56 @@ const Game = () => {
     return (
         <div className="game-page">
             <div className="game-card">
-                <h1 className="game-title">🎮 Ciao!</h1>
-                <p className="game-subtitle">Il game è iniziato</p>
+                {/* HEADER */}
+                <header className="game-header">
+                    <div>
+                        <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
+                        <p className="game-subtitle">Fase: {gameState.phase || 'Loading...'}</p>
+                    </div>
+                    <div className="game-room-badge">
+                        Stanza: {roomId}
+                    </div>
+                </header>
                 
-                <div className="game-info">
-                    <p className="game-label">Giocatore</p>
-                    <p className="game-username">{user?.username || 'Sconosciuto'}</p>
-                    <p className="game-label">Stanza</p>
-                    <p className="game-room-code">{gameId}</p>
+                <hr className="divider"/>
+
+                {/* INFO SEGRETE UTENTE */}
+                <div className="game-secret-section">
+                    <h3>La tua Identità</h3>
+                    
+                    {userIdentity ? (
+                        <div className="secret-card" onClick={() => setRevealSecret(!revealSecret)}>
+                            <p className="secret-label">
+                                {revealSecret ? "Nascondi 🔒" : "Tocca per rivelare 👁️"}
+                            </p>
+                            
+                            <div className={`secret-content ${revealSecret ? 'revealed' : 'blurred'}`}>
+                                {/* Adatta questi campi in base a cosa manda PayloadUtils.buildPrivateIdentity */}
+                                <p><strong>Ruolo:</strong> {userIdentity.role || 'Giocatore'}</p>
+                                {userIdentity.secretWord && (
+                                    <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        <p>Assegnazione ruolo in corso...</p>
+                    )}
                 </div>
 
-                <p className="game-message">La tua partita è in corso...</p>
+                <div className="game-area">
+                    {/* Qui visualizzi lo stato pubblico (es. chi tocca giocare) */}
+                    <p className="game-status-text">
+                        Giocatori attivi: {gameState.activePlayersCount || '?'}
+                    </p>
+                </div>
 
+                {/* PULSANTIERA */}
                 <div className="game-buttons">
-                    <button onClick={() => {socket.emit('DiceRoll')}}>
-                        Lancia dadi
+                    <button className="game-btn-action" onClick={handleDiceRoll}>
+                        🎲 Azione Gioco
                     </button>
-                    <button className="game-btn" onClick={handleBackToLobby}>
-                        Torna alla Lobby
+                    <button className="game-btn-danger" onClick={handleLeaveGame}>
+                        Abbandona
                     </button>
                 </div>
             </div>

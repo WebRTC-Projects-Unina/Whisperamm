@@ -1,31 +1,43 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
-import Registrazione from './components/Registrazione'
+import Registrazione from './components/Registrazione';
 import Lobby from './components/Lobby';
-// Importo il provider
-import { AuthProvider} from './context/AuthProvider';
+import Game from './components/Game';
 
-// Definisco le rotte che verranno gestite dal componente di ReactV6: RouterProvider
+// Importo i DUE provider
+import { AuthProvider } from './context/AuthProvider';
+import { SocketProvider } from './context/SocketProvider'; // <--- Importalo
+
 const router = createBrowserRouter([
     {
-        path: "/", // URL principale
-        element: <Registrazione />, // Mostra il Menu
+        path: "/",
+        element: <Registrazione />,
     },
-
-    //Se uno ha il link può entrare nella partita..DEVE ESSERE REGISTRATO
     {
-        path: "/match/:gameId", // URL della partita con un ID dinamico
-        element: <Lobby/>, // Mostra il componente Match
+        path: "/match/:roomId",
+        element: <Lobby/>,
+    },
+    {
+        path: "/match/:roomId/game",
+        element: <Game/>,
     }
 ]);
 
-// Gestisci il router in App
 function App() {
     return (
-        // 2. AVVOLGI IL ROUTERPROVIDER CON L'AUTHPROVIDER
-        
-            <AuthProvider>
-                    <RouterProvider router={router} />
-            </AuthProvider>
-    );}
+        // LIVELLO 1: Gestisce "Chi sono" (User)
+        <AuthProvider>
+            
+            {/* LIVELLO 2: Gestisce "La connessione" (Socket) */}
+            {/* Nota: SocketProvider sta DENTRO AuthProvider perché ha bisogno di 'user' */}
+            <SocketProvider>
+                
+                {/* LIVELLO 3: Gestisce "Dove sono" (Pagine) */}
+                <RouterProvider router={router} />
+                
+            </SocketProvider>
+
+        </AuthProvider>
+    );
+}
 
 export default App;

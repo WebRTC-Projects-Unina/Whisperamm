@@ -1,62 +1,73 @@
-const { lobbies } = require('./stateSocket');
-const { Game } = require('../services/game');
+// src/socket/gameSocket.js
+const GameService = require('../services/gameService');
+const RoomService = require('../services/roomService');
+const NotificationService = require('../services/notificationService'); // Nota la maiuscola se il file è maiuscolo
+const PayloadUtils = require('../utils/gamePayloadUtils')
 
+async function handleGameStarted(io, socket, { roomId }) {
+    const { username } = socket.data;
 
-async function handleDiceRoll(io, socket) {
-
-    console.log(`[Socket] Ricevuta richiesta di lancio dadi da ${username} in gioco ${gameId}`);
-    const username = socket.data.username;
-    const gameId = socket.data.gameId;
-
-    // Controlli di sicurezza
-    if (!gameId || !username) return;
-
-    console.log(`[Socket] Ricevuta richiesta di lancio dadi da ${username} in gioco ${gameId}`);
-    
-
-
-    
-    
-
-
-}
-
-async function handleDiceRoll(io, socket, payload, ack) {
-    console.log(`[Socket] Ricevuta richiesta di lancio dadi da ${username} in gioco ${gameId}`);
-
-    const { gameId, username } = socket.data;
-    if (!gameId || !username) {
-        if (typeof ack === 'function') ack({ ok: false, message: 'Non autenticato' });
-        return;
-    }
+    gamePayload = {roomId}
+    console.log("Game Payload"+gamePayload)
+    NotificationService.broadcastToRoom(
+        io,             // 1. io
+        roomId,         // 2. roomId (Corretto: prima la stanza)
+        'gameStarted',  // 3. eventName (Corretto: poi il nome evento)
+        gamePayload     // 4. payload (Serve al frontend per il navigate!)
+    );
 
     try {
-        const game = await Game.get(gameId);
-        if (!game) {
-        if (typeof ack === 'function') ack({ ok: false, message: 'Partita non trovata' });
-        return;
+        // 1. VALIDAZIONE, boh nun serv pens
+        const isHost = await RoomService.isUserHost(roomId, username);
+        if (!isHost) {
+            socket.emit('lobbyError', { message: 'Solo l\'admin può avviare la partita.' });
+            return;
         }
 
-        // Usa il service per lanciare i dadi per TUTTI
-        const result = await GameService.rollDiceForAllPlayers(gameId);
+        console.log(`[Socket] Admin ${username} avvia gioco in ${roomId}`);
 
-        // Emetti il risultato a tutti
-        io.to(gameId).emit('diceRollComplete', {
-        updates: result.updates,
-        newStatus: result.status
-        });
+        // 2. BUSINESS LOGIC (Creazione)
+        const playersList = await RoomService.getPlayers(roomId);
+        const game = await GameService.createGame(roomId, playersList);
 
-        if (typeof ack === 'function') ack({ ok: true, result });
+        // 3. STEP A: BROADCAST (Dati Pubblici, round e phase)
+        const publicPayload = PayloadUtils.buildPublicGameData(game);
+        
+
+
+        NotificationService.broadcastToRoom(
+            io, 
+            roomId, 
+            'parametri', //Sennò front-end non sa quando passare a component..  
+            publicPayload
+        );
+
+        console.log("Tutti hanno ricevuto le informazioni base")
+
+        // 4. STEP B: TARGETED (Dati Privati)
+        // Diciamo a ciascuno: "Ecco chi sei tu segretamente".
+        // Il Frontend userà questo per mostrare la parola segreta.
+        NotificationService.sendPersonalizedToRoom(
+            io,
+            roomId, 
+            game.players, 
+            'identityAssigned', // <--- Evento B (Privato)
+            (player) => {
+                // Callback che costruisce il dato privato
+                return PayloadUtils.buildPrivateIdentity(player, game.secrets);
+            }
+        );
+
     } catch (err) {
-        console.error('Errore in handleDiceRoll:', err);
-        if (typeof ack === 'function') ack({ ok: false, message: err.message });
+        console.error(`[Errore] handleGameStarted:`, err);
+        socket.emit('lobbyError', { 
+            message: err.message || 'Errore avvio partita' 
+        });
     }
-
 }
+
 function attach(socket, io) {
-    
-    socket.on('diceRoll', (payload) => handleDiceRoll(io, socket, payload));
-    
+    socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
 }
 
 module.exports = { attach };
