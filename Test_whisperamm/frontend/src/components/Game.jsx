@@ -10,36 +10,36 @@ const Game = () => {
     const { user } = useAuth();
     const navigate = useNavigate();
     
-    // Recuperiamo la socket dal Context (connessione già attiva dalla Lobby)
+    // Recuperiamo la socket già attiva
     const { socket, disconnectSocket } = useSocket(); 
     
-    // STATI PER I DATI DI GIOCO
-    const [gameState, setGameState] = useState(null);      // Dati pubblici (da 'parametri')
-    const [userIdentity, setUserIdentity] = useState(null); // Dati privati (da 'identityAssigned')
-    const [revealSecret, setRevealSecret] = useState(false); // UI: per nascondere/mostrare la parola
-
-
+    const [gameState, setGameState] = useState(null);      
+    const [userIdentity, setUserIdentity] = useState(null); 
+    const [revealSecret, setRevealSecret] = useState(false); 
 
     // --- SETUP LISTENER ---
     useEffect(() => {
+        // Se F5/Refresh -> socket perso -> Home
         if (!socket) {
             navigate('/');
             return;
         }
 
-        console.log("🎮 Game montato. Setup listener...");
+        console.log("🎮 Game montato. In ascolto...");
 
+        // Handler Pubblico
         const handleGameParams = (payload) => {
-            console.log("Dati pubblici ricevuti:", payload);
+            console.log("📦 Dati pubblici ricevuti:", payload);
             setGameState(payload);
         };
 
+        // Handler Privato
         const handleIdentity = (payload) => {
-            console.log("Identità ricevuta:", payload);
+            console.log("🕵️ Identità ricevuta:", payload);
             setUserIdentity(payload);
         };
 
-        // 1. Attiviamo le orecchie
+        // 1. ASCOLTO (Niente emit, aspettiamo il push del server)
         socket.on('parametri', handleGameParams);
         socket.on('identityAssigned', handleIdentity);
 
@@ -50,35 +50,33 @@ const Game = () => {
                 socket.off('identityAssigned', handleIdentity);
             }
         };
-    }, [socket, navigate, roomId]); // Aggiunto roomId alle dipendenze
+    }, [socket, navigate, roomId]);
 
 
-
-
-    // --- HANDLERS AZIONI ---
+    // --- UI E LOGICA ---
     const handleLeaveGame = () => {
         if (window.confirm("Sei sicuro di voler abbandonare la partita?")) {
-            disconnectSocket(); // Chiude la connessione
+            disconnectSocket(); 
             navigate(`/`);
         }
     };
 
     const handleDiceRoll = () => {
-        if(socket) {
-            // Esempio azione
-            socket.emit('DiceRoll', { roomId });
-        }
+        if(socket) socket.emit('DiceRoll', { roomId });
     };
 
     // --- RENDER ---
     
-    // Se non abbiamo ancora i dati essenziali, mostriamo un loader
+    // Loader iniziale mentre aspettiamo il timeout del server
     if (!socket || !gameState) {
         return (
             <div className="game-page">
                 <div className="game-card">
-                    <h1 className="game-subtitle">In attesa dei dati di gioco...</h1>
-                    <div className="spinner"></div> {/* Aggiungi css spinner se vuoi */}
+                    <h1 className="game-subtitle">Preparazione tavolo...</h1>
+                    <div className="spinner"></div> 
+                    <p style={{fontSize: '0.8rem', color: '#666', marginTop: '10px'}}>
+                        Sincronizzazione dati in corso...
+                    </p>
                 </div>
             </div>
         );
@@ -91,53 +89,42 @@ const Game = () => {
                 <header className="game-header">
                     <div>
                         <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
-                        <p className="game-subtitle">Fase: {gameState.phase || 'Loading...'}</p>
+                        <p className="game-subtitle">Fase: {gameState.phase || '...'}</p>
                     </div>
-                    <div className="game-room-badge">
-                        Stanza: {roomId}
-                    </div>
+                    <div className="game-room-badge">ID: {roomId}</div>
                 </header>
                 
                 <hr className="divider"/>
 
-                {/* INFO SEGRETE UTENTE */}
+                {/* IDENTITÀ */}
                 <div className="game-secret-section">
                     <h3>La tua Identità</h3>
-                    
                     {userIdentity ? (
                         <div className="secret-card" onClick={() => setRevealSecret(!revealSecret)}>
                             <p className="secret-label">
                                 {revealSecret ? "Nascondi 🔒" : "Tocca per rivelare 👁️"}
                             </p>
-                            
                             <div className={`secret-content ${revealSecret ? 'revealed' : 'blurred'}`}>
-                                {/* Adatta questi campi in base a cosa manda PayloadUtils.buildPrivateIdentity */}
-                                <p><strong>Ruolo:</strong> {userIdentity.role || 'Giocatore'}</p>
+                                <p><strong>Ruolo:</strong> {userIdentity.role}</p>
                                 {userIdentity.secretWord && (
                                     <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
                                 )}
                             </div>
                         </div>
                     ) : (
-                        <p>Assegnazione ruolo in corso...</p>
+                        <p>Caricamento identità...</p>
                     )}
                 </div>
 
                 <div className="game-area">
-                    {/* Qui visualizzi lo stato pubblico (es. chi tocca giocare) */}
                     <p className="game-status-text">
-                        Giocatori attivi: {gameState.activePlayersCount || '?'}
+                        Giocatori: {gameState.activePlayersCount || gameState.players?.length || '?'}
                     </p>
                 </div>
 
-                {/* PULSANTIERA */}
                 <div className="game-buttons">
-                    <button className="game-btn-action" onClick={handleDiceRoll}>
-                        🎲 Azione Gioco
-                    </button>
-                    <button className="game-btn-danger" onClick={handleLeaveGame}>
-                        Abbandona
-                    </button>
+                    <button className="game-btn-action" onClick={handleDiceRoll}>🎲 Azione</button>
+                    <button className="game-btn-danger" onClick={handleLeaveGame}>Esci</button>
                 </div>
             </div>
         </div>

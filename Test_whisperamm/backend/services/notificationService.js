@@ -1,6 +1,8 @@
 // src/services/NotificationService.js
 const { lobbies } = require('../socket/stateSocket');
 
+
+
 class NotificationService {
 
     /**
@@ -18,17 +20,23 @@ class NotificationService {
      */
     static sendPersonalizedToRoom(io, roomId, players, eventName, payloadBuilderFn) {
         const roomSockets = lobbies.get(roomId);
-        
+        console.log("sendPersonalizedToRoom"+roomSockets)
+        console.log(roomId)
         if (!roomSockets) return;
 
         players.forEach(player => {
             const socketId = roomSockets.get(player.username);
+            console.log(socketId)
             if (socketId) {
                 // Costruiamo il pacchetto specifico per l'utente
                 const personalPayload = payloadBuilderFn(player);
                 io.to(socketId).emit(eventName, personalPayload);
+                console.log(personalPayload)
             }
+            
         });
+
+        
     }
 }
 

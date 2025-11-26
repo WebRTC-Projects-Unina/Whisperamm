@@ -1,6 +1,5 @@
 import React, {useEffect, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-// ❌ RIMOSSO: import { io } from 'socket.io-client'; 
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
 import '../style/Lobby.css';
@@ -10,7 +9,7 @@ const Lobby = () => {
     
     const { user, setUser } = useAuth();
     
-    // ✅ 1. RECUPERIAMO 'connectSocket' DAL PROVIDER
+    //1. RECUPERIAMO 'connectSocket' DAL PROVIDER
     const { socket, connectSocket, disconnectSocket } = useSocket();
 
     const [isValidating, setIsValidating] = useState(!!user);
@@ -110,7 +109,7 @@ const Lobby = () => {
         // Blocchi di sicurezza
         if(isValidating || lobbyError || !user) return;
 
-        // ✅ A. SE IL SOCKET GLOBALE NON ESISTE, LO CHIEDIAMO
+        // A. SE IL SOCKET GLOBALE NON ESISTE, LO CHIEDIAMO
         if (!socket) {
             console.log("🔌 Lobby: Socket nullo, richiedo connessione al Provider...");
             connectSocket(); 
@@ -158,11 +157,12 @@ const Lobby = () => {
             console.log("🚀 Partita iniziata! Navigazione verso Game...");
             setGameLoading(true);
             // Navighiamo e la socket resta viva nel Provider!
-            navigate(`/match/${payload.roomId}/game`);
+            
+            //navigate(`/match/${payload.roomId}/game`);
         };    
 
         // C. JOIN E ATTACH LISTENERS
-        console.log("✅ Socket pronta, invio joinLobby...");
+        console.log("Socket pronta, invio joinLobby...");
         
         // Emettiamo subito il join
         socket.emit('joinLobby', { roomId, user });
@@ -190,7 +190,7 @@ const Lobby = () => {
                 socket.off('allUsersReady', handleAllUsersReady);
                 socket.off('gameStarted', handleGameStarted);
                 
-                // ⛔️ Niente disconnect() qui!
+                // Niente disconnect() qui!
             }
         };
         

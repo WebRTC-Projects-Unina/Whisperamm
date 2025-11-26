@@ -8,12 +8,12 @@ export const useSocket = () => useContext(SocketContext);
 export const SocketProvider = ({ children }) => {
     const [socket, setSocket] = useState(null);
 
-    // ✅ Funzione per creare la connessione (Singleton)
+    // Funzione per creare la connessione (Singleton)
     const connectSocket = () => {
         // Se esiste già, non ne creiamo un'altra
         if (socket) return;
 
-        console.log("🔌 [Provider] Inizializzazione connessione globale...");
+        console.log("[SocketProvider] Inizializzazione connessione globale...");
         
         const newSocket = io('http://localhost:8080', {
             withCredentials: true,
@@ -26,7 +26,7 @@ export const SocketProvider = ({ children }) => {
     // Funzione per chiudere
     const disconnectSocket = () => {
         if (socket) {
-            console.log("🛑 [Provider] Disconnessione.");
+            console.log("[SocketProvider] Disconnessione.");
             socket.disconnect();
             setSocket(null);
         }
