@@ -2,206 +2,92 @@ import React, {useEffect, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
+import { useLobbyValidation } from '../hooks/useLobbyValidation';
+import { useLobbySocket } from '../hooks/useLobbySocket';
+import { useLobbyHandlers } from '../hooks/useLobbyHandlers';
 import '../style/Lobby.css';
+import MiniForm from './MiniForm';
 import Game from './Game';
 
 const Lobby = () => {
     
     const { user, setUser } = useAuth();
-    
-    //1. RECUPERIAMO 'connectSocket' DAL PROVIDER
     const { socket, connectSocket, disconnectSocket } = useSocket();
-
-    const [isValidating, setIsValidating] = useState(!!user);
     const { roomId } = useParams();
     const navigate = useNavigate();
+
+    // ✅ USO DEGLI HOOK ESTRATTI
+    const { 
+        isValidating, 
+        setIsValidating,
+        lobbyError, 
+        setLobbyError,
+        roomName, 
+        setRoomName,
+        maxPlayers, 
+        setMaxPlayers,
+        adminPlayer, 
+        setAdminPlayer,
+        isAdmin, 
+        setIsAdmin 
+    } = useLobbyValidation(roomId, user);
 
     // Stati UI
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [players, setPlayers] = useState([]);
-    const [roomName, setRoomName] = useState('');
-    const [maxPlayers, setMaxPlayers] = useState(null);
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null);
     const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
     
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [adminPlayer, setAdminPlayer] = useState(null);
-    const [lobbyError, setLobbyError] = useState(null);
-   
     const [isReady, setIsReady] = useState(false);
     const [canStartGame, setCanStartGame] = useState(false);
     const [allReady, setAllReady] = useState(false);
     const [readyStates, setReadyStates] = useState({});
     const [gameLoading, setGameLoading] = useState(false);
 
+    // ✅ USO DELL'HOOK SOCKET
+    useLobbySocket(
+        socket, 
+        connectSocket, 
+        roomId, 
+        user, 
+        isAdmin, 
+        setPlayers, 
+        setReadyStates, 
+        setIsReady, 
+        setAllReady, 
+        setCanStartGame, 
+        setLobbyError, 
+        setAdminPlayer, 
+        setMessages, 
+        setGameLoading, 
+        isValidating, 
+        lobbyError
+    );
 
-    // --- 1. VALIDAZIONE HTTP (Controllo esistenza stanza) ---
-    useEffect(() => {
-        let ignore = false;
-
-        if (!roomId) {
-            setLobbyError("ID partita non trovato.");
-            setIsValidating(false);
-            return;
-        }
-
-        if (!user) {
-            setIsValidating(false);
-            setLobbyError(null);
-            return;
-        }
-
-        const checkLobby = async () => {
-            setIsValidating(true);  
-            setLobbyError(null);
-
-            try {
-                const response = await fetch(`/api/game/checkRoom/${roomId}`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user })
-                });
-
-                const data = await response.json();
-                if (ignore) return;
-
-                if (!response.ok) {
-                    if (response.status === 404) setLobbyError(data.message || "Stanza non trovata.");
-                    else if (response.status === 403) setLobbyError(data.message || "La stanza è piena.");
-                    else setLobbyError(data.message || "Errore sconosciuto.");
-                } else {
-                    setLobbyError(null);
-                    setRoomName(data.roomName || '');
-                    setMaxPlayers(data.maxPlayers || null);
-                    setAdminPlayer(data.host);
-                    if(user.username === data.host) setIsAdmin(true);
-                }
-
-            } catch (err) {
-                if (!ignore) {
-                    console.error("Errore fetch:", err);
-                    setLobbyError("Impossibile connettersi al server.");
-                }
-            } finally {
-                if (!ignore) setIsValidating(false);
-            }
-        };
-
-        checkLobby();
-        return () => {ignore = true;};
-
-    }, [user, roomId]);
-
-
-    // --- 2. GESTIONE REDIRECT ERRORE ---
-    useEffect(() => {
-        if (lobbyError) {
-            const timer = setTimeout(() => navigate('/'), 2000); 
-            return () => clearTimeout(timer);
-        }
-    }, [lobbyError, navigate]);
-
-
-    // --- 3. LOGICA SOCKET (PULITA E GLOBALE) ---
-    useEffect(() => {
-        // Blocchi di sicurezza
-        if(isValidating || lobbyError || !user) return;
-
-        // A. SE IL SOCKET GLOBALE NON ESISTE, LO CHIEDIAMO
-        if (!socket) {
-            console.log("🔌 Lobby: Socket nullo, richiedo connessione al Provider...");
-            connectSocket(); 
-            // Usciamo dalla funzione. Quando il provider aggiornerà lo stato 'socket',
-            // questo useEffect verrà rieseguito automaticamente.
-            return; 
-        }
-
-        // --- DA QUI IN POI, 'socket' ESISTE SICURAMENTE ---
-
-        // B. DEFINIZIONE HANDLERS
-        const handleLobbyPlayers = (payload) => {
-            setPlayers(payload.players || []);
-            setReadyStates(payload.readyStates || {});
-        };
-
-        const handleUserReadyUpdate = (payload) => {
-            setReadyStates(payload.readyStates);
-            if (payload.username === user.username) setIsReady(true);
-        };
-
-        const handleGameCanStart = () => {
-            setAllReady(true);
-            if (isAdmin) setCanStartGame(true);
-        };
-
-        const handleAllUsersReady = (payload) => {
-            setAllReady(payload.allReady);
-            if (payload.allReady && isAdmin) setCanStartGame(true);
-        };
-
-        const handleChatMessage = (msg) => setMessages((prev) => [...prev, msg]);
-        
-        const handleLobbySocketError = (error) => {
-            setLobbyError(error.message || "Errore socket");
-        };
-        
-        const handleHostChanged = (payload) => {
-            setAdminPlayer(payload.newHost);
-            setIsAdmin(user.username === payload.newHost);
-        };
-
-        // PUNTO CRUCIALE: AVVIO GIOCO
-        const handleGameStarted = (payload) => {
-            console.log("🚀 Partita iniziata! Navigazione verso Game...");
-            setGameLoading(true);
-            // Navighiamo e la socket resta viva nel Provider!
-            
-            //navigate(`/match/${payload.roomId}/game`);
-        };    
-
-        // C. JOIN E ATTACH LISTENERS
-        console.log("Socket pronta, invio joinLobby...");
-        
-        // Emettiamo subito il join
-        socket.emit('joinLobby', { roomId, user });
-
-        // Attacchiamo i listener
-        socket.on('lobbyError', handleLobbySocketError); 
-        socket.on('lobbyPlayers', handleLobbyPlayers); 
-        socket.on('chatMessage', handleChatMessage); 
-        socket.on('hostChanged', handleHostChanged); 
-        socket.on('userReadyUpdate', handleUserReadyUpdate); 
-        socket.on('gameCanStart', handleGameCanStart); 
-        socket.on('allUsersReady', handleAllUsersReady); 
-        socket.on('gameStarted', handleGameStarted); 
-
-        // D. CLEANUP: RIMUOVIAMO I LISTENER MA NON CHIUDIAMO LA CONNESSIONE
-        return () => {
-            if (socket) {
-                console.log("🧹 Lobby smontata: Rimozione listener (Socket resta viva)");
-                socket.off('lobbyError', handleLobbySocketError);
-                socket.off('lobbyPlayers', handleLobbyPlayers);
-                socket.off('chatMessage', handleChatMessage);
-                socket.off('hostChanged', handleHostChanged);
-                socket.off('userReadyUpdate', handleUserReadyUpdate);
-                socket.off('gameCanStart', handleGameCanStart);
-                socket.off('allUsersReady', handleAllUsersReady);
-                socket.off('gameStarted', handleGameStarted);
-                
-                // Niente disconnect() qui!
-            }
-        };
-        
-    }, [roomId, user, lobbyError, isValidating, socket, connectSocket]); // 'socket' è la dipendenza chiave
-
-
+const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLobbyHandlers(
+    socket, 
+    roomId, 
+    disconnectSocket, 
+    isReady, 
+    setIsReady, 
+    newMessage, 
+    setNewMessage, 
+    user
+);
     // --- 4. HANDLERS UTENTE ---
-
+/*
     const handleReady = () => {
-        if (isReady || !socket) return;
-        socket.emit('userReady', { roomId });
+        if (!socket) return;
+        
+        if (isReady) {
+            socket.emit('resetReady', { roomId });
+            setIsReady(false);
+        } else {
+            socket.emit('userReady', { roomId });
+            setIsReady(true);
+        }
     };
 
     const handleStartGame = () => {
@@ -221,6 +107,9 @@ const Lobby = () => {
         setNewMessage('');
     };
 
+*/
+
+/*
     const handleJoinRegister = async (e) => {
         e.preventDefault();
         setError(null);
@@ -237,8 +126,6 @@ const Lobby = () => {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Errore');
-            
-            // Aggiornando l'user, il useEffect sopra scatterà
             setUser(data.user);
         } catch (err) {
             setError(err.message);
@@ -246,98 +133,175 @@ const Lobby = () => {
     };
 
     const handleBackHome = () => {
-        // Qui l'utente vuole uscire davvero, quindi chiudiamo tutto.
-        disconnectSocket();
-        navigate('/');
+        if (socket) {
+            socket.emit('leaveLobby', { roomId }, () => {
+                console.log("leaveLobby processato dal server, disconnessione...");
+                disconnectSocket();
+            });
+        }
+        navigate('/');  
     };
 
-
-    // --- 5. RENDER ---
-
+    // --- 5. RENDER LOGIC ---
+*/
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
             setRoomFull("Stanza piena!");
         } else {
             setRoomFull("In attesa di altri giocatori...");
         }
-    }, [players]);
+    }, [players, maxPlayers]);
 
     if (gameLoading) return <Game />; 
 
     if (isValidating) return <div className="lobby-page mini-form-page"><div className="lobby-card"><h1>Verifica...</h1></div></div>;
 
     if (lobbyError) return <div className="lobby-page"><div className="lobby-card"><h1 style={{color:'red'}}>Errore</h1><p>{lobbyError}</p></div></div>;
-
+/*
     if (!user) {
         return (
-        <div className="lobby-page mini-form-page">
-            <div className="lobby-card">
-                <h1 className="lobby-title">Unisciti</h1>
-                <p className="lobby-room-code">{roomId}</p>
-                <form className="chat-input-form" onSubmit={handleJoinRegister}>
-                    <input type="text" className="chat-input" placeholder="Nome..." value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} autoFocus />
-                    <button type="submit" className="chat-send-btn">Entra</button>
-                </form>
-                {error && <p style={{ color: 'red'}}>{error}</p>}
+            <div className="lobby-page mini-form-page">
+                <div className="lobby-card">
+                    <h1 className="lobby-title">Unisciti</h1>
+                    <p className="lobby-room-code">{roomId}</p>
+                    <form className="chat-input-form" onSubmit={handleJoinRegister}>
+                        <input type="text" className="chat-input" placeholder="Nome..." value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} autoFocus />
+                        <button type="submit" className="chat-send-btn">Entra</button>
+                    </form>
+                    {error && <p style={{ color: 'red'}}>{error}</p>}
+                </div>
             </div>
-        </div>
         );
+    }
+*/
+   if (!user) {
+        return <MiniForm roomId={roomId} onUserCreated={setUser} error={error} />;
     }
 
     return (
         <div className="lobby-page">
             <div className="lobby-layout">
-                {/* Chat */}
+                {/* COLONNA SINISTRA: CHAT */}
                 <div className="lobby-chat-column">
                     <div className="chat-container">
-                        <h2 className="chat-title">Chat</h2>
+                        <h2 className="chat-title">Chat lobby</h2>
+                        
                         <div className="chat-messages">
+                            {messages.length === 0 && (
+                                <p className="chat-empty">Nessun messaggio. Scrivi qualcosa!</p>
+                            )}
+
                             {messages.map((m, idx) => (
-                                <div key={idx} className={m.from === 'system' ? 'chat-message chat-message-system' : 'chat-message'}>
-                                    <span className="chat-from">{m.from === 'system' ? '[SYS]' : m.from}:</span> {m.text}
+                                <div
+                                    key={idx}
+                                    className={
+                                        m.from === 'system'
+                                            ? 'chat-message chat-message-system'
+                                            : 'chat-message'
+                                    }
+                                >
+                                    <span className="chat-from">
+                                        {m.from === 'system' ? '[SYSTEM]' : m.from}:
+                                    </span>
+                                    <span className="chat-text">{m.text}</span>
                                 </div>
                             ))}
                         </div>
+
                         <form className="chat-input-form" onSubmit={handleSubmitChat}>
-                            <input type="text" className="chat-input" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                            <button type="submit" className="chat-send-btn">Invia</button>
+                            <input
+                                type="text"
+                                className="chat-input"
+                                placeholder="Scrivi un messaggio..."
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                            />
+                            <button type="submit" className="chat-send-btn">
+                                Invia
+                            </button>
                         </form>
                     </div>
                 </div>
 
-                {/* Info Centrale */}
+                {/* COLONNA CENTRALE: INFO + BOTTONI */}
                 <div className="lobby-card">
-                    <h1 className="lobby-title">Lobby</h1>
+                    <h1 className="lobby-title">Lobby partita</h1>
+
                     <div className="lobby-info">
-                        <p className="lobby-label">Stanza: {roomName}</p>
+                        <p className="lobby-label">Nome stanza</p>
+                        <p className="lobby-room-name">{roomName || 'Sconosciuto'}</p>
+                        <p className="lobby-label">Codice stanza</p>
                         <p className="lobby-room-code">{roomId}</p>
                     </div>
-                    <p>{roomFull}</p>
+
+                    <p className="lobby-subtitle">
+                        {roomFull}
+                    </p>
+
+                    <div>
+                        <p>
+                            In questa stanza sei {''}
+                            <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
+                                {isAdmin ? 'Admin' : 'Player'}
+                            </span>
+                        </p>
+                    </div>
                     
                     <div className="lobby-buttons">
                         {isAdmin ? (
-                            <button className="lobby-main-btn" onClick={handleStartGame} disabled={!canStartGame} 
-                                style={{backgroundColor: canStartGame ? '#2196F3' : '#ccc'}}>
-                                {canStartGame ? '✅ Inizia' : '⏳ Attendi giocatori'}
+                            <button 
+                                className="lobby-main-btn admin-btn" 
+                                onClick={handleStartGame}
+                                disabled={!canStartGame}
+                            >
+                                {canStartGame ? '✅ Inizia Partita' : '⏳ In Attesa'}
                             </button>
                         ) : (
-                            <button className="lobby-main-btn" onClick={handleReady} disabled={isReady} 
-                                style={{backgroundColor: isReady ? '#4CAF50' : '#2196F3'}}>
-                                {isReady ? '✅ Pronto' : 'Pronto?'}
+                            <button 
+                                className={`lobby-main-btn player-btn ${isReady ? 'ready' : ''}`}
+                                onClick={handleReady}
+                            >
+                                {isReady ? '✅ Pronto' : 'Pronto'}
                             </button>
                         )}
-                        <button className="lobby-main-btn" onClick={handleBackHome}>Esci</button>
+                        <button className="lobby-main-btn" onClick={handleBackHome}>
+                            Torna alla Home
+                        </button>
                     </div>
                 </div>
 
-                {/* Sidebar */}
+                {/* COLONNA DESTRA: LISTA GIOCATORI */}
                 <aside className="lobby-sidebar">
-                    <h2 className="sidebar-title">Giocatori ({players.length}/{maxPlayers})</h2>
+                    <h2 className="sidebar-title">Giocatori nella stanza</h2>
+                    <p className="sidebar-room-code">{players.length + ' / ' + maxPlayers}</p>
+
                     <div className="sidebar-players">
+                        {players.length === 0 && (
+                            <p className="sidebar-empty">In attesa di giocatori...</p>
+                        )}
+
                         {players.map((p, idx) => (
-                            <div key={idx} className={`sidebar-player ${p === user.username ? 'me' : ''}`}>
-                                <span>{p} {p === adminPlayer && '👑'}</span>
-                                {readyStates[p] && p !== adminPlayer && <span>✅</span>}
+                            <div
+                                key={idx}
+                                className={
+                                    p === user.username
+                                        ? 'sidebar-player sidebar-player-me'
+                                        : 'sidebar-player'
+                                }
+                            >
+                                <span className="sidebar-player-avatar">
+                                    {p?.[0]?.toUpperCase() || '?'}
+                                </span>
+                                <span className={
+                                    p === adminPlayer
+                                        ? 'sidebar-player-name sidebar-player-admin'
+                                        : 'sidebar-player-name'
+                                }>
+                                    {p}
+                                    {p === user.username && ' (tu)'}
+                                    {p === adminPlayer && '👑'}
+                                    {readyStates[p] && p !== adminPlayer && <span className="ready-check">✅</span>}    
+                                </span>
                             </div>
                         ))}
                     </div>
