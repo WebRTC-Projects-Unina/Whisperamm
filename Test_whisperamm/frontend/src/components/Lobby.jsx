@@ -260,13 +260,13 @@ const Lobby = () => {
     const handleBackHome = () => {
         // Qui l'utente vuole uscire davvero, quindi chiudiamo tutto.
         if (socket) {
-            console.log("Utente esce dalla lobby, disconnessione socket...");
-            socket.emit('leaveLobby', { roomId });
-        }
-        setTimeout(() => {
+            socket.emit('leaveLobby', { roomId }, () => {
+            // Callback: solo dopo che il server ha processato, disconnetti
+            console.log("leaveLobby processato dal server, disconnessione...");
             disconnectSocket();
-        }, 200);        
-        navigate('/');
+            });
+        }
+        navigate('/');  
     };
 
 

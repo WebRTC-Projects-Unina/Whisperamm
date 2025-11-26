@@ -267,11 +267,17 @@ class RoomService {
         // Filtra i giocatori ESCLUDENDO l'admin
         const playersToCheck = room.players.filter(p => p !== room.host);
 
+        if (room.players.length < 2) {
+            return { 
+                allReady: false 
+            };
+        }
+
         // Se non ci sono giocatori da controllare (solo admin)
         if (playersToCheck.length === 0) {
             return { 
                 allReady: true, 
-                readyStates: { [room.host]: true } 
+                readyStates: { [room.host]: false } 
             };
         }
 
@@ -279,7 +285,7 @@ class RoomService {
         const readyStates = await UserService.getMultipleUsersReady(playersToCheck);
         
         // L'admin è sempre considerato "ready"
-        readyStates[room.host] = true;
+        readyStates[room.host] = false;
 
         // Verifica se TUTTI i giocatori (escluso admin) sono pronti
         const allReady = playersToCheck.every(username => readyStates[username] === true);
@@ -293,13 +299,17 @@ class RoomService {
     static async getReadyStates(roomId) {
         const room = await this.getRoom(roomId);
         
+        if (room.players.length < 2) {
+            return {};
+        }
+
         const UserService = require('./userService');
         
         const playersToCheck = room.players.filter(p => p !== room.host);
         const readyStates = await UserService.getMultipleUsersReady(playersToCheck);
         
         // L'admin è sempre considerato "ready"
-        readyStates[room.host] = true;
+        readyStates[room.host] = false;
 
         return readyStates;
     }
