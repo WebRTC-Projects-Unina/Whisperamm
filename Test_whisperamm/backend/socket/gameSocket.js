@@ -27,8 +27,7 @@ async function handleGameStarted(io, socket, { roomId }) {
         console.log(`[Socket] Admin ${username} avvia gioco in ${roomId}`);
 
         // 2. BUSINESS LOGIC (Creazione)
-        const playersList = await RoomService.getPlayers(roomId);
-        const game = await GameService.createGame(roomId, playersList);
+        const game = await GameService.createGame(roomId);
 
         // 3. STEP A: BROADCAST (Dati Pubblici, round e phase)
         const publicPayload = PayloadUtils.buildPublicGameData(game);
@@ -64,10 +63,55 @@ async function handleGameStarted(io, socket, { roomId }) {
             message: err.message || 'Errore avvio partita' 
         });
     }
+    
+}
+
+async function handleRollDice(io, socket) {
+    const { username, roomId } = socket.data;
+
+    try {
+        const game = await GameService.getGameSnapshotByRoomId(roomId);
+        
+        if (!game) {
+            return socket.emit('error', { message: 'Partita non trovata.' });
+        }
+
+        // Recuperiamo il valore DEL SOLO UTENTE che ha chiamato l'evento
+        const myData = game.players[username];
+        
+        // OPPURE, se hai deciso di usare l'Array, usa questo:
+        // let myData = game.players.find(p => p.username === username);
+
+        if (!myData) {
+            console.error(`Utente ${username} non trovato nella partita`);
+            return;
+        }
+
+        // 3. Costruiamo il payload pubblico
+        // Diciamo a tutti: CHI ha lanciato e COSA ha fatto
+        const publicPayload = {
+            username: username,          // "Chi è stato?" -> Mario
+            diceValue: myData.diceValue  // "Che numero è uscito?" -> 8
+        };
+
+        // 4. BROADCAST A TUTTI (Incluso chi ha lanciato)
+        NotificationService.broadcastToRoom(
+            io, 
+            roomId, 
+            'playerRolledDice', // Nuovo nome evento, più chiaro
+            publicPayload
+        );
+        
+        console.log(`[Socket] Broadcast: ${username} ha fatto ${myData.diceValue} in room ${roomId}`);
+
+    } catch (err) {
+        console.error(`[Errore] handleRollDice:`, err);
+    }
 }
 
 function attach(socket, io) {
     socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
+    socket.on('DiceRoll', () => handleRollDice(io, socket));
 }
 
 module.exports = { attach };

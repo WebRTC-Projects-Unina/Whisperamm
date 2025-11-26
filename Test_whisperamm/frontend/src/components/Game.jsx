@@ -66,7 +66,7 @@ const Game = () => {
     const handleDiceRoll = () => {
         if(socket) {
             // Esempio azione
-            socket.emit('DiceRoll', { roomId });
+            socket.emit('DiceRoll');
         }
     };
 

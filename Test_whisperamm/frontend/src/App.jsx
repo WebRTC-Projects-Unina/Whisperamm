@@ -10,15 +10,11 @@ import { SocketProvider } from './context/SocketProvider'; // <--- Importalo
 const router = createBrowserRouter([
     {
         path: "/",
-        element: <Registrazione />,
+        element: <Registrazione />
     },
     {
         path: "/match/:roomId",
-        element: <Lobby/>,
-    },
-    {
-        path: "/match/:roomId/game",
-        element: <Game/>,
+        element: <Lobby/>
     }
 ]);
 

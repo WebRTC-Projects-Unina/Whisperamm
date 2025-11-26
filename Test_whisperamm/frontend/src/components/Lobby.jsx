@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
 import '../style/Lobby.css';
-import Game from './Game';
+import Game from './Game.jsx';
 
 const Lobby = () => {
     
@@ -157,8 +157,6 @@ const Lobby = () => {
         const handleGameStarted = (payload) => {
             console.log("🚀 Partita iniziata! Navigazione verso Game...");
             setGameLoading(true);
-            // Navighiamo e la socket resta viva nel Provider!
-            navigate(`/match/${payload.roomId}/game`);
         };    
 
         // C. JOIN E ATTACH LISTENERS

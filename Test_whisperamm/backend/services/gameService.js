@@ -5,28 +5,46 @@ const { GameSecretsUtil } = require('../utils/GameSecretsUtil');
 
 class GameService {
 
-    static async createGame(roomId, playersList) {
+    static async createGame(roomId) {
 
+        
+        const gameId = crypto.randomUUID();
+        const playersList = await RoomService.getPlayers(roomId);
         //Da modificare perchè mo mi serviva per testare a volo
         if (!playersList || playersList.length < 2) {
             throw new Error("Servono almeno 2 giocatori");
         }
 
-        const gameId = crypto.randomUUID();
-        
-        // 1. Genera le parole per Civili e Impostori, in più l'impostore
+        // Genera le parole per Civili e Impostori, in più l'impostore
         const gameSecrets = GameSecretsUtil.getRandomSecrets(); //arriva già seriealizzato
         const imposterIndex = Math.floor(Math.random() * playersList.length);
         const imposterUsername = playersList[imposterIndex];
 
-        // 2. Costruisci mappa giocatori (che verrà serializzato)
-        const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername);
+        // Genera i valori dei dadi per ogni utente (1-12 unici)
+        const availableNumbers = Array.from({ length: 12 }, (_, i) => i + 1);
+
+        const diceValues = playersList.map(player => {
+            // Scegliamo un indice casuale basato sui numeri rimasti
+            const randomIndex = Math.floor(Math.random() * availableNumbers.length);
+            
+            // Prendiamo il valore e lo elimino dall'array avaibleNumbers
+            const value = availableNumbers.splice(randomIndex, 1)[0];
+            
+            // Ritorniamo l'oggetto per questo giocatore
+            return {
+                username: player,
+                value: value
+            };
+        });
+
+        // Costruisci mappa giocatori (che verrà serializzato)
+        const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues);
 
         // 3. Prepara Metadati (Serializzazione qui!)
         const metaData = {
             gameId,
             roomId,
-            phase: GamePhase.DICE, 
+            phase: GamePhase.ROLE_ASSIGNMENT, 
             round: 1,
             secrets: gameSecrets //Stringa JSON arriva dall'utilities
         };
@@ -42,7 +60,7 @@ class GameService {
         return fullGame;
     }
 
-    static _buildInitialPlayersMap(playersList, imposterUsername) {
+    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues) {
         const map = {};
         playersList.forEach(username => {
             const isImpostor = (username === imposterUsername);
@@ -51,7 +69,7 @@ class GameService {
                 isAlive: true,
                 canTalk: false,
                 votesReceived: 0,
-                diceValue: 0,
+                diceValue: diceValues.find(d => d.username === username).value,
                 order: null 
             };
             // Il Service converte in stringa per Redis
@@ -65,7 +83,6 @@ class GameService {
     static async getGameSnapshot(gameId) {
         // 1. Chiede i dati grezzi al Model
         const rawData = await Game.findByIdRaw(gameId);
-        
         if (!rawData) return null;
 
         const { meta, playersHash } = rawData;
@@ -82,16 +99,19 @@ class GameService {
             }
         }
 
-        // Parsing dei giocatori (Da Map di stringhe a Array di oggetti)
-        const players = [];
+        // Manteniamo l'oggetto/mappa
+        const players = {}; // 1. Oggetto vuoto, non array []
+
         if (playersHash) {
-            Object.values(playersHash).forEach(jsonStr => {
+            // Cicliamo su chiavi e valori
+            for (const [username, jsonStr] of Object.entries(playersHash)) {
                 try {
-                    players.push(JSON.parse(jsonStr));
+                    // 2. Assegniamo alla chiave username
+                    players[username] = JSON.parse(jsonStr);
                 } catch (e) {
-                    console.error("Errore parsing player service:", e);
+                    console.error("Errore parsing:", e);
                 }
-            });
+            }
         }
 
         // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
