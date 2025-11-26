@@ -1,4 +1,3 @@
-// src/utils/gamePayloadUtils.js
 
 const GamePayloadUtils = {
 
@@ -25,6 +24,12 @@ const GamePayloadUtils = {
             role: player.role,       
             secretWord: secretWord, 
             isImpostor: player.role === 'IMPOSTOR' // Flag comodo per il frontend
+        };
+    },
+
+    buildDiceRollResult: (diceValue) => {
+        return {
+            diceValue: diceValue
         };
     }
 };

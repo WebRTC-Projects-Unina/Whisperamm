@@ -4,8 +4,7 @@ const { getRedisClient } = require('./redis');
 // Questo enum serve al Service, lo lasciamo esportato qui per comodità
 const GamePhase = {
     DICE: 'lancio_dadi', 
-    TURN_ASSIGNMENT: 'ordine_gioco', 
-    ROLE_ASSIGNMENT: 'assegnazione_parola_e_ruoli', 
+    TURN_ASSIGNMENT: 'ordine_gioco',
     GAME: 'inizio_gioco',
     FINISH: 'finita'
 };
@@ -31,6 +30,13 @@ class Game {
             multi.hSet(`game:${gameId}:players`, playersMap);
         }
 
+        // Salvataggio del Puntatore: RoomID -> GameID
+        // Senza questa riga, Redis non sa che in questa stanza c'è questa partita.
+        if (metaData.roomId) {
+            // Nota: uso .set perchè è una stringa semplice, non un hash
+            multi.set(`room:${metaData.roomId}:gameId`, gameId);
+        }
+
         await multi.exec();
         return gameId;
     }
@@ -48,6 +54,12 @@ class Game {
         if (!meta || Object.keys(meta).length === 0) return null;
 
         return { meta, playersHash };
+    }
+
+    static async findGameIdByRoomId(roomId) {
+        const client = getRedisClient();
+        const gameId = await client.get(`room:${roomId}:gameId`);
+        return gameId;
     }
 
     // Aggiorna un singolo campo nei metadati, utile per cambi di fase, round, ecc.
