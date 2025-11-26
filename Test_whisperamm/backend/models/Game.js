@@ -1,129 +1,75 @@
-const { getRedisClient } = require('./redis');
-const crypto = require('crypto');
+// src/models/Game.js
+const { getRedisClient } = require('./redis'); 
 
-// Definiamo gli stati qui o in un file constants, per ora li teniamo qui
-const GameStatus = {
-    DICE_ROLLING: 'lancio_dadi',
-    ORDER: 'ordine_gioco',
-    ASSIGNMENT: 'assegnazione_parola_e_ruoli',
+// Questo enum serve al Service, lo lasciamo esportato qui per comodità
+const GamePhase = {
+    DICE: 'lancio_dadi', 
+    TURN_ASSIGNMENT: 'ordine_gioco', 
+    ROLE_ASSIGNMENT: 'assegnazione_parola_e_ruoli', 
     GAME: 'inizio_gioco',
-    FINISHED: 'finita'
+    FINISH: 'finita'
 };
 
 class Game {
 
-    /*
-     * Crea la struttura dati su Redis
+    /**
+     * CREATE: Salva i dati su Redis.
+     * @param {string} gameId 
+     * @param {object} metaData - Oggetto piatto (valori stringhe/numeri)
+     * @param {object} playersMap - Oggetto { "username": "JSON_String" }
      */
-
-    static async create(roomId, playersList) {
+    static async create(gameId, metaData, playersMap) {
         const client = getRedisClient();
-        const gameId = crypto.randomUUID();
-
         const multi = client.multi();
 
-        // 1. Metadati Partita
-        multi.hSet(`game:${gameId}`, {
-            gameId,
-            roomId,
-            status: GameStatus.ASSIGNMENT,
-            round: 1
-        });
+        // Salvataggio Metadati (Piatto)
+        // Redis v4 accetta oggetti JS direttamente se i valori sono stringhe/numeri
+        multi.hSet(`game:${gameId}`, metaData);
 
-        // 2. Setup Giocatori
-        // Salviamo ogni giocatore come chiave nella hash :players
-        // Valore: JSON stringify dello stato del giocatore
-        if (playersList && playersList.length > 0) {
-            const playersMap = {};
-            for (const username of playersList) {
-                playersMap[username] = JSON.stringify({
-                    username,
-                    role: null,
-                    order: null,    // Ordine di turno (1, 2, 3...)
-                    dice: null,     // Risultato dadi es: [4, 6]
-                    muted: false,
-                    isReady: false
-                });
-            }
+        // Salvataggio Giocatori (Mappa di stringhe JSON)
+        if (playersMap && Object.keys(playersMap).length > 0){
             multi.hSet(`game:${gameId}:players`, playersMap);
         }
-
-        // 3. Indici
-        multi.sAdd('games:active', gameId);
-        multi.sAdd(`games:by_room:${roomId}`, gameId);
 
         await multi.exec();
         return gameId;
     }
 
-    /**
-     * Ritorna l'oggetto completo del gioco + array giocatori
-     */
-    static async findById(gameId) {
+    // READ: Recupera i dati grezzi, intesi nel json che torna, che non ce ne fotte dato che lo sistema il service.
+    static async findByIdRaw(gameId) {
         const client = getRedisClient();
         
-        // Parallelizziamo le chiamate
         const [meta, playersHash] = await Promise.all([
             client.hGetAll(`game:${gameId}`),
             client.hGetAll(`game:${gameId}:players`)
         ]);
 
-        if (!meta || !meta.gameId) return null;
+        // Se non c'è meta, la partita non esiste
+        if (!meta || Object.keys(meta).length === 0) return null;
 
-        // Deserializza i giocatori
-        const players = [];
-        if (playersHash) {
-            for (const jsonStr of Object.values(playersHash)) {
-                try {
-                    players.push(JSON.parse(jsonStr));
-                } catch (e) { console.error("Errore parse player", e); }
-            }
-        }
-
-        return { ...meta, players };
+        return { meta, playersHash };
     }
 
-    /**
-     * Aggiorna un campo specifico nei metadati del gioco
-     */
-    static async updateMeta(gameId, field, value) {
+    // Aggiorna un singolo campo nei metadati, utile per cambi di fase, round, ecc.
+    static async updateMetaField(gameId, field, value) {
         const client = getRedisClient();
         await client.hSet(`game:${gameId}`, field, value);
-        await client.hSet(`game:${gameId}`, 'updatedAt', new Date().toISOString());
     }
-
-    /**
-     * Aggiorna lo stato di un singolo giocatore
-     */
-    static async updatePlayer(gameId, username, dataObject) {
+    
+    
+    //Update  i dati di un giocatore, e riceve già la stringa JSON pronta
+    static async savePlayerRaw(gameId, username, playerJsonString) {
         const client = getRedisClient();
-        // Recuperiamo prima i dati attuali per fare merge (opzionale ma sicuro)
-        // O sovrascriviamo se siamo sicuri. Qui facciamo merge.
-        const currentRaw = await client.hGet(`game:${gameId}:players`, username);
-        let current = currentRaw ? JSON.parse(currentRaw) : {};
-
-        const updated = { ...current, ...dataObject };
-        
-        await client.hSet(`game:${gameId}:players`, username, JSON.stringify(updated));
-        return updated;
+        await client.hSet(`game:${gameId}:players`, username, playerJsonString);
     }
+    
 
-    /**
-     * Elimina partita
-     */
-    static async delete(gameId) {
+    //READ dei dati grezzi di un singolo giocatore, che verrano poi parsati dal Service. 
+    static async getPlayerRaw(gameId, username) {
         const client = getRedisClient();
-        const meta = await client.hGetAll(`game:${gameId}`);
-        if(!meta) return;
-
-        const multi = client.multi();
-        multi.del(`game:${gameId}`);
-        multi.del(`game:${gameId}:players`);
-        multi.sRem('games:active', gameId);
-        if(meta.roomId) multi.sRem(`games:by_room:${meta.roomId}`, gameId);
-        
-        await multi.exec();
+        return await client.hGet(`game:${gameId}:players`, username);
     }
+
 }
 
-module.exports = { Game, GameStatus };
+module.exports = { Game, GamePhase };

@@ -54,8 +54,6 @@ class RoomService {
             throw new Error('ROOM_CREATION_FAILED');
         }
 
-        console.log(`[Service] Stanza ${roomId} creata con successo da ${hostUsername}`);
-
         return roomId;
     }
 
@@ -141,7 +139,7 @@ class RoomService {
 
         // Aggiungi il giocatore
         const success = await Room.addPlayer(roomId, username);
-        if (!success) {
+        if (!success) {Service
             throw new Error('ADD_PLAYER_FAILED');
         }
 
@@ -214,7 +212,9 @@ class RoomService {
         if (!exists) {
             throw new Error('ROOM_NOT_FOUND');
         }
-        return await Room.getPlayers(roomId);
+        const players= await Room.getPlayers(roomId);
+        return players
+       
     }
 
     /**
