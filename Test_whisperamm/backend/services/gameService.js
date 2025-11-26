@@ -57,7 +57,7 @@ class GameService {
             };
             // Il Service converte in stringa per Redis
             map[username] = JSON.stringify(playerData); 
-            console.log(map[username])
+            
         });
         return map;
     }

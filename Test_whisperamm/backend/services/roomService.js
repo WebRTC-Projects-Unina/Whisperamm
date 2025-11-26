@@ -213,9 +213,6 @@ class RoomService {
             throw new Error('ROOM_NOT_FOUND');
         }
         const players= await Room.getPlayers(roomId);
-        players.forEach(element => {
-             console.log("RoomService: "+ element)
-        });
         return players
        
     }

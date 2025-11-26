@@ -10,7 +10,6 @@ class NotificationService {
      * Utile per: Cambio fase, Inizio gioco (parte pubblica).
      */
     static broadcastToRoom(io, roomId, eventName, payload) {
-        console.log(`[Notification] Broadcast '${eventName}' in ${roomId}`);
         io.to(roomId).emit(eventName, payload);
     }
 
@@ -20,21 +19,15 @@ class NotificationService {
      */
     static sendPersonalizedToRoom(io, roomId, players, eventName, payloadBuilderFn) {
         const lobby = lobbies.get(roomId);
-       
-        console.log("sendPersonalizedToRoom"+ lobby.size)
-        console.log("lobbies size: "+lobbies.size)
-        console.log(roomId)
+    
         if (!lobby) return;
 
         players.forEach(player => {
-            console.log("player.username: "+player.username)
             const socketId = lobby.get(player.username);
-            console.log(socketId)
             if (socketId) {
                 // Costruiamo il pacchetto specifico per l'utente
                 const personalPayload = payloadBuilderFn(player);
                 io.to(socketId).emit(eventName, personalPayload);
-                console.log(personalPayload)
             }
             
         });
