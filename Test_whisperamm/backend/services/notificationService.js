@@ -19,13 +19,16 @@ class NotificationService {
      * Utile per: Assegnazione ruoli, Parole segrete, Risultati votazioni personali.
      */
     static sendPersonalizedToRoom(io, roomId, players, eventName, payloadBuilderFn) {
-        const roomSockets = lobbies.get(roomId);
-        console.log("sendPersonalizedToRoom"+roomSockets)
+        const lobby = lobbies.get(roomId);
+       
+        console.log("sendPersonalizedToRoom"+ lobby.size)
+        console.log("lobbies size: "+lobbies.size)
         console.log(roomId)
-        if (!roomSockets) return;
+        if (!lobby) return;
 
         players.forEach(player => {
-            const socketId = roomSockets.get(player.username);
+            console.log("player.username: "+player.username)
+            const socketId = lobby.get(player.username);
             console.log(socketId)
             if (socketId) {
                 // Costruiamo il pacchetto specifico per l'utente

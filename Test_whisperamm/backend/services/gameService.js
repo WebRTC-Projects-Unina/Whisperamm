@@ -47,6 +47,7 @@ class GameService {
         playersList.forEach(username => {
             const isImpostor = (username === imposterUsername);
             const playerData = {
+                username: username,
                 role: isImpostor ? 'IMPOSTOR' : 'CIVILIAN',
                 isAlive: true,
                 canTalk: false,
@@ -56,6 +57,7 @@ class GameService {
             };
             // Il Service converte in stringa per Redis
             map[username] = JSON.stringify(playerData); 
+            console.log(map[username])
         });
         return map;
     }

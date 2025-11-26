@@ -30,7 +30,14 @@ async function handleGameStarted(io, socket, { roomId }) {
 
         // 2. CREAZIONE GIOCO
         const playersList = await RoomService.getPlayers(roomId);
+        playersList.forEach(element => {
+             console.log("GameSocket: "+ element)
+        });
         const game = await GameService.createGame(roomId, playersList);
+
+        game.players.forEach(element => {
+            console.log("game.players: "+element.username)
+        });
 
         // --- MODIFICA QUI: RITARDO STRATEGICO ---
         // Aspettiamo 1 secondo che tutti i client abbiano caricato la pagina Game
