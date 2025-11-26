@@ -39,15 +39,28 @@ const Game = () => {
             setUserIdentity(payload);
         };
 
+        const handlePrintDiceRoll = (payload) => {
+            console.log(`Giocatore ${payload.username} ha rollato un ${payload.diceValue}`);
+            // Qui potresti aggiungere logica per aggiornare lo stato di gioco se necessario
+        };
+
         // 1. Attiviamo le orecchie
         socket.on('parametri', handleGameParams);
         socket.on('identityAssigned', handleIdentity);
+        socket.on('playerRolledDice', handlePrintDiceRoll);
+
+        socket.on('lobbyError', (error) => {
+            alert(`Errore di gioco: ${error.message}`);
+            navigate('/');
+        });
 
         // Cleanup
         return () => {
             if (socket) {
                 socket.off('parametri', handleGameParams);
                 socket.off('identityAssigned', handleIdentity);
+                socket.off('playerRolledDice', handlePrintDiceRoll);
+                socket.off('lobbyError');
             }
         };
     }, [socket, navigate, roomId]); // Aggiunto roomId alle dipendenze
@@ -64,8 +77,8 @@ const Game = () => {
     };
 
     const handleDiceRoll = () => {
+        console.log("Richiesta di rollare il dado inviata");
         if(socket) {
-            // Esempio azione
             socket.emit('DiceRoll');
         }
     };
@@ -133,7 +146,7 @@ const Game = () => {
                 {/* PULSANTIERA */}
                 <div className="game-buttons">
                     <button className="game-btn-action" onClick={handleDiceRoll}>
-                        🎲 Azione Gioco
+                        🍁 Rolla 
                     </button>
                     <button className="game-btn-danger" onClick={handleLeaveGame}>
                         Abbandona

@@ -143,6 +143,57 @@
   transform: translateY(1px);
 }
 
+/* Bottone Admin - Inizia Partita */
+.lobby-main-btn.admin-btn {
+    background-color: #2196F3;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.lobby-main-btn.admin-btn:hover:not(:disabled) {
+    background-color: #1976D2;
+    transform: scale(1.05);
+}
+
+.lobby-main-btn.admin-btn:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+/* Bottone Player - Pronto */
+.lobby-main-btn.player-btn {
+    background-color: #2196F3;
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.lobby-main-btn.player-btn:hover {
+    background-color: #1976D2;
+    transform: scale(1.05);
+}
+
+.lobby-main-btn.player-btn.ready {
+    background-color: #4CAF50;
+}
+
+.lobby-main-btn.player-btn.ready:hover {
+    background-color: #388E3C;
+    transform: scale(1.05);
+}
+
 /* CHAT */
 .chat-messages {
   flex: 1;

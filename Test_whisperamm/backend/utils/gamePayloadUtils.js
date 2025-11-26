@@ -1,4 +1,3 @@
-// src/utils/gamePayloadUtils.js
 
 const GamePayloadUtils = {
 

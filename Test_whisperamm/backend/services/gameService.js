@@ -2,6 +2,7 @@
 const crypto = require('crypto');
 const { Game, GamePhase } = require('../models/Game');
 const { GameSecretsUtil } = require('../utils/GameSecretsUtil'); 
+const RoomService = require('./roomService');
 
 class GameService {
 
@@ -37,6 +38,14 @@ class GameService {
             };
         });
 
+        // Ordiniamo i valori dei dadi in ordine decrescente
+        diceValues.sort((a, b) => b.value - a.value);
+
+        // Assegniamo l'ordine sequenziale (1, 2, 3...) basato sulla posizione nell'array ordinato
+        diceValues.forEach((data, index) => {
+        data.order = index + 1; // 1 based (1° giocatore, 2° giocatore...)
+        });
+
         // Costruisci mappa giocatori (che verrà serializzato)
         const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues);
 
@@ -44,7 +53,7 @@ class GameService {
         const metaData = {
             gameId,
             roomId,
-            phase: GamePhase.ROLE_ASSIGNMENT, 
+            phase: GamePhase.DICE, 
             round: 1,
             secrets: gameSecrets //Stringa JSON arriva dall'utilities
         };
@@ -64,13 +73,17 @@ class GameService {
         const map = {};
         playersList.forEach(username => {
             const isImpostor = (username === imposterUsername);
+            const userDiceData = diceValues.find(d => d.username === username);
+
             const playerData = {
+                username: username,
                 role: isImpostor ? 'IMPOSTOR' : 'CIVILIAN',
                 isAlive: true,
                 canTalk: false,
                 votesReceived: 0,
-                diceValue: diceValues.find(d => d.username === username).value,
-                order: null 
+                hasRolled: false,
+                diceValue: userDiceData.value,
+                order: userDiceData.order 
             };
             // Il Service converte in stringa per Redis
             map[username] = JSON.stringify(playerData); 
@@ -100,22 +113,26 @@ class GameService {
         }
 
         // Manteniamo l'oggetto/mappa
-        const players = {}; // 1. Oggetto vuoto, non array []
+        const players = []; 
 
         if (playersHash) {
-            // Cicliamo su chiavi e valori
-            for (const [username, jsonStr] of Object.entries(playersHash)) {
+            Object.values(playersHash).forEach(jsonStr => {
                 try {
-                    // 2. Assegniamo alla chiave username
-                    players[username] = JSON.parse(jsonStr);
+                    players.push(JSON.parse(jsonStr));
                 } catch (e) {
-                    console.error("Errore parsing:", e);
+                    console.error("Errore parsing player service:", e);
                 }
-            }
-        }
+            });
 
+        } 
         // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
         return { ...meta, players };
+    }
+
+    static async getGameSnapshotByRoomId(roomId) {
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) return null;
+        return this.getGameSnapshot(gameId);
     }
 
     // --- LOGICA DI AGGIORNAMENTO ---
@@ -140,6 +157,25 @@ class GameService {
 
         return playerData;
     }
+
+    /**
+     * NUOVO: Controlla se tutti i giocatori hanno lanciato i dadi
+     * Ritorna TRUE se tutti hanno fatto, FALSE altrimenti.
+     */
+    static checkAllPlayersRolled(playersArray) {
+        // playersArray è la lista che ti ritorna getGameSnapshot
+        return playersArray.every(p => p.hasRolled === true);
+    }
+
+    /**
+     * NUOVO: Cambia la fase del gioco (es. da DICE a GAME)
+     */
+    static async advancePhase(gameId, newPhase) {
+        await Game.updateMetaField(gameId, 'phase', newPhase);
+        // Ritorniamo lo snapshot aggiornato
+        return await this.getGameSnapshot(gameId);
+    }
+
 }
 
 module.exports = GameService;

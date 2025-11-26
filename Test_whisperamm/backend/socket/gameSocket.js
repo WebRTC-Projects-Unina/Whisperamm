@@ -2,7 +2,8 @@
 const GameService = require('../services/gameService');
 const RoomService = require('../services/roomService');
 const NotificationService = require('../services/notificationService'); // Nota la maiuscola se il file è maiuscolo
-const PayloadUtils = require('../utils/gamePayloadUtils')
+const PayloadUtils = require('../utils/gamePayloadUtils');
+const { Game, GamePhase } = require('../models/Game');
 
 async function handleGameStarted(io, socket, { roomId }) {
     const { username } = socket.data;
@@ -57,6 +58,16 @@ async function handleGameStarted(io, socket, { roomId }) {
             }
         );
 
+        // Mandiamo a ciascun giocatore il suo ruolo segreto e cambio fase a DICE
+        GameService.advancePhase(game.id, GamePhase.DICE);
+        // Notifichiamo tutti del cambio fase
+        NotificationService.broadcastToRoom(
+            io,
+            roomId,
+            'phaseChanged',
+            { phase: GamePhase.DICE }
+        );
+
     } catch (err) {
         console.error(`[Errore] handleGameStarted:`, err);
         socket.emit('lobbyError', { 
@@ -67,42 +78,47 @@ async function handleGameStarted(io, socket, { roomId }) {
 }
 
 async function handleRollDice(io, socket) {
-    const { username, roomId } = socket.data;
+    const username = socket.data.username;
+    const roomId = socket.data.roomId;
+    console.log(`[Socket] Ricevuta richiesta DiceRoll da ${username} in room ${roomId}`);
 
     try {
-        const game = await GameService.getGameSnapshotByRoomId(roomId);
+
+        // Recupera Game ID
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) return;
+
+        // AGGIORNAMENTO STATO
+        // Questo aggiorna solo il singolo giocatore su Redis
+        await GameService.updatePlayerState(gameId, username, { hasRolled: true });
+
+        // RECUPERIAMO IL GIOCO AGGIORNATO (che ora include il hasRolled: true appena messo)
+        const game = await GameService.getGameSnapshot(gameId);
+
+        // Inviamo il risultato a tutti (Broadcast)
+        const myData = game.players.find(p => p.username === username);
+        NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
+            username: username,
+            diceValue: myData.diceValue
+        });
         
-        if (!game) {
-            return socket.emit('error', { message: 'Partita non trovata.' });
+        
+        // Controlliamo se TUTTI hanno lanciato
+        if (GameService.checkAllPlayersRolled(game.players)) {
+            console.log(`[Game] Tutti hanno lanciato in room ${roomId}. Cambio fase!`);
+
+            // Cambia fase nel DB
+            const updatedGame = await GameService.advancePhase(gameId, GamePhase.TURN_ASSIGNMENT); // o TURN_ASSIGNMENT
+
+            // Notifica tutti che il gioco inizia
+            // Usiamo buildPublicGameData per mandare lo stato aggiornato (con la nuova fase)
+            const payload = PayloadUtils.buildPublicGameData(updatedGame);
+            
+            // Aspettiamo magari 2-3 secondi per far vedere l'animazione dell'ultimo dado
+            setTimeout(() => {
+                NotificationService.broadcastToRoom(io, roomId, 'phaseChange', payload);
+            }, 3000);
         }
-
-        // Recuperiamo il valore DEL SOLO UTENTE che ha chiamato l'evento
-        const myData = game.players[username];
-        
-        // OPPURE, se hai deciso di usare l'Array, usa questo:
-        // let myData = game.players.find(p => p.username === username);
-
-        if (!myData) {
-            console.error(`Utente ${username} non trovato nella partita`);
-            return;
-        }
-
-        // 3. Costruiamo il payload pubblico
-        // Diciamo a tutti: CHI ha lanciato e COSA ha fatto
-        const publicPayload = {
-            username: username,          // "Chi è stato?" -> Mario
-            diceValue: myData.diceValue  // "Che numero è uscito?" -> 8
-        };
-
-        // 4. BROADCAST A TUTTI (Incluso chi ha lanciato)
-        NotificationService.broadcastToRoom(
-            io, 
-            roomId, 
-            'playerRolledDice', // Nuovo nome evento, più chiaro
-            publicPayload
-        );
-        
-        console.log(`[Socket] Broadcast: ${username} ha fatto ${myData.diceValue} in room ${roomId}`);
 
     } catch (err) {
         console.error(`[Errore] handleRollDice:`, err);
