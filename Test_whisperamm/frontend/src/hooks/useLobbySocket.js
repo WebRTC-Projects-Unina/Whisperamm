@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, setPlayers, setReadyStates, setIsReady, setAllReady, setCanStartGame, setLobbyError, setAdminPlayer, setMessages, setGameLoading, isValidating, lobbyError) => {
+export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, setIsAdmin, setPlayers, setReadyStates, setIsReady, setAllReady, setCanStartGame, setLobbyError, setAdminPlayer, setMessages, setGameLoading, isValidating, lobbyError) => {
     
     useEffect(() => {
         if(isValidating || lobbyError || !user) return;
@@ -44,6 +44,7 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
             setAdminPlayer(payload.newHost);
             if (user.username === payload.newHost) {
                 // Aggiorna isAdmin solo per questo user
+                setIsAdmin(true);
             }
         };
 

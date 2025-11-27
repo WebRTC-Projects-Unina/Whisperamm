@@ -23,7 +23,7 @@
   box-shadow: 0 4px 12px rgba(143, 64, 159, 0.4);
   border: 1px solid #444;
   box-sizing: border-box;
-  overflow: hidden;
+  overflow: visible;
 }
 
 .mini-form-page {

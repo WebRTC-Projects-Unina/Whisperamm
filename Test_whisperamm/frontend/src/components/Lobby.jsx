@@ -14,9 +14,8 @@ const Lobby = () => {
     const { user, setUser } = useAuth();
     const { socket, connectSocket, disconnectSocket } = useSocket();
     const { roomId } = useParams();
-    const navigate = useNavigate();
-
-    // ✅ USO DEGLI HOOK ESTRATTI
+    
+    //hook
     const { 
         isValidating, 
         setIsValidating,
@@ -46,13 +45,14 @@ const Lobby = () => {
     const [readyStates, setReadyStates] = useState({});
     const [gameLoading, setGameLoading] = useState(false);
 
-    // ✅ USO DELL'HOOK SOCKET
+    //hook
     useLobbySocket(
         socket, 
         connectSocket, 
         roomId, 
         user, 
-        isAdmin, 
+        isAdmin,
+        setIsAdmin, 
         setPlayers, 
         setReadyStates, 
         setIsReady, 
@@ -151,6 +151,14 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
             setRoomFull("In attesa di altri giocatori...");
         }
     }, [players, maxPlayers]);
+
+    useEffect(() => {
+        // Quando cambia isAdmin, resetta isReady se diventa admin
+        if (isAdmin && isReady) {
+            setIsReady(false);
+        }
+    }, [isAdmin]);
+
 
     if (gameLoading) return <Game />; 
 
