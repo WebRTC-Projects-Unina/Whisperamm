@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
 import DiceArena from '../components/DiceArena'; 
 import '../style/Game.css';
+import '../style/Lobby.css'
 
 const Game = () => {
     const { roomId } = useParams(); 
@@ -127,7 +128,11 @@ const Game = () => {
                     </div>
                     {revealSecret && userIdentity && (
                         <div className="secret-content revealed">
-                            <p><strong>Ruolo:</strong> {userIdentity.role}</p>
+                            <p><strong>Ruolo: </strong> 
+                                <span className={userIdentity.role === 'Impostor' ? 'role-impostor' : 'role-civilian'}>
+                                    {userIdentity.role}
+                                </span>
+                            </p>
                             <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
                         </div>
                     )}
@@ -156,7 +161,31 @@ const Game = () => {
                         ))}
                     </div>
                 </div>
-
+                {/* SIDEBAR GIOCATORI */}
+                <aside className="game-sidebar">
+                    <h2 className="sidebar-title">Giocatori</h2>
+                    <div className="sidebar-players">
+                        {gameState.players && gameState.players.map((p, idx) => (
+                            <div
+                                key={idx}
+                                className={
+                                    p.username === user.username
+                                        ? 'sidebar-player sidebar-player-me'
+                                        : 'sidebar-player'
+                                }
+                            >
+                                <span className="sidebar-player-avatar">
+                                    {p.username?.[0]?.toUpperCase() || '?'}
+                                </span>
+                                <span className="sidebar-player-name">
+                                    {p.username}
+                                    {p.username === user.username && ' (tu)'}
+                                    {p.hasRolled && ' ✅'}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </aside>
                 <div className="game-buttons">
                     {isDicePhase && !amIReady ? (
                         <button 
