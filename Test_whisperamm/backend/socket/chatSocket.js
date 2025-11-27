@@ -89,6 +89,7 @@ async function notifyHostChange(io, roomId) {
     try {
         const room = await RoomService.getRoom(roomId);
         if (room) {
+            await UserService.setUserReady(room.host, false);
             io.to(roomId).emit('hostChanged', { 
                 newHost: room.host 
             });
