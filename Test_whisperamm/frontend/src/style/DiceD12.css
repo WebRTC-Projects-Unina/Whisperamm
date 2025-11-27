@@ -1,0 +1,85 @@
+/* src/style/DiceD12.css */
+
+/* SCENA E SETUP 3D */
+.d12-scene {
+    /* MODIFICA: Ridotto drasticamente per stare nella nuova dice-zone */
+    width: 50px; 
+    height: 50px;
+    perspective: 600px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Assicura che non esca dai bordi */
+    overflow: visible; 
+}
+
+.d12-wrapper {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+}
+
+.d12-wrapper.shaking {
+    animation: bounceD12 0.3s infinite alternate ease-in-out;
+}
+
+@keyframes bounceD12 {
+    from { transform: translateY(0) rotateZ(0deg); }
+    to { transform: translateY(-15px) rotateZ(5deg); }
+}
+
+/* IL DADO VERO E PROPRIO */
+.d12 {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    transform-style: preserve-3d;
+    /* Origine della rotazione al centro esatto */
+    transform-origin: center center;
+}
+
+/* GEOMETRIA DELLE FACCE (PENTAGONI) */
+.face {
+    position: absolute;
+    /* MODIFICA: Dimensione della faccia ridotta a 36px */
+    width: 36px; 
+    height: 36px;
+    
+    /* MODIFICA: Colore Avorio/Crema per contrasto sul tavolo scuro */
+    background: radial-gradient(circle at center, #fff8e1, #f5e6ba);
+    border: 1px solid #c7b299; /* Bordo più scuro e definito */
+    color: #3e2723; /* Numeri color marrone scuro */
+    
+    font-weight: 900;
+    font-size: 1.1rem; /* Font leggermente più piccolo */
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    clip-path: polygon(50% 0%, 100% 38%, 82% 100%, 18% 100%, 0% 38%);
+    box-shadow: inset 0 0 8px rgba(62, 39, 35, 0.3); /* Ombra interna marrone */
+    
+    backface-visibility: hidden;
+}
+
+/* POSIZIONAMENTO NELLO SPAZIO 3D 
+   MODIFICA CRUCIALE: Il 'translateZ' (il raggio) deve diminuire se la faccia diminuisce.
+   Per una faccia di 36px, un raggio di circa 25px è corretto.
+*/
+.face-1 { transform: rotateY(0deg) rotateX(0deg) translateZ(25px); }
+
+.face-2 { transform: rotateY(0deg)   rotateX(63.4deg) translateZ(25px); }
+.face-3 { transform: rotateY(72deg)  rotateX(63.4deg) translateZ(25px); }
+.face-4 { transform: rotateY(144deg) rotateX(63.4deg) translateZ(25px); }
+.face-5 { transform: rotateY(216deg) rotateX(63.4deg) translateZ(25px); }
+.face-6 { transform: rotateY(288deg) rotateX(63.4deg) translateZ(25px); }
+
+.face-7  { transform: rotateY(36deg)  rotateX(-63.4deg) translateZ(25px); }
+.face-8  { transform: rotateY(108deg) rotateX(-63.4deg) translateZ(25px); }
+.face-9  { transform: rotateY(180deg) rotateX(-63.4deg) translateZ(25px); }
+.face-10 { transform: rotateY(252deg) rotateX(-63.4deg) translateZ(25px); }
+.face-11 { transform: rotateY(324deg) rotateX(-63.4deg) translateZ(25px); }
+
+.face-12 { transform: rotateY(0deg) rotateX(180deg) translateZ(25px); }
