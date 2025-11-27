@@ -3,261 +3,226 @@ import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-const DiceArena = ({ d1, d2, label }) => {
+// Aggiungiamo la prop onRollComplete
+const DiceArena = ({ activeRolls = [], onRollComplete }) => {
   const canvasRef = useRef(null);
-  const processingRef = useRef(null);
+  const processedRolls = useRef(new Set());
+  const finishedRolls = useRef(new Set()); // Per non chiamare la callback 100 volte
+  
+  const animatedObjects = useRef([]);
+  const diceGeometryRef = useRef(null);
+  
+  const sceneRef = useRef(null);
+  const rendererRef = useRef(null);
+  const cameraRef = useRef(null);
+  const tableBounds = useRef({ x: 10, z: 7 }); 
 
   useEffect(() => {
-    // 1. Validazione Input: Se mancano i dadi o il canvas, non fare nulla
-    if (!canvasRef.current || !d1 || !d2) return;
+    if (!canvasRef.current) return;
 
-    // 2. Evita doppio lancio (React StrictMode): usa una chiave unica basata sui dadi
-    const rollId = `${d1}-${d2}`;
-    if (processingRef.current === rollId) return;
-    processingRef.current = rollId;
+    if (!sceneRef.current) {
+        initScene();
+    }
 
-    // --- CONFIGURAZIONE ---
-    const WALL_DISTANCE = 8; 
-    const TOTAL_FRAMES = 300; 
-    const params = {
-      segments: 40,
-      edgeRadius: 0.08,
-      notchRadius: 0.15,
-      notchDepth: 0.17,
-    };
+    activeRolls.forEach(roll => {
+        if (!processedRolls.current.has(roll.id)) {
+            processedRolls.current.add(roll.id);
+            // Piccolo ritardo per evitare freeze se arrivano tanti eventi insieme
+            setTimeout(() => spawnDicePair(roll), 0);
+        }
+    });
 
-    let renderer, scene, camera, diceMesh;
-    let visualMeshes = [];
     let animationId;
-    let isMounted = true;
-    
-    // Dati per il playback
-    let animationData = []; 
-    let currentFrame = 0;
-
-    // --- 1. SETUP GRAFICO ---
-    initScene();
-    diceMesh = createDiceMeshFactory();
-
-    // Creazione mesh visive (nascoste inizialmente)
-    for (let i = 0; i < 2; i++) {
-        const mesh = diceMesh.clone();
-        mesh.visible = false; 
-        scene.add(mesh);
-        visualMeshes.push(mesh);
-    }
-
-    // --- 2. CALCOLO E REGISTRAZIONE ---
-    console.log(`[DiceArena] Simulazione per target: [${d1}, ${d2}]`);
-
-    // Simuliamo separatamente il Dado 1 (d1) e il Dado 2 (d2)
-    // d1 parte da sinistra (-2), d2 parte da destra (2)
-    const replay1 = simulateAndRecord(d1, -2); 
-    const replay2 = simulateAndRecord(d2, 2);  
-
-    if (replay1 && replay2) {
-        // Uniamo le due "cassette"
-        animationData = mergeReplays(replay1, replay2);
-        
-        // Start Animazione
-        visualMeshes.forEach(m => m.visible = true);
-        playAnimation();
-    } else {
-        console.error("Impossibile trovare una soluzione fisica valida per", d1, d2);
-    }
-
-    // --- FUNZIONI ---
-
-    // (La funzione calculateDiceCombination è stata rimossa perché inutile ora)
-
-    // Funzione "Regista": Simula finché non ottiene il numero target
-    function simulateAndRecord(targetNum, startX) {
-        const simWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, -70, 0), allowSleep: true });
-        
-        const mat = new CANNON.Material();
-        const contact = new CANNON.ContactMaterial(mat, mat, { friction: 0.3, restitution: 0.5 });
-        simWorld.addContactMaterial(contact);
-        addBoundariesToWorld(simWorld, mat);
-
-        let attempts = 0;
-        
-        while (attempts < 5000) { 
-            attempts++;
+    const animate = () => {
+        for (let i = animatedObjects.current.length - 1; i >= 0; i--) {
+            const obj = animatedObjects.current[i];
             
-            const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5)), material: mat });
-            simWorld.addBody(body);
-
-            // Parametri di lancio casuali per naturalezza
-            body.position.set(startX, 5, 0);
-            body.quaternion.setFromEuler(Math.random()*Math.PI*2, Math.random()*Math.PI*2, Math.random()*Math.PI*2);
-            
-            const impulse = new CANNON.Vec3(
-                (Math.random() - 0.5) * 8,  
-                10 + Math.random() * 5,     
-                (Math.random() - 0.5) * 8   
-            );
-            
-            const spin = new CANNON.Vec3(
-                (Math.random() - 0.5) * 20,
-                (Math.random() - 0.5) * 20,
-                (Math.random() - 0.5) * 20
-            );
-            
-            body.angularVelocity.copy(spin);
-            body.applyImpulse(impulse, new CANNON.Vec3(0,0,0));
-
-            const recording = [];
-            let isValid = true;
-            
-            // Registrazione Frame-by-Frame
-            for (let i = 0; i < TOTAL_FRAMES; i++) {
-                simWorld.step(1/60); 
-                
-                recording.push({
-                    pos: body.position.clone(),
-                    quat: body.quaternion.clone()
-                });
-
-                if (Math.abs(body.position.x) > WALL_DISTANCE || Math.abs(body.position.z) > WALL_DISTANCE) {
-                    isValid = false;
-                    break; 
-                }
-            }
-
-            if (isValid) {
-                const result = checkDieResultVector(body.quaternion);
-                // Se il risultato corrisponde al dato passato dal backend (d1 o d2)
-                if (result === targetNum) {
-                    return recording; 
-                }
-            }
-            simWorld.removeBody(body);
-        }
-        return null; 
-    }
-
-    function mergeReplays(rec1, rec2) {
-        const length = Math.min(rec1.length, rec2.length);
-        const merged = [];
-        for (let i = 0; i < length; i++) {
-            merged.push([ rec1[i], rec2[i] ]);
-        }
-        return merged;
-    }
-
-    // --- PLAYBACK ---
-    function playAnimation() {
-        const animate = () => {
-            if (!isMounted) return;
-
-            if (currentFrame < animationData.length) {
-                const frameData = animationData[currentFrame];
-                
-                visualMeshes[0].position.copy(frameData[0].pos);
-                visualMeshes[0].quaternion.copy(frameData[0].quat);
-                
-                visualMeshes[1].position.copy(frameData[1].pos);
-                visualMeshes[1].quaternion.copy(frameData[1].quat);
-
-                currentFrame++;
-                renderer.render(scene, camera);
-                animationId = requestAnimationFrame(animate);
+            if (obj.currentFrame < obj.data.length) {
+                // ESEGUE L'ANIMAZIONE
+                const frame = obj.data[obj.currentFrame];
+                obj.mesh.position.copy(frame.pos);
+                obj.mesh.quaternion.copy(frame.quat);
+                obj.currentFrame++;
             } else {
-                renderer.render(scene, camera);
+                // --- ANIMAZIONE FINITA ---
+                
+                // Controlliamo se dobbiamo notificare il Game
+                if (!finishedRolls.current.has(obj.rollId) && onRollComplete) {
+                    finishedRolls.current.add(obj.rollId);
+                    
+                    // Chiamiamo la funzione passata da Game.jsx!
+                    // Passiamo ID, Username e il Totale
+                    onRollComplete(obj.rollId, obj.username, obj.totalValue);
+                }
+
+                // Pulizia se il roll non è più attivo
+                const stillActive = activeRolls.some(r => r.id === obj.rollId);
+                if (!stillActive) {
+                    sceneRef.current.remove(obj.mesh);
+                    animatedObjects.current.splice(i, 1);
+                }
             }
-        };
-        animate();
-    }
-
-    // --- HELPERS (Invariati) ---
-
-    function checkDieResultVector(quaternion) {
-        const worldUp = new CANNON.Vec3(0, 1, 0);
-        const faces = [
-            { value: 1, normal: new CANNON.Vec3(0, 1, 0) },
-            { value: 6, normal: new CANNON.Vec3(0, -1, 0) },
-            { value: 2, normal: new CANNON.Vec3(1, 0, 0) },
-            { value: 5, normal: new CANNON.Vec3(-1, 0, 0) },
-            { value: 3, normal: new CANNON.Vec3(0, 0, 1) },
-            { value: 4, normal: new CANNON.Vec3(0, 0, -1) }
-        ];
-        let maxDot = -Infinity;
-        let result = 1;
-        for (const face of faces) {
-            const worldNormal = quaternion.vmult(face.normal);
-            const dot = worldNormal.dot(worldUp);
-            if (dot > maxDot) { maxDot = dot; result = face.value; }
         }
-        return result;
-    }
+        if (rendererRef.current && sceneRef.current && cameraRef.current) {
+            rendererRef.current.render(sceneRef.current, cameraRef.current);
+        }
+        animationId = requestAnimationFrame(animate);
+    };
+    animate();
 
-    function addBoundariesToWorld(targetWorld, material) {
-        const wallShape = new CANNON.Plane();
-        const floorBody = new CANNON.Body({ type: CANNON.Body.STATIC, shape: wallShape, material: material });
-        floorBody.quaternion.setFromEuler(-0.5 * Math.PI, 0, 0);
-        targetWorld.addBody(floorBody);
+    return () => cancelAnimationFrame(animationId);
+  }, [activeRolls, onRollComplete]); // Aggiunto onRollComplete alle dipendenze
 
-        const barrierShape = new CANNON.Box(new CANNON.Vec3(10, 10, 1)); 
-        const positions = [
-            { pos: [0, 0, -WALL_DISTANCE], rot: [0, 0, 0] },
-            { pos: [0, 0, WALL_DISTANCE], rot: [0, Math.PI, 0] },
-            { pos: [-WALL_DISTANCE, 0, 0], rot: [0, Math.PI/2, 0] },
-            { pos: [WALL_DISTANCE, 0, 0], rot: [0, -Math.PI/2, 0] }
-        ];
-        positions.forEach(p => {
-            const wall = new CANNON.Body({ type: CANNON.Body.STATIC, shape: barrierShape, material: material });
-            wall.position.set(...p.pos);
-            wall.quaternion.setFromEuler(...p.rot);
-            targetWorld.addBody(wall);
-        });
-    }
-
-    function initScene() {
-      if (canvasRef.current.childElementCount > 0) canvasRef.current.innerHTML = '';
-      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true, canvas: canvasRef.current });
-      renderer.shadowMap.enabled = true;
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-      renderer.setSize(canvasRef.current.clientWidth, canvasRef.current.clientHeight);
+  // ... (TUTTE LE FUNZIONI DI INIT RESTANO IDENTICHE A PRIMA) ...
+  // ... Copia initScene, initPhysics, getDiceMesh, ecc. ...
+  
+  // UNICA MODIFICA A SPAWN: Salvare username e totale nell'oggetto animato
+  function spawnDicePair(roll) {
+      const limitX = Math.max(1, tableBounds.current.x - 3);
+      const startX = (Math.random() - 0.5) * limitX; 
       
-      scene = new THREE.Scene();
-      camera = new THREE.PerspectiveCamera(40, canvasRef.current.clientWidth / canvasRef.current.clientHeight, 0.1, 100);
-      camera.position.set(0, 18, 10); 
-      camera.lookAt(0, 0, 0);
+      const data1 = simulateAndRecord(roll.dice1, startX - 1.2);
+      const data2 = simulateAndRecord(roll.dice2, startX + 1.2);
 
-      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
-      scene.add(ambientLight);
-      const light = new THREE.PointLight(0xffffff, 800);
-      light.position.set(5, 20, 5);
-      light.castShadow = true;
-      scene.add(light);
+      if (data1 && data2) {
+          addVisualDice(data1, roll, roll.dice1 + roll.dice2); // Passiamo l'oggetto roll intero e il totale
+          addVisualDice(data2, roll, roll.dice1 + roll.dice2);
+      }
+  }
+
+  function addVisualDice(animationData, roll, totalValue) {
+      const mesh = getDiceMesh().clone();
+      mesh.position.copy(animationData[0].pos);
+      mesh.quaternion.copy(animationData[0].quat);
+      sceneRef.current.add(mesh);
       
-      const floorMesh = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.ShadowMaterial({ opacity: 0.3 }));
-      floorMesh.rotation.x = -Math.PI / 2;
-      floorMesh.receiveShadow = true;
-      scene.add(floorMesh);
-    }
+      animatedObjects.current.push({
+          mesh: mesh,
+          data: animationData,
+          currentFrame: 0,
+          rollId: roll.id,
+          username: roll.username, // Salviamo per la callback
+          totalValue: totalValue   // Salviamo per la callback
+      });
+  }
 
-    function createDiceMeshFactory() {
-         const boxMaterialOuter = new THREE.MeshStandardMaterial({ color: 0xffffff }); 
-         const boxMaterialInner = new THREE.MeshStandardMaterial({ color: 0x000000, roughness: 0, metalness: 1 });
-         const g = new THREE.Group();
-         const innerSide = 1 - params.edgeRadius;
-         const innerMesh = new THREE.Mesh(new THREE.BoxGeometry(innerSide, innerSide, innerSide), boxMaterialInner);
-         const outerMesh = new THREE.Mesh(createDiceGeometry(), boxMaterialOuter);
-         outerMesh.castShadow = true;
-         g.add(innerMesh, outerMesh);
-         return g;
-    }
+  // ... (RESTO DEL CODICE UGUALE: simulateAndRecord, checkDieResultVector, ecc.) ...
+  
+  // INCOLLA QUI SOTTO TUTTE LE FUNZIONI HELPER CHE AVEVI NEL CODICE PRECEDENTE
+  // (initScene, initPhysics, getDiceMesh, createComplexDiceGeometry, simulateAndRecord, etc.)
+  // Assicurati che siano definite.
+  
+  // --- HELPERS (Per completezza del copia incolla rapido, ecco le vitali) ---
+  
+  function initScene() {
+      const w = canvasRef.current.clientWidth;
+      const h = canvasRef.current.clientHeight;
+      rendererRef.current = new THREE.WebGLRenderer({ alpha: true, antialias: true, canvas: canvasRef.current });
+      rendererRef.current.shadowMap.enabled = true;
+      rendererRef.current.shadowMap.type = THREE.PCFSoftShadowMap;
+      rendererRef.current.setSize(w, h);
+      rendererRef.current.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      sceneRef.current = new THREE.Scene();
+      const CAMERA_HEIGHT = 20; 
+      cameraRef.current = new THREE.PerspectiveCamera(40, w/h, 0.1, 100);
+      cameraRef.current.position.set(0, CAMERA_HEIGHT, 8); 
+      cameraRef.current.lookAt(0, 0, 0);
+      // ... Calcolo bounds e luci come prima ...
+      const vFOV = (cameraRef.current.fov * Math.PI) / 180;
+      const heightVisible = 2 * Math.tan(vFOV / 2) * CAMERA_HEIGHT;
+      const widthVisible = heightVisible * (w / h);
+      tableBounds.current = { x: (widthVisible / 2) - 1, z: (heightVisible / 2) - 3 };
 
-    function createDiceGeometry() {
+      const ambientLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.7);
+      sceneRef.current.add(ambientLight);
+      const mainLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      mainLight.position.set(5, 20, 5);
+      mainLight.castShadow = true;
+      mainLight.shadow.mapSize.width = 1024; 
+      mainLight.shadow.mapSize.height = 1024;
+      sceneRef.current.add(mainLight);
+      const floor = new THREE.Mesh(new THREE.PlaneGeometry(100, 100), new THREE.ShadowMaterial({ opacity: 0.3 }));
+      floor.rotation.x = -Math.PI / 2;
+      floor.receiveShadow = true;
+      sceneRef.current.add(floor);
+  }
+
+  function getDiceMesh() {
+      if (!diceGeometryRef.current) diceGeometryRef.current = createComplexDiceGeometry();
+      const materialOuter = new THREE.MeshStandardMaterial({ color: 0xfffbf0, roughness: 0.1 });
+      const materialInner = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+      const g = new THREE.Group();
+      const innerMesh = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.88, 0.88), materialInner);
+      const outerMesh = new THREE.Mesh(diceGeometryRef.current, materialOuter);
+      outerMesh.castShadow = true;
+      outerMesh.receiveShadow = true;
+      g.add(innerMesh, outerMesh);
+      g.scale.set(1.2, 1.2, 1.2); 
+      return g;
+  }
+
+  function simulateAndRecord(targetNum, startX) {
+      // PARAMETRI VELOCI
+      const TOTAL_FRAMES = 150; 
+      const WALL_DISTANCE = 9;
+      const simWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, -100, 0), allowSleep: true });
+      const mat = new CANNON.Material();
+      const contact = new CANNON.ContactMaterial(mat, mat, { friction: 0.3, restitution: 0.5 });
+      simWorld.addContactMaterial(contact);
+      addBoundariesToWorld(simWorld, mat, tableBounds.current.x || 9, tableBounds.current.z || 6);
+
+      let attempts = 0;
+      while (attempts < 1000) { 
+          attempts++;
+          const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5)), material: mat });
+          simWorld.addBody(body);
+          body.position.set(startX, 4, (Math.random() - 0.5) * 3);
+          body.quaternion.setFromEuler(Math.random()*6, Math.random()*6, Math.random()*6);
+          const impulse = new CANNON.Vec3((Math.random() - 0.5) * 8, 5 + Math.random() * 5, (Math.random() - 0.5) * 8);
+          const spin = new CANNON.Vec3((Math.random()-0.5)*20, (Math.random()-0.5)*20, (Math.random()-0.5)*20);
+          body.angularVelocity.copy(spin);
+          body.applyImpulse(impulse, new CANNON.Vec3(0,0,0));
+
+          const recording = [];
+          let isValid = true;
+          for (let i = 0; i < TOTAL_FRAMES; i++) {
+              simWorld.step(1/60);
+              recording.push({ pos: body.position.clone(), quat: body.quaternion.clone() });
+              if (Math.abs(body.position.x) > (tableBounds.current.x || 9) || Math.abs(body.position.z) > (tableBounds.current.z || 6)) { isValid = false; break; }
+          }
+          if (isValid && checkDieResultVector(body.quaternion) === targetNum) return recording;
+          simWorld.removeBody(body);
+      }
+      return null;
+  }
+
+  function checkDieResultVector(q) {
+      const u = new CANNON.Vec3(0, 1, 0);
+      const f = [{v:1,n:new CANNON.Vec3(0,1,0)},{v:6,n:new CANNON.Vec3(0,-1,0)},{v:2,n:new CANNON.Vec3(1,0,0)},{v:5,n:new CANNON.Vec3(-1,0,0)},{v:3,n:new CANNON.Vec3(0,0,1)},{v:4,n:new CANNON.Vec3(0,0,-1)}];
+      let max=-Infinity, res=1;
+      for(let x of f){ let d=q.vmult(x.n).dot(u); if(d>max){max=d; res=x.v;}}
+      return res;
+  }
+
+  function addBoundariesToWorld(w, m, limitX, limitZ) {
+      const p = new CANNON.Plane();
+      const floor = new CANNON.Body({ mass:0, shape:p, material:m });
+      floor.quaternion.setFromEuler(-Math.PI/2,0,0);
+      w.addBody(floor);
+      const b = new CANNON.Box(new CANNON.Vec3(20,20,1));
+      [[0,0,-limitZ,0,0,0],[0,0,limitZ,0,Math.PI,0],[-limitX,0,0,0,Math.PI/2,0],[limitX,0,0,0,-Math.PI/2,0]].forEach(d=>{
+          const wall=new CANNON.Body({mass:0,shape:b,material:m});
+          wall.position.set(d[0],d[1],d[2]); wall.quaternion.setFromEuler(d[3],d[4],d[5]); w.addBody(wall);
+      });
+  }
+
+  function createComplexDiceGeometry() {
+        // ... (usa la versione completa data in precedenza) ...
+        const params = { segments: 40, edgeRadius: 0.09, notchRadius: 0.14, notchDepth: 0.15 };
         let boxGeometry = new THREE.BoxGeometry(1, 1, 1, params.segments, params.segments, params.segments);
         const positionAttr = boxGeometry.attributes.position;
         const subCubeHalfSize = 0.5 - params.edgeRadius;
-        const notchWave = (v) => {
-            v = (1 / params.notchRadius) * v;
-            v = Math.PI * Math.max(-1, Math.min(1, v));
-            return params.notchDepth * (Math.cos(v) + 1);
-        };
+        const notchWave = (v) => { v = (1 / params.notchRadius) * v; v = Math.PI * Math.max(-1, Math.min(1, v)); return params.notchDepth * (Math.cos(v) + 1); };
         const notch = (pos) => notchWave(pos[0]) * notchWave(pos[1]);
         for (let i = 0; i < positionAttr.count; i++) {
             let position = new THREE.Vector3().fromBufferAttribute(positionAttr, i);
@@ -276,30 +241,11 @@ const DiceArena = ({ d1, d2, label }) => {
         boxGeometry.deleteAttribute("normal"); boxGeometry.deleteAttribute("uv");
         boxGeometry = mergeVertices(boxGeometry); boxGeometry.computeVertexNormals();
         return boxGeometry;
-    }
-
-    // CLEANUP
-    return () => {
-        isMounted = false;
-        processingRef.current = null;
-        cancelAnimationFrame(animationId);
-        if (renderer) renderer.dispose();
-    };
-
-  }, [d1, d2]); // La dipendenza ora è sui singoli dadi
+  }
 
   return (
-    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-        {label && (
-            <div style={{
-                position: 'absolute', top: 10, width: '100%', textAlign: 'center',
-                color: 'white', fontWeight: 'bold', textShadow: '0 2px 4px rgba(0,0,0,0.5)', zIndex: 10,
-                fontSize: '1.5rem', fontFamily: 'sans-serif'
-            }}>
-                {label} sta lanciando...
-            </div>
-        )}
-        <canvas ref={canvasRef} style={{ width: '100%', height: '100%', display: 'block' }} />
+    <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 50 }}>
+        <canvas ref={canvasRef} style={{ width: '100%', height: '100%' }} />
     </div>
   );
 };

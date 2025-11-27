@@ -87,15 +87,21 @@ async function handleRollDice(io, socket) {
         const gameId = await Game.findGameIdByRoomId(roomId);
         if (!gameId) return;
 
-        // AGGIORNAMENTO STATO
-        // Questo aggiorna solo il singolo giocatore su Redis
-        await GameService.updatePlayerState(gameId, username, { hasRolled: true });
-
         // RECUPERIAMO IL GIOCO AGGIORNATO (che ora include il hasRolled: true appena messo)
         const game = await GameService.getGameSnapshot(gameId);
 
         // Inviamo il risultato a tutti (Broadcast)
         const myData = game.players.find(p => p.username === username);
+
+        if (myData.hasRolled) {
+        return; // Ignora la richiesta se ha già fatto
+        }
+
+        // AGGIORNAMENTO STATO
+        // Questo aggiorna solo il singolo giocatore su Redis
+        await GameService.updatePlayerState(gameId, username, { hasRolled: true });
+
+        
         NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
             username: username,
             dice1: myData.dice1,

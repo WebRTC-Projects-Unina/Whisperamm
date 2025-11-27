@@ -1,45 +1,39 @@
 /* src/style/Game.css */
 
-/* --- LAYOUT BASE --- */
+/* --- LAYOUT BASE: FULL SCREEN --- */
 html, body {
     margin: 0;
     padding: 0;
+    width: 100%;
     height: 100%;
+    overflow: hidden; /* Impedisce barre di scorrimento */
 }
 
 .game-page {
     display: flex;
-    justify-content: center;
-    align-items: center; /* Centra verticalmente */
-    min-height: 100vh;
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); /* Blu più "Gaming" */
-    padding: 10px; /* Ridotto padding esterno per massimizzare spazio */
+    flex-direction: column;
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    padding: 0; /* Rimuovi padding esterno per andare a bordo schermo */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     box-sizing: border-box;
 }
 
+/* La Card ora è il contenitore principale dell'App */
 .game-card {
     background: white;
-    border-radius: 20px;
-    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
-    padding: 25px;
+    width: 100%;
+    height: 100%; /* Occupa tutta l'altezza */
+    max-width: none; /* Rimuovi limiti di larghezza */
+    border-radius: 0; /* Rimuovi bordi arrotondati esterni */
+    box-shadow: none; /* Niente ombra, siamo full screen */
     
-    /* MODIFICA: Schermo pieno */
-    width: 95%; 
-    max-width: 1200px; /* Molto largo */
-    min-height: 80vh;  /* Occupa almeno l'80% dell'altezza */
-    
+    padding: 20px;
     display: flex;
-    flex-direction: column; /* Per gestire l'altezza interna */
-    
-    text-align: center;
-    animation: slideIn 0.5s ease-out;
+    flex-direction: column; /* Impila gli elementi verticalmente */
+    box-sizing: border-box;
     position: relative;
-}
-
-@keyframes slideIn {
-    from { opacity: 0; transform: scale(0.95); }
-    to { opacity: 1; transform: scale(1); }
 }
 
 /* --- HEADER DEL GIOCO --- */
@@ -47,13 +41,13 @@ html, body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 20px;
     padding-bottom: 15px;
     border-bottom: 2px solid #f0f0f0;
+    flex-shrink: 0; /* L'header non deve schiacciarsi */
 }
 
 .game-title {
-    font-size: 2.2rem;
+    font-size: 2rem;
     color: #2c3e50;
     margin: 0;
     font-weight: 800;
@@ -62,7 +56,7 @@ html, body {
 .game-subtitle {
     font-size: 1.1rem;
     color: #7f8c8d;
-    margin: 5px 0 0 0;
+    margin: 0;
     font-weight: 500;
 }
 
@@ -74,100 +68,96 @@ html, body {
     font-size: 1rem;
     font-weight: bold;
     border: 2px solid #bdc3c7;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-.divider { display: none; } /* Rimosso, gestito dal border-bottom header */
+.divider { display: none; } 
 
 /* --- SEZIONE SEGRETA --- */
 .game-secret-section {
     text-align: center;
-    margin-bottom: 20px;
+    margin: 10px 0;
+    flex-shrink: 0;
 }
 
 .secret-toggle {
     background: #f8f9fa;
     color: #34495e;
-    padding: 12px 20px;
-    border-radius: 12px;
+    padding: 8px 20px;
+    border-radius: 20px;
     cursor: pointer;
     font-weight: 700;
-    font-size: 1rem;
+    font-size: 0.9rem;
     border: 2px solid #e9ecef;
     display: inline-block;
-    transition: all 0.2s;
+    transition: background 0.2s;
 }
 
-.secret-toggle:hover {
-    background: #e2e6ea;
-    transform: translateY(-2px);
-}
+.secret-toggle:hover { background: #e2e6ea; }
 
 .secret-content.revealed {
     background: #2c3e50;
     color: #ecf0f1;
-    padding: 15px;
+    padding: 10px 20px;
     border-radius: 12px;
-    margin-top: 15px;
+    margin-top: 10px;
     border: 1px solid #34495e;
     animation: fadeIn 0.3s ease-in;
     display: inline-block;
-    min-width: 300px;
 }
 
-.secret-content p { margin: 5px 0; font-size: 1.2rem; }
+.secret-content p { margin: 5px 0; }
 .secret-content span { color: #f1c40f; font-weight: bold; }
 
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-/* --- TAVOLO DA GIOCO (L'Arena) --- */
+/* --- TAVOLO DA GIOCO (Si espande per riempire lo schermo) --- */
 .game-table-area {
-    /* Occupa tutto lo spazio disponibile verticale */
+    /* MAGIA: flex-grow 1 fa sì che questo div occupi tutto lo spazio vuoto rimanente */
     flex-grow: 1; 
     
-    background-color: #27ae60; /* Verde Tavolo */
+    background-color: #27ae60;
     background-image: radial-gradient(circle, #2ecc71 0%, #27ae60 100%);
-    border: 10px solid #5d4037; /* Bordo Legno spesso */
-    border-radius: 20px;
+    border: 8px solid #5d4037;
+    border-radius: 15px;
+    margin: 15px 0;
     padding: 20px;
-    margin: 10px 0;
     
-    position: relative; /* FONDAMENTALE per l'overlay 3D */
-    overflow: hidden;   /* Contiene l'arena */
-    
+    position: relative;
+    overflow: hidden;
     box-shadow: inset 0 0 50px rgba(0,0,0,0.5);
+    
     display: flex;
     flex-direction: column;
-    justify-content: center;
+    justify-content: center; /* Centra il contenuto (griglia o dadi) verticalmente */
 }
 
-/* --- OVERLAY ARENA 3D (Aggiunto per DiceArena) --- */
+/* Overlay 3D per i dadi */
 .dice-arena-overlay {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.7); /* Scurisce lo sfondo per focus */
-    z-index: 50; /* Sopra a tutto */
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    /* background: rgba(0,0,0,0.3); Opzionale: scurisce leggermente quando si lanciano */
+    z-index: 50;
+    pointer-events: none; /* Permette di cliccare attraverso se necessario */
 }
 
 /* --- GRIGLIA GIOCATORI --- */
 .players-grid {
     display: grid;
+    /* Adatta colonne in base allo spazio, minimo 100px */
     grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); 
-    gap: 20px;
-    align-items: start;
+    gap: 15px;
     width: 100%;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
 .player-slot {
     background: rgba(0, 0, 0, 0.25);
-    padding: 15px 5px;
-    border-radius: 12px;
+    padding: 10px;
+    border-radius: 10px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -175,7 +165,7 @@ html, body {
 }
 
 .player-slot.me {
-    background: rgba(241, 196, 15, 0.3); /* Oro */
+    background: rgba(241, 196, 15, 0.3);
     border: 2px solid #f1c40f;
     transform: scale(1.05);
 }
@@ -184,7 +174,7 @@ html, body {
     font-size: 0.9rem;
     font-weight: bold;
     color: white;
-    margin-bottom: 8px;
+    margin-bottom: 5px;
     text-shadow: 0 1px 2px black;
     white-space: nowrap;
     overflow: hidden;
@@ -196,22 +186,23 @@ html, body {
     background: white;
     color: #333;
     font-weight: 800;
-    width: 35px;
-    height: 35px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     display: flex;
     justify-content: center;
     align-items: center;
     font-size: 1.1rem;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
-/* --- FOOTER E BOTTONI (Ben Visibili) --- */
+/* --- FOOTER E BOTTONI (Grandi e Chiari) --- */
 .game-footer {
-    margin-top: 20px;
     display: flex;
     justify-content: center;
     gap: 20px;
+    flex-shrink: 0;
+    padding-top: 10px;
 }
 
 .game-buttons {
@@ -221,20 +212,21 @@ html, body {
     gap: 20px;
 }
 
-/* Bottone Lancia - ENORME E VISIBILE */
+/* Bottone Lancia */
 .game-btn-action {
     background: linear-gradient(to bottom, #ff9800, #e65100);
     color: white;
-    font-size: 1.5rem; /* Testo Grande */
-    font-weight: 900;  /* Testo Cicciotto */
+    font-size: 1.4rem; 
+    font-weight: 900;
     text-transform: uppercase;
-    padding: 15px 40px;
+    letter-spacing: 1px;
+    padding: 15px 50px;
     border: none;
     border-radius: 50px;
     cursor: pointer;
-    box-shadow: 0 6px 0 #bf360c, 0 10px 20px rgba(0,0,0,0.4); /* Effetto 3D */
-    transition: all 0.1s;
-    letter-spacing: 1px;
+    box-shadow: 0 6px 0 #bf360c, 0 10px 20px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.1s;
+    min-width: 250px; /* Assicura larghezza minima */
 }
 
 .game-btn-action:hover {
@@ -250,16 +242,17 @@ html, body {
 
 /* Bottone Abbandona */
 .game-btn-danger {
-    background: transparent;
+    background: white;
     border: 2px solid #e74c3c;
     color: #e74c3c;
     font-size: 1rem;
-    font-weight: 700;
+    font-weight: 800;
     text-transform: uppercase;
-    padding: 15px 30px;
+    padding: 10px 30px;
     border-radius: 50px;
     cursor: pointer;
     transition: all 0.2s;
+    align-self: center;
 }
 
 .game-btn-danger:hover {
@@ -273,46 +266,34 @@ html, body {
     font-weight: 600;
     font-style: italic;
     background: #f8f9fa;
-    padding: 10px 20px;
+    padding: 12px 30px;
     border-radius: 30px;
+    border: 1px solid #ddd;
 }
 
 /* --- LOADER --- */
 .game-loader {
+    width: 100vw;
+    height: 100vh;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
     color: white;
     font-size: 2rem;
     font-weight: bold;
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
 }
-
-.spinner {
-    border: 6px solid rgba(255, 255, 255, 0.3);
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    border-left-color: #ff9800;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
-}
-
-@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
 /* --- MOBILE --- */
 @media (max-width: 768px) {
-    .game-card {
-        padding: 15px;
-        width: 100%;
-        min-height: 95vh;
-        border-radius: 0;
-    }
+    .game-card { padding: 15px; }
     .game-title { font-size: 1.5rem; }
-    .game-btn-action { 
-        font-size: 1.2rem; 
-        padding: 12px 30px; 
-        width: 100%; /* Bottone largo su mobile */
-    }
-    .game-buttons { flex-direction: column; }
+    .game-header { flex-direction: column; align-items: flex-start; }
+    .game-room-badge { margin-top: 5px; }
+    
+    .game-buttons { flex-direction: column; width: 100%; }
+    .game-btn-action { width: 100%; font-size: 1.2rem; }
+    .game-btn-danger { width: 100%; margin-top: 10px;}
+    
+    .game-table-area { margin: 10px 0; }
 }
