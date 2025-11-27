@@ -60,8 +60,10 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
 
     // Inviamo la lista aggiornata a tutti
     const updatedPlayers = await RoomService.getPlayers(roomId);
+    const readyStates = await RoomService.getReadyStates(roomId);
     io.to(roomId).emit('lobbyPlayers', { 
-        players: updatedPlayers 
+        players: updatedPlayers,
+        readyStates
     });
 }
 
@@ -197,6 +199,48 @@ async function handleResetReady(io, socket, { roomId }) {
     }
 }
 
+async function handleLeaveLobby(io, socket) {
+    const { roomId, username } = socket.data;
+
+    if (!roomId || !username) return;
+
+    try {
+        // L'utente non è più ready
+        await UserService.setUserReady(username, false);
+
+        // Rimuovi il player dalla stanza
+        const updatedRoom = await RoomService.removePlayerFromRoom(roomId, username);
+        const readyStates = await RoomService.getReadyStates(roomId);
+
+        if (!updatedRoom) {
+            console.log(`[SERVICE] Stanza ${roomId} eliminata (vuota) per leaveLobby.`);
+            return;
+        }
+
+        // Notifica cambio host se necessario
+        await notifyHostChange(io, roomId);
+
+        io.to(roomId).emit('chatMessage', {
+            from: 'system',
+            text: `${username} ha lasciato la lobby`,
+            timestamp: Date.now()
+        });
+        io.to(roomId).emit('lobbyPlayers', {
+            players: updatedRoom.players,
+            readyStates
+        });
+
+        const { allReady } = await RoomService.checkAllUsersReady(roomId);
+        io.to(roomId).emit('allUsersReady', { allReady });
+
+    } catch (err) {
+        console.error(`[Errore] handleLeaveLobby per ${username} in ${roomId}:`, err);
+    } finally {
+        // Esci dal roomId di socket.io
+        socket.leave(roomId);
+        socket.data.roomId = null;
+    }
+}
 
 // --- EXPORT E REGISTRAZIONE ---
 function attach(socket, io) {
@@ -204,6 +248,7 @@ function attach(socket, io) {
     socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));
     socket.on('userReady', (payload) => handleUserReady(io, socket, payload));
     socket.on('resetReady', (payload) => handleResetReady(io, socket, payload));
+    socket.on('leaveLobby', () => handleLeaveLobby(io, socket));
     socket.on('disconnect', () => handleDisconnect(io, socket));
 }
 

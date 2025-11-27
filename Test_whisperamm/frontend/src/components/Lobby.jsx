@@ -128,7 +128,10 @@ const Lobby = () => {
 
         const handleUserReadyUpdate = (payload) => {
             setReadyStates(payload.readyStates);
-            if (payload.username === user.username) setIsReady(true);
+            // Aggiorna isReady in base allo stato attuale
+            if (payload.username === user.username) {
+                setIsReady(payload.readyStates[user.username] || false);
+            }
         };
 
         const handleGameCanStart = () => {
@@ -137,8 +140,10 @@ const Lobby = () => {
         };
 
         const handleAllUsersReady = (payload) => {
+            console.log("🔔 allUsersReady ricevuto:", payload.allReady, "isAdmin:", isAdmin); // DEBUG
+
             setAllReady(payload.allReady);
-            if (payload.allReady && isAdmin) setCanStartGame(true);
+            if (isAdmin) setCanStartGame(payload.allReady);
         };
 
         const handleChatMessage = (msg) => setMessages((prev) => [...prev, msg]);
@@ -156,9 +161,7 @@ const Lobby = () => {
         const handleGameStarted = (payload) => {
             console.log("🚀 Partita iniziata! Navigazione verso Game...");
             setGameLoading(true);
-            // Navighiamo e la socket resta viva nel Provider!
-            
-            //navigate(`/match/${payload.roomId}/game`);
+            // Navighiamo e la socket resta viva nel Provider!            
         };    
 
         // C. JOIN E ATTACH LISTENERS
@@ -194,14 +197,23 @@ const Lobby = () => {
             }
         };
         
-    }, [roomId, user, lobbyError, isValidating, socket, connectSocket]); // 'socket' è la dipendenza chiave
+    }, [roomId, user, lobbyError, isValidating, socket, connectSocket, isAdmin]); // 'socket' è la dipendenza chiave
 
 
     // --- 4. HANDLERS UTENTE ---
 
     const handleReady = () => {
-        if (isReady || !socket) return;
-        socket.emit('userReady', { roomId });
+        if (!socket) return;
+        
+        if (isReady) {
+            // Se è già pronto, reset
+            socket.emit('resetReady', { roomId });
+            setIsReady(false);
+        } else {
+            // Se non è pronto, diventa pronto
+            socket.emit('userReady', { roomId });
+            setIsReady(true);
+        }
     };
 
     const handleStartGame = () => {
@@ -247,7 +259,13 @@ const Lobby = () => {
 
     const handleBackHome = () => {
         // Qui l'utente vuole uscire davvero, quindi chiudiamo tutto.
-        disconnectSocket();
+        if (socket) {
+            console.log("Utente esce dalla lobby, disconnessione socket...");
+            socket.emit('leaveLobby', { roomId });
+        }
+        setTimeout(() => {
+            disconnectSocket();
+        }, 200);        
         navigate('/');
     };
 
@@ -287,57 +305,128 @@ const Lobby = () => {
     return (
         <div className="lobby-page">
             <div className="lobby-layout">
-                {/* Chat */}
+                {/* COLONNA SINISTRA: CHAT */}
                 <div className="lobby-chat-column">
                     <div className="chat-container">
-                        <h2 className="chat-title">Chat</h2>
+                        <h2 className="chat-title">Chat lobby</h2>
+                        
                         <div className="chat-messages">
+                            {messages.length === 0 && (
+                                <p className="chat-empty">Nessun messaggio. Scrivi qualcosa!</p>
+                            )}
+
                             {messages.map((m, idx) => (
-                                <div key={idx} className={m.from === 'system' ? 'chat-message chat-message-system' : 'chat-message'}>
-                                    <span className="chat-from">{m.from === 'system' ? '[SYS]' : m.from}:</span> {m.text}
+                                <div
+                                    key={idx}
+                                    className={
+                                        m.from === 'system'
+                                            ? 'chat-message chat-message-system'
+                                            : 'chat-message'
+                                    }
+                                >
+                                    <span className="chat-from">
+                                        {m.from === 'system' ? '[SYSTEM]' : m.from}:
+                                    </span>
+                                    <span className="chat-text">{m.text}</span>
                                 </div>
                             ))}
                         </div>
+
                         <form className="chat-input-form" onSubmit={handleSubmitChat}>
-                            <input type="text" className="chat-input" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                            <button type="submit" className="chat-send-btn">Invia</button>
+                            <input
+                                type="text"
+                                className="chat-input"
+                                placeholder="Scrivi un messaggio..."
+                                value={newMessage}
+                                onChange={(e) => setNewMessage(e.target.value)}
+                            />
+                            <button type="submit" className="chat-send-btn">
+                                Invia
+                            </button>
                         </form>
                     </div>
                 </div>
 
-                {/* Info Centrale */}
+                {/* COLONNA CENTRALE: INFO + BOTTONI */}
                 <div className="lobby-card">
-                    <h1 className="lobby-title">Lobby</h1>
+                    <h1 className="lobby-title">Lobby partita</h1>
+
                     <div className="lobby-info">
-                        <p className="lobby-label">Stanza: {roomName}</p>
+                        <p className="lobby-label">Nome stanza</p>
+                        <p className="lobby-room-name">{roomName || 'Sconosciuto'}</p>
+                        <p className="lobby-label">Codice stanza</p>
                         <p className="lobby-room-code">{roomId}</p>
                     </div>
-                    <p>{roomFull}</p>
+
+                    <p className="lobby-subtitle">
+                        {roomFull}
+                    </p>
+
+                    <div>
+                        <p>
+                            In questa stanza sei {''}
+                            <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
+                                {isAdmin ? 'Admin' : 'Player'}
+                            </span>
+                        </p>
+                    </div>
                     
                     <div className="lobby-buttons">
                         {isAdmin ? (
-                            <button className="lobby-main-btn" onClick={handleStartGame} disabled={!canStartGame} 
-                                style={{backgroundColor: canStartGame ? '#2196F3' : '#ccc'}}>
-                                {canStartGame ? '✅ Inizia' : '⏳ Attendi giocatori'}
+                            <button 
+                                className="lobby-main-btn admin-btn" 
+                                onClick={handleStartGame}
+                                disabled={!canStartGame}  // ✅ AGGIUNTO il controllo
+                            >
+                                {canStartGame ? '✅ Inizia Partita' : '⏳ In Attesa'}
                             </button>
                         ) : (
-                            <button className="lobby-main-btn" onClick={handleReady} disabled={isReady} 
-                                style={{backgroundColor: isReady ? '#4CAF50' : '#2196F3'}}>
-                                {isReady ? '✅ Pronto' : 'Pronto?'}
+                            <button 
+                                className={`lobby-main-btn player-btn ${isReady ? 'ready' : ''}`}
+                                onClick={handleReady}
+                            >
+                                {isReady ? '✅ Pronto' : 'Pronto'}
                             </button>
                         )}
-                        <button className="lobby-main-btn" onClick={handleBackHome}>Esci</button>
+                        <button className="lobby-main-btn" onClick={handleBackHome}>
+                            Torna alla Home
+                        </button>
                     </div>
                 </div>
 
-                {/* Sidebar */}
+                {/* COLONNA DESTRA: LISTA GIOCATORI */}
                 <aside className="lobby-sidebar">
-                    <h2 className="sidebar-title">Giocatori ({players.length}/{maxPlayers})</h2>
+                    <h2 className="sidebar-title">Giocatori nella stanza</h2>
+                    <p className="sidebar-room-code">{players.length + ' / ' + maxPlayers}</p>
+
                     <div className="sidebar-players">
+                        {players.length === 0 && (
+                            <p className="sidebar-empty">In attesa di giocatori...</p>
+                        )}
+
                         {players.map((p, idx) => (
-                            <div key={idx} className={`sidebar-player ${p === user.username ? 'me' : ''}`}>
-                                <span>{p} {p === adminPlayer && '👑'}</span>
-                                {readyStates[p] && p !== adminPlayer && <span>✅</span>}
+                            <div
+                                key={idx}
+                                className={
+                                    p === user.username
+                                        ? 'sidebar-player sidebar-player-me'
+                                        : 'sidebar-player'
+                                }
+                            >
+                                <span className="sidebar-player-avatar">
+                                    {p?.[0]?.toUpperCase() || '?'}
+                                </span>
+                                <span className={
+                                    p === adminPlayer
+                                        ? 'sidebar-player-name sidebar-player-admin'
+                                        : 'sidebar-player-name'
+                                }>
+                                    {p}
+                                    {p === user.username && ' (tu)'}
+                                    {p === adminPlayer && '👑'}
+                                    {/* ✅ NUOVO: Mostra il check se l'utente è pronto (NON per admin) */}
+                                    {readyStates[p] && p !== adminPlayer && <span className="ready-check">✅</span>}    
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -345,6 +434,8 @@ const Lobby = () => {
             </div>
         </div>
     );
+
+
 }
 
 export default Lobby;

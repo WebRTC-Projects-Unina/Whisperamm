@@ -2,25 +2,52 @@
 const crypto = require('crypto');
 const { Game, GamePhase } = require('../models/Game');
 const { GameSecretsUtil } = require('../utils/GameSecretsUtil'); 
+const RoomService = require('./roomService');
 
 class GameService {
 
-    static async createGame(roomId, playersList) {
+    static async createGame(roomId) {
 
+        
+        const gameId = crypto.randomUUID();
+        const playersList = await RoomService.getPlayers(roomId);
         //Da modificare perchè mo mi serviva per testare a volo
         if (!playersList || playersList.length < 2) {
             throw new Error("Servono almeno 2 giocatori");
         }
 
-        const gameId = crypto.randomUUID();
-        
-        // 1. Genera le parole per Civili e Impostori, in più l'impostore
+        // Genera le parole per Civili e Impostori, in più l'impostore
         const gameSecrets = GameSecretsUtil.getRandomSecrets(); //arriva già seriealizzato
         const imposterIndex = Math.floor(Math.random() * playersList.length);
         const imposterUsername = playersList[imposterIndex];
 
-        // 2. Costruisci mappa giocatori (che verrà serializzato)
-        const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername);
+        // Genera i valori dei dadi per ogni utente (1-12 unici)
+        const availableNumbers = Array.from({ length: 12 }, (_, i) => i + 1);
+
+        const diceValues = playersList.map(player => {
+            // Scegliamo un indice casuale basato sui numeri rimasti
+            const randomIndex = Math.floor(Math.random() * availableNumbers.length);
+            
+            // Prendiamo il valore e lo elimino dall'array avaibleNumbers
+            const value = availableNumbers.splice(randomIndex, 1)[0];
+            
+            // Ritorniamo l'oggetto per questo giocatore
+            return {
+                username: player,
+                value: value
+            };
+        });
+
+        // Ordiniamo i valori dei dadi in ordine decrescente
+        diceValues.sort((a, b) => b.value - a.value);
+
+        // Assegniamo l'ordine sequenziale (1, 2, 3...) basato sulla posizione nell'array ordinato
+        diceValues.forEach((data, index) => {
+        data.order = index + 1; // 1 based (1° giocatore, 2° giocatore...)
+        });
+
+        // Costruisci mappa giocatori (che verrà serializzato)
+        const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues);
 
         // 3. Prepara Metadati (Serializzazione qui!)
         const metaData = {
@@ -42,18 +69,21 @@ class GameService {
         return fullGame;
     }
 
-    static _buildInitialPlayersMap(playersList, imposterUsername) {
+    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues) {
         const map = {};
         playersList.forEach(username => {
             const isImpostor = (username === imposterUsername);
+            const userDiceData = diceValues.find(d => d.username === username);
+
             const playerData = {
                 username: username,
                 role: isImpostor ? 'IMPOSTOR' : 'CIVILIAN',
                 isAlive: true,
                 canTalk: false,
                 votesReceived: 0,
-                diceValue: 0,
-                order: null 
+                hasRolled: false,
+                diceValue: userDiceData.value,
+                order: userDiceData.order 
             };
             // Il Service converte in stringa per Redis
             map[username] = JSON.stringify(playerData); 
@@ -67,7 +97,6 @@ class GameService {
     static async getGameSnapshot(gameId) {
         // 1. Chiede i dati grezzi al Model
         const rawData = await Game.findByIdRaw(gameId);
-        
         if (!rawData) return null;
 
         const { meta, playersHash } = rawData;
@@ -84,8 +113,9 @@ class GameService {
             }
         }
 
-        // Parsing dei giocatori (Da Map di stringhe a Array di oggetti)
-        const players = [];
+        // Manteniamo l'oggetto/mappa
+        const players = []; 
+
         if (playersHash) {
             Object.values(playersHash).forEach(jsonStr => {
                 try {
@@ -94,10 +124,16 @@ class GameService {
                     console.error("Errore parsing player service:", e);
                 }
             });
-        }
 
+        } 
         // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
         return { ...meta, players };
+    }
+
+    static async getGameSnapshotByRoomId(roomId) {
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) return null;
+        return this.getGameSnapshot(gameId);
     }
 
     // --- LOGICA DI AGGIORNAMENTO ---
@@ -122,6 +158,25 @@ class GameService {
 
         return playerData;
     }
+
+    /**
+     * NUOVO: Controlla se tutti i giocatori hanno lanciato i dadi
+     * Ritorna TRUE se tutti hanno fatto, FALSE altrimenti.
+     */
+    static checkAllPlayersRolled(playersArray) {
+        // playersArray è la lista che ti ritorna getGameSnapshot
+        return playersArray.every(p => p.hasRolled === true);
+    }
+
+    /**
+     * NUOVO: Cambia la fase del gioco (es. da DICE a GAME)
+     */
+    static async advancePhase(gameId, newPhase) {
+        await Game.updateMetaField(gameId, 'phase', newPhase);
+        // Ritorniamo lo snapshot aggiornato
+        return await this.getGameSnapshot(gameId);
+    }
+
 }
 
 module.exports = GameService;
