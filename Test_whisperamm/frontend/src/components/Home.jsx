@@ -141,8 +141,8 @@ const Home = () => {
                         >
                             <option value="" disabled>Seleziona (da 2 a 12)</option>
                             {
-                                // Crea un array da 2 a 12
-                                Array.from({ length: 11 }, (_, i) => i + 2).map(num => (
+                                // Crea un array da 2 a 11
+                                Array.from({ length: 10 }, (_, i) => i + 2).map(num => (
                                     <option key={num} value={num}>
                                         {num} giocatori
                                     </option>

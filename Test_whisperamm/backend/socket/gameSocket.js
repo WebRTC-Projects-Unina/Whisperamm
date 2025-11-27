@@ -80,7 +80,6 @@ async function handleGameStarted(io, socket, { roomId }) {
 async function handleRollDice(io, socket) {
     const username = socket.data.username;
     const roomId = socket.data.roomId;
-    console.log(`[Socket] Ricevuta richiesta DiceRoll da ${username} in room ${roomId}`);
 
     try {
 
@@ -99,9 +98,9 @@ async function handleRollDice(io, socket) {
         const myData = game.players.find(p => p.username === username);
         NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
             username: username,
-            diceValue: myData.diceValue
+            dice1: myData.dice1,
+            dice2: myData.dice2
         });
-        
         
         // Controlliamo se TUTTI hanno lanciato
         if (GameService.checkAllPlayersRolled(game.players)) {
