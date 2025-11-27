@@ -1,26 +1,30 @@
 /* src/style/Game.css */
 
-/* --- LAYOUT BASE (Il tuo stile originale) --- */
+/* --- LAYOUT BASE --- */
 .game-page {
     display: flex;
     justify-content: center;
-    align-items: center;
+    /* align-items: center;  <-- Rimosso per far espandere in altezza se necessario */
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     padding: 20px;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    box-sizing: border-box; /* Importante per il padding */
 }
 
 .game-card {
     background: white;
     border-radius: 15px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    padding: 30px; /* Ridotto leggermente per far stare tutto */
-    max-width: 500px;
+    padding: 30px;
+    /* MODIFICA: Aumentato per riempire lo schermo */
     width: 100%;
+    max-width: 1000px; /* Molto più largo di prima (era 500px) */
     text-align: center;
     animation: slideIn 0.5s ease-out;
-    position: relative; /* Per posizionamenti assoluti se servono */
+    position: relative;
+    /* Per evitare che diventi troppo alto su schermi enormi */
+    margin: auto 0; 
 }
 
 @keyframes slideIn {
@@ -28,13 +32,14 @@
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* --- HEADER DEL GIOCO (Nuovo) --- */
+/* --- HEADER DEL GIOCO --- */
 .game-header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
     text-align: left;
     margin-bottom: 20px;
+    flex-wrap: wrap; /* Permette di andare a capo su mobile */
 }
 
 .game-title {
@@ -61,6 +66,7 @@
     font-weight: bold;
     border: 1px solid #e1e4e8;
     white-space: nowrap;
+    margin-top: 10px; /* Spazio su mobile */
 }
 
 .divider {
@@ -70,7 +76,7 @@
     margin: 15px 0 25px 0;
 }
 
-/* --- SEZIONE SEGRETA (Nuovo: Blur Effect) --- */
+/* --- SEZIONE SEGRETA --- */
 .game-secret-section {
     text-align: left;
     margin-bottom: 25px;
@@ -82,129 +88,200 @@
     margin-bottom: 10px;
 }
 
-.secret-card {
-    background: linear-gradient(145deg, #2d3436, #212526); /* Carta scura */
-    color: #fff;
-    padding: 20px;
-    border-radius: 12px;
-    cursor: pointer;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
-    user-select: none; /* Impedisce selezione testo spoiler */
-    text-align: center;
-    border: 1px solid #444;
-}
-
-.secret-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
-}
-
-.secret-label {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 1.5px;
-    color: #aaa;
-    margin-bottom: 15px;
-    font-weight: 600;
-}
-
-/* Logica Blur */
-.secret-content {
-    transition: filter 0.3s ease;
-}
-
-.secret-content.blurred {
-    filter: blur(8px); /* Blur forte */
-    opacity: 0.7;
-}
-
-.secret-content.revealed {
-    filter: blur(0);
-    opacity: 1;
-}
-
-.secret-word span {
-    color: #00ff88; /* Verde neon per la parola */
-    font-size: 1.4rem;
-    font-weight: 800;
-    text-shadow: 0 0 10px rgba(0, 255, 136, 0.3);
-}
-
-/* --- AREA DI GIOCO --- */
-.game-area {
-    background: #f8f9fa;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 25px;
-    border: 1px dashed #cbd5e0;
-}
-
-.game-status-text {
+.secret-toggle {
+    background: #f0f2f5;
     color: #555;
-    font-weight: 500;
-}
-
-/* --- PULSANTI (Aggiornati) --- */
-.game-buttons {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-}
-
-/* Stile base pulsante */
-.game-btn-action, .game-btn-danger {
-    padding: 12px 24px;
-    font-size: 1rem;
-    border: none;
+    padding: 10px;
     border-radius: 8px;
     cursor: pointer;
     font-weight: 600;
-    transition: all 0.2s ease;
-    flex: 1;
+    font-size: 0.9rem;
+    border: 1px solid #dce0e4;
+    text-align: center;
+    transition: background 0.2s;
+}
+
+.secret-toggle:hover {
+    background: #e1e4e8;
+}
+
+.secret-content.revealed {
+    background: linear-gradient(145deg, #2d3436, #212526);
+    color: #fff;
+    padding: 20px;
+    border-radius: 12px;
+    margin-top: 15px;
+    border: 1px solid #444;
+    animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; } to { opacity: 1; }
+}
+
+.secret-content p {
+    margin: 10px 0;
+    font-size: 1.1rem;
+}
+
+/* --- AREA TAVOLO DA GIOCO (Spostato FUORI dalla media query) --- */
+.game-table-area {
+    background-color: #2c3e50; /* Sfondo scuro */
+    border: 4px solid #4a3121; /* Bordo marrone */
+    border-radius: 15px;
+    padding: 25px;
+    margin: 30px 0;
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.7); /* Ombra interna profonda */
     color: white;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    text-align: center;
+    min-height: 220px; /* Altezza minima per non collassare */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-/* Pulsante Azione (Verde/Blu) */
-.game-btn-action {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.game-table-area h3 {
+    margin-top: 0;
+    margin-bottom: 20px;
+    color: #bbb;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-size: 1rem;
 }
 
-.game-btn-action:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(118, 75, 162, 0.4);
+/* Griglia giocatori (Adattata per dadi più piccoli) */
+.players-grid {
+    display: grid;
+    /* Colonne più strette (minmax 80px invece di 100px) */
+    grid-template-columns: repeat(auto-fit, minmax(85px, 1fr)); 
+    gap: 15px;
+    justify-items: center;
 }
 
-/* Pulsante Pericolo (Rosso/Grigio scuro) */
-.game-btn-danger {
-    background: #ff6b6b; /* Rosso soft */
+/* Slot singolo giocatore */
+.player-slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 10px 5px;
+    background: rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    transition: transform 0.2s, background 0.3s;
+    width: 100%; /* Occupa tutta la larghezza della colonna */
+    box-sizing: border-box;
+}
+
+.player-slot.me {
+    background: rgba(76, 175, 80, 0.25);
+    border: 1px solid rgba(76, 175, 80, 0.5);
+}
+
+.player-name {
+    font-size: 0.8rem;
+    margin-bottom: 12px;
+    font-weight: 600;
+    color: #eee;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+/* Zona contenitore del dado */
+.dice-zone {
+    /* MODIFICA: Ridotto da 80px a 60px */
+    width: 60px;
+    height: 60px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+}
+
+/* Placeholder quando non c'è il dado */
+.dice-placeholder {
+    font-size: 0.65rem;
+    color: #888;
+    font-style: italic;
+    border: 2px dashed #555;
+    border-radius: 50%;
+    width: 45px;
+    height: 45px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: rgba(0,0,0,0.2);
+}
+
+/* --- CONTROLLI FOOTER --- */
+.game-footer {
+    margin-top: 30px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+/* Stile bottone lancio */
+.btn-roll {
+    background: linear-gradient(135deg, #ff9800, #f57c00);
+    color: white;
+    font-size: 1.1rem;
+    font-weight: bold;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 50px;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(245, 124, 0, 0.4);
+    transition: transform 0.2s, box-shadow 0.2s, filter 0.2s;
+}
+
+.btn-roll:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(245, 124, 0, 0.6);
+    filter: brightness(1.1);
+}
+
+.btn-roll:active {
+    transform: translateY(1px);
+}
+
+.btn-leave {
+    background: transparent;
+    border: 2px solid #ff6b6b;
+    color: #ff6b6b;
+    padding: 8px 20px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-leave:hover {
+    background: #ff6b6b;
     color: white;
 }
 
-.game-btn-danger:hover {
-    background: #fa5252;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(250, 82, 82, 0.3);
+.status-text {
+    color: #777;
+    font-style: italic;
+    font-weight: 500;
 }
+
 
 /* --- LOADING SPINNER --- */
-.spinner {
-    border: 4px solid rgba(0, 0, 0, 0.1);
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border-left-color: #764ba2;
-    animation: spin 1s linear infinite;
-    margin: 20px auto;
+.game-loader {
+    color: white;
+    font-size: 1.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
 
-/* --- MEDIA QUERIES --- */
+/* --- MEDIA QUERIES (Solo per aggiustamenti minori su mobile) --- */
 @media (max-width: 600px) {
     .game-card {
         padding: 20px;
@@ -213,21 +290,13 @@
     .game-header {
         flex-direction: column;
     }
-    
-    .game-room-badge {
-        margin-top: 10px;
-        align-self: flex-start;
-    }
 
     .game-buttons {
         flex-direction: column;
     }
 
-    .game-btn-action, .game-btn-danger {
-        width: 100%;
+    .players-grid {
+        /* Su schermi piccolissimi, magari 2 colonne fisse */
+        grid-template-columns: repeat(2, 1fr);
     }
-
-
-
-    
 }
