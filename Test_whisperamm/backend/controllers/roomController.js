@@ -7,9 +7,7 @@ exports.createGame = async (req, res) => {
         
         // Validazione base dell'input
         if (!user || !user.username) {
-            return res.status(400).json({ 
-                message: "Dati utente mancanti." 
-            });
+            return res.status(400).json({ message: "Dati Admin mancanti."});
         }
 
         // Crea la stanza tramite il service
@@ -21,58 +19,27 @@ exports.createGame = async (req, res) => {
         );
 
         console.log(`[Controller] Stanza ${roomId} creata con successo.`);
-
         res.status(201).json({ roomId });
 
     } catch (error) {
-        console.error("Errore in createGame:", error);
-        
-        // Gestione errori specifici
-        if (error.message === 'ROOM_NAME_REQUIRED') {
-            return res.status(400).json({ 
-                message: "Il nome della stanza è obbligatorio." 
-            });
-        }
-        
-        if (error.message === 'ROOM_NAME_TOO_SHORT') {
-            return res.status(400).json({ 
-                message: "Il nome della stanza deve essere di almeno 3 caratteri." 
-            });
-        }
+        console.error('[RoomController] Errore creazione:', error.message);
+            
+            // Gestione errori specifici del Service
+            let statusCode = 500;
+            if (['ROOM_NAME_REQUIRED', 'INVALID_MAX_PLAYERS', 'HOST_NOT_FOUND'].includes(error.message)) {
+                statusCode = 400;
+            }
 
-        if (error.message === 'ROOM_NAME_TOO_LONG') {
-            return res.status(400).json({ 
-                message: "Il nome della stanza non può superare 50 caratteri." 
+            res.status(statusCode).json({ 
+                success: false, 
+                error: error.message 
             });
-        }
-
-        if (error.message === 'INVALID_MAX_PLAYERS') {
-            return res.status(400).json({ 
-                message: "Il numero massimo di giocatori deve essere tra 2 e 10." 
-            });
-        }
-
-        if (error.message === 'INVALID_ROUNDS') {
-            return res.status(400).json({ 
-                message: "Il numero di round deve essere tra 1 e 20." 
-            });
-        }
-
-        if (error.message === 'HOST_NOT_FOUND') {
-            return res.status(404).json({ 
-                message: "Utente non registrato." 
-            });
-        }
-
-        return res.status(500).json({ 
-            message: "Errore interno del server." 
-        });
     }
 };
 
 exports.checkRoom = async (req, res) => {
     try {
-        const { gameId } = req.params;
+        const { gameId } = req.params; //Qua dovrebbe
         const { user } = req.body;
 
         // Validazione input

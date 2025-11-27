@@ -2,10 +2,10 @@
 const { lobbies, disconnectTimeouts, RECONNECT_TOLERANCE_MS, registerUserSocket, unregisterUserSocket } = require('./stateSocket');
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
-
+const SocketService = require('../services/socketService');
 // --- HANDLERS ---
 async function handleJoinLobby(io, socket, { roomId, user }) {
-    // Validazione input base
+    // 1. Validazione input base
     console.log(`[Socket] Utente tenta di entrare in lobby ${roomId}`);
     if (!roomId || !user || !user.username) {
         socket.emit('lobbyError', { message: 'Dati mancanti per l\'ingresso.' });
@@ -14,67 +14,49 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
 
     const username = user.username;
 
-    // 1. GESTIONE RICONNESSIONE (STOP TIMER)
-    if (disconnectTimeouts.has(username)) {
-        clearTimeout(disconnectTimeouts.get(username));
-        disconnectTimeouts.delete(username);
-        console.log(`[Socket] ${username} rientrato in tempo. Timer annullato.`);
-    }
-
-    // 2. CONTROLLO ESISTENZA STANZA
+    // 2. LOGICA DI ACCESSO
     try {
-        const room = await RoomService.getRoom(roomId);
-        if (!room) {
-            socket.emit('lobbyError', { message: 'Stanza non trovata' });
-            return;
-        }
-    } catch (err) {
-        socket.emit('lobbyError', { message: 'Stanza non trovata' });
-        return;
-    }
-
-    // 3. LOGICA DI ACCESSO
-    try {
-        const { isNew } = await RoomService.addPlayerToRoom(roomId, username);
+        //Internamente, addPlayerToRoom già fa il check per ogni cosa da controllare
+        const result = await RoomService.addPlayerToRoom(roomId, username);
         
-        if (isNew) {
-            console.log(`[Service] Utente ${username} aggiunto alla stanza ${roomId}`);
-        } else {
-            console.log(`[Service] Utente ${username} già presente in ${roomId} (riconnessione)`);
+        if (result.added) {
+            console.log(`[Business] Utente ${username} aggiunto alla stanza ${roomId}`);
+        } else if (result.isRejoining) {
+            console.log(`[Business] Utente ${username} già presente in ${roomId} (riconnessione)`);
         }
+       
     } catch (error) {
         socket.emit('lobbyError', { message: error.message });
+        socket.disconnect(); // Disconnettiamo se non può entrare logicamente
         return;
     }
 
-    // 4. SETUP SOCKET
+    // 3. SETUP SOCKET
     socket.data.roomId = roomId;
     socket.data.username = username;
     socket.join(roomId);
 
-    // 5. GESTIONE CONNESSIONE UNICA (KICK VECCHIA SCHEDA)
-    const { oldSocketId } = registerUserSocket(roomId, username, socket.id);
+    // 4. Registrazione SocketID con Socket Service
+    const { oldSocketId } = await SocketService.registerConnection(roomId, username, socket.id);
 
+    // 5. GESTIONE CONNESSIONE UNICA (KICK VECCHIA SCHEDA)
     if (oldSocketId && oldSocketId !== socket.id) {
         console.log(`[Socket] ${username} nuova connessione rilevata. Chiusura vecchio socket: ${oldSocketId}`);
         
         const oldSocket = io.sockets.sockets.get(oldSocketId);
         if (oldSocket) {
-            oldSocket.emit('lobbyError', { 
-                message: 'Hai aperto il gioco in un\'altra scheda. Questa connessione è stata chiusa.' 
-            });
+            oldSocket.emit('lobbyError', { message: 'Hai aperto il gioco in un\'altra scheda. Questa connessione è stata chiusa.' });
             oldSocket.disconnect(true);
         }
     }
 
     // 6. NOTIFICHE AGLI ALTRI
-    if (!oldSocketId) {
+    
         socket.to(roomId).emit('chatMessage', {
             from: 'system',
             text: `${username} è entrato nella lobby`,
             timestamp: Date.now()
         });
-    }
 
     // Inviamo la lista aggiornata a tutti
     const updatedPlayers = await RoomService.getPlayers(roomId);
@@ -96,54 +78,47 @@ async function notifyHostChange(io, roomId) {
     }
 }
 
-function handleDisconnect(io, socket) {
+async function handleDisconnect(io, socket) {
     const { roomId, username } = socket.data;
     
     if (!roomId || !username) return;
 
-    const shouldStartTimer = unregisterUserSocket(roomId, username, socket.id);
-
-    if (!shouldStartTimer) {
+    const isCurrentSocket = await SocketService.unregisterConnection(roomId, username, socket.id);
+    if (!isCurrentSocket) {
         console.log(`[Socket] Disconnessione ignorata per ${username} (Socket obsoleto)`);
         return;
     }
+    console.log(`[Socket] ${username} offline da ${roomId}. Rimozione effettuata.`);
 
-    console.log(`[Socket] ${username} offline da ${roomId}. Avvio timer (${RECONNECT_TOLERANCE_MS}ms)...`);
+    try{
+        const updatedRoom = await RoomService.removePlayerFromRoom(roomId, username);
 
-    const timeout = setTimeout(async () => {
-        console.log(`[Timer] Timeout scaduto per ${username}. Rimozione definitiva.`);
-        
-        try {
-            const updatedRoom = await RoomService.removePlayerFromRoom(roomId, username);
-
-            if (!updatedRoom) {
+        //Questo perchè internamente, removePlayerFromRoom verifica anche se 
+        //era l'ultimo utente nella lobby e nel caso elimina
+        if (!updatedRoom) {
                 console.log(`[SERVICE] Stanza ${roomId} eliminata (vuota).`);
                 return; 
-            }
-
-            // Notifica cambio host se necessario
-            await notifyHostChange(io, roomId);
-
-            io.to(roomId).emit('chatMessage', {
-                from: 'system',
-                text: `${username} ha lasciato la lobby`,
-                timestamp: Date.now()
-            });
-
-            io.to(roomId).emit('lobbyPlayers', {
-                players: updatedRoom.players
-            });
-
-        } catch (err) {
-            console.error(`[Errore] Rimozione ${username} da ${roomId}:`, err);
-        } finally {
-            disconnectTimeouts.delete(username);
         }
 
-    }, RECONNECT_TOLERANCE_MS);
+        // Notifica cambio host se necessario
+        await notifyHostChange(io, roomId);
 
-    disconnectTimeouts.set(username, timeout);
-}
+        io.to(roomId).emit('chatMessage', {
+            from: 'system',
+            text: `${username} ha lasciato la lobby`,
+            timestamp: Date.now()
+        });
+    
+        io.to(roomId).emit('lobbyPlayers', {
+            players: updatedRoom.players
+        });
+
+    }catch(err){
+        console.error(`[Errore] Rimozione ${username} da ${roomId}:`, err);
+    }
+
+} 
+
 
 function handleChatMessage(io, socket, { roomId, text }) {
     const { username } = socket.data;
@@ -183,8 +158,7 @@ async function handleUserReady(io, socket, { roomId }) {
 
         // Controlla se TUTTI sono pronti
         const { allReady } = await RoomService.checkAllUsersReady(roomId);
-        
-        io.to(roomId).emit('allUsersReady', { allReady });
+        io.to(roomId).emit('allUsersReady', { allReady }); //non ho capito
         
         if (allReady) {
             io.to(roomId).emit('gameCanStart', { 
