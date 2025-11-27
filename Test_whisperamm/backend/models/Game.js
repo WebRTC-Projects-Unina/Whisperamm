@@ -41,6 +41,7 @@ class Game {
         }
 
         await multi.exec();
+        console.log(`[Game] Partita ${gameId} creata in room ${metaData.roomId}`);
         return gameId;
     }
 

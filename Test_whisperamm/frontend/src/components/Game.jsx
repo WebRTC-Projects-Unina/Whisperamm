@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
@@ -12,11 +12,18 @@ const Game = () => {
     const { socket, disconnectSocket } = useSocket(); 
     
     const [gameState, setGameState] = useState(null);      
+    // 2. CREIAMO UN REF CHE TIENE SEMPRE IL GAMESTATE AGGIORNATO
+    const gameStateRef = useRef(gameState);
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
     
     const [activeRolls, setActiveRolls] = useState([]); 
     const [isWaiting, setIsWaiting] = useState(false); 
+
+    // Manteniamo il ref aggiornato (Per i colori dei dadi tutto questo)
+    useEffect(() => {
+        gameStateRef.current = gameState;
+    }, [gameState]);
 
     // --- PULIZIA TAVOLO ---
     useEffect(() => {
@@ -38,11 +45,20 @@ const Game = () => {
         const handlePrintDiceRoll = (payload) => {
             const rollId = Date.now() + Math.random();
             
+            // 4. QUI LA MAGIA: Usiamo gameStateRef.current invece di gameState
+            // Questo ci dà accesso ai dati "freschi" senza rompere la closure
+            const currentPlayers = gameStateRef.current?.players || [];
+            
+            // Cerchiamo il giocatore in questione per prendere il suo colore
+            const player = currentPlayers.find(p => p.username === payload.username);
+            const diceColor = player ? player.color : '#fffbf0'; // Fallback se non trovato
+
             const newRoll = {
                 id: rollId,
                 username: payload.username,
                 dice1: payload.dice1,
-                dice2: payload.dice2
+                dice2: payload.dice2,
+                color: diceColor
             };
 
             // 1. AGGIUNGIAMO IL DADO E FACCIAMO PARTIRE L'ANIMAZIONE
@@ -144,13 +160,53 @@ const Game = () => {
 
                     <div className="players-grid">
                         {gameState.players && gameState.players.map((p) => (
-                            <div key={p.username} className={`player-slot ${p.username === user.username ? 'me' : ''}`}>
-                                <div className="player-name">
-                                    {p.username} {p.username === user.username && "(Tu)"}
+                            <div 
+                                key={p.username} 
+                                className={`player-slot ${p.username === user.username ? 'me' : ''}`}
+                                style={{
+                                    // Bordo colorato basato sul colore del player
+                                    border: `2px solid ${p.color || '#ccc'}`,
+                                    // Effetto ombra colorata (Glow)
+                                    boxShadow: `0 0 10px ${p.color || 'rgba(0,0,0,0.1)'}`
+                                }}
+                            >
+                                {/* Sezione Intestazione con Avatar e Nome */}
+                                <div className="player-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                    
+                                    {/* Avatar Colorato con Iniziale */}
+                                    <div 
+                                        className="player-avatar"
+                                        style={{
+                                            backgroundColor: p.color || '#777',
+                                            width: '35px',
+                                            height: '35px',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: '#fff',
+                                            fontWeight: 'bold',
+                                            fontSize: '18px',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                                        }}
+                                    >
+                                        {p.username.charAt(0).toUpperCase()}
+                                    </div>
+
+                                    <div className="player-name">
+                                        {p.username} {p.username === user.username && <span style={{fontSize: '0.8em', opacity: 0.7}}>(Tu)</span>}
+                                    </div>
                                 </div>
+
+                                {/* Risultato Dadi */}
                                 <div className="dice-result-badge">
-                                    {/* Il numero apparirà magicamente quando DiceArena chiamerà la funzione */}
-                                    {p.hasRolled ? p.diceValue : "..."}
+                                    {p.hasRolled ? (
+                                        <span style={{ color: p.color || '#333', fontWeight: 'bold' }}>
+                                            {p.diceValue}
+                                        </span>
+                                    ) : (
+                                        <span style={{ opacity: 0.5 }}>...</span>
+                                    )}
                                 </div>
                             </div>
                         ))}

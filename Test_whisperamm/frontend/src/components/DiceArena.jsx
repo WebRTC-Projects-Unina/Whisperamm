@@ -84,14 +84,20 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
       const data1 = simulateAndRecord(roll.dice1, startX - 1.2);
       const data2 = simulateAndRecord(roll.dice2, startX + 1.2);
 
+      // Usiamo il colore passato dall'oggetto roll, oppure un default
+      const diceColor = roll.color || 0xfffbf0;
+
       if (data1 && data2) {
-          addVisualDice(data1, roll, roll.dice1 + roll.dice2); // Passiamo l'oggetto roll intero e il totale
-          addVisualDice(data2, roll, roll.dice1 + roll.dice2);
+          // Passiamo il colore come 4° argomento
+          addVisualDice(data1, roll, roll.dice1 + roll.dice2, diceColor);
+          addVisualDice(data2, roll, roll.dice1 + roll.dice2, diceColor);
       }
   }
 
-  function addVisualDice(animationData, roll, totalValue) {
-      const mesh = getDiceMesh().clone();
+  function addVisualDice(animationData, roll, totalValue, color) {
+      // Passiamo il colore alla funzione che crea la mesh
+      const mesh = getDiceMesh(color).clone(); 
+      
       mesh.position.copy(animationData[0].pos);
       mesh.quaternion.copy(animationData[0].quat);
       sceneRef.current.add(mesh);
@@ -101,8 +107,8 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
           data: animationData,
           currentFrame: 0,
           rollId: roll.id,
-          username: roll.username, // Salviamo per la callback
-          totalValue: totalValue   // Salviamo per la callback
+          username: roll.username, 
+          totalValue: totalValue   
       });
   }
 
@@ -147,17 +153,36 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
       sceneRef.current.add(floor);
   }
 
-  function getDiceMesh() {
+  function getDiceMesh(colorHex) {
+      // 1. La geometria complessa viene calcolata SOLO UNA VOLTA e salvata nel ref
       if (!diceGeometryRef.current) diceGeometryRef.current = createComplexDiceGeometry();
-      const materialOuter = new THREE.MeshStandardMaterial({ color: 0xfffbf0, roughness: 0.1 });
-      const materialInner = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.8 });
+      
+      // 2. Creiamo il materiale con il colore del giocatore
+      // Three.js è intelligente: se passi una stringa hex (es "#ff0000"), lui capisce.
+      const materialOuter = new THREE.MeshStandardMaterial({ 
+          color: colorHex || 0xfffbf0, // Usa il colore passato o il crema di default
+          roughness: 0.1,
+          metalness: 0.1
+      });
+
+      // Il materiale interno (i buchi) lo lasciamo scuro
+      const materialInner = new THREE.MeshStandardMaterial({ 
+          color: 0x222222, 
+          roughness: 0.8 
+      });
+
       const g = new THREE.Group();
+      // Mesh Interna (nera/scura)
       const innerMesh = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.88, 0.88), materialInner);
+      // Mesh Esterna (colorata)
       const outerMesh = new THREE.Mesh(diceGeometryRef.current, materialOuter);
+    
       outerMesh.castShadow = true;
       outerMesh.receiveShadow = true;
+      
       g.add(innerMesh, outerMesh);
       g.scale.set(1.2, 1.2, 1.2); 
+      
       return g;
   }
 

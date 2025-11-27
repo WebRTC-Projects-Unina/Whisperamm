@@ -17,6 +17,13 @@ class GameService {
         const imposterIndex = Math.floor(Math.random() * playersList.length);
         const imposterUsername = playersList[imposterIndex];
 
+        // Genero colori casuali per i giocatori (da aggiornare se vogliamo farli scegliere)
+        const colors = {};
+        playersList.forEach(username => {
+            colors[username] = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        });
+
+        
         // Genera i valori dei dadi per ogni utente (2-12 unici)
         const availableNumbers = Array.from({ length: 11 }, (_, i) => i + 2);
 
@@ -51,7 +58,7 @@ class GameService {
         });
 
         // Costruisci mappa giocatori (che verrà serializzato)
-        const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues);
+        const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors);
 
         // 3. Prepara Metadati (Serializzazione qui!)
         const metaData = {
@@ -72,12 +79,13 @@ class GameService {
         return fullGame;
     }
 
-    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues) {
+    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors = null) {
         const map = {};
         
         playersList.forEach(username => {
             const isImpostor = (username === imposterUsername);
             const userDiceData = diceValues.find(d => d.username === username);
+            const userColor = colors ? colors[username] : null;
             const role = isImpostor ? 'IMPOSTOR' : 'CIVILIAN';
 
             // Usiamo 
@@ -87,7 +95,7 @@ class GameService {
                 role, 
                 userDiceData.value1, 
                 userDiceData.value2, 
-                null, // color 
+                userColor, // color 
                 userDiceData.order
             );
 
