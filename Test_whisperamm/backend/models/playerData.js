@@ -18,7 +18,8 @@ class PlayerData {
 
     const newPlayer = {
         username,
-        diceValue, // Valore del dado (1-12)
+        dice1,
+        dice2, // Valore del dado (1-12)
         role, // Ruolo del giocatore (es. civile o impostore)
         color,     // Colore scelto dal giocatore
         isRolling: false, // Se il giocatore sta lanciando i dadi/ ha lanciato

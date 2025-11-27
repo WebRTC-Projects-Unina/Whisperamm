@@ -22,19 +22,33 @@ class GameService {
         const imposterUsername = playersList[imposterIndex];
 
         // Genera i valori dei dadi per ogni utente (1-12 unici)
-        const availableNumbers = Array.from({ length: 12 }, (_, i) => i + 1);
+        const availableNumbers = Array.from({ length: 11 }, (_, i) => i + 2);
 
         const diceValues = playersList.map(player => {
             // Scegliamo un indice casuale basato sui numeri rimasti
             const randomIndex = Math.floor(Math.random() * availableNumbers.length);
             
             // Prendiamo il valore e lo elimino dall'array avaibleNumbers
-            const value = availableNumbers.splice(randomIndex, 1)[0];
+            const totalValue = availableNumbers.splice(randomIndex, 1)[0];
             
+            // Calcoliamo i limiti per il primo dado (d1)
+            // Il minimo deve essere almeno 1, ma abbastanza alto affinché d2 non superi 6.
+            // Esempio: Se totale è 11, d1 deve essere almeno 5 (perché 11-5=6).
+            const minD1 = Math.max(1, totalValue - 6);
+            
+            // Il massimo deve essere al massimo 6, ma non può rendere d2 inferiore a 1.
+            const maxD1 = Math.min(6, totalValue - 1);
+            
+            // Generiamo d1 casualmente all'interno di questo range sicuro
+            const d1 = Math.floor(Math.random() * (maxD1 - minD1 + 1)) + minD1;
+            
+            // Calcoliamo d2 per differenza
+            const d2 = totalValue - d1;
             // Ritorniamo l'oggetto per questo giocatore
             return {
                 username: player,
-                value: value
+                value1: d1,
+                value2: d2
             };
         });
 
@@ -61,7 +75,6 @@ class GameService {
         // 4. Chiama il Model (CRUD pura)
         await Game.create(gameId, metaData, playersMap);
 
-        console.log(`[GameService] Partita ${gameId} creata.`);
         // 5. RILEGGI TUTTO E RITORNA L'OGGETTO COMPLETO
         // Qui avviene la magia: riutilizzi la logica di lettura che parsa i JSON.
         // Così il frontend riceve un oggetto pulito, non stringhe.
@@ -82,7 +95,8 @@ class GameService {
                 canTalk: false,
                 votesReceived: 0,
                 hasRolled: false,
-                diceValue: userDiceData.value,
+                dice1: userDiceData.value1,
+                dice2: userDiceData.value2, //Per ora doppio uguale
                 order: userDiceData.order 
             };
             // Il Service converte in stringa per Redis

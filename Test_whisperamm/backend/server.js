@@ -17,7 +17,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
     // Deve corrispondere esattamente all'origine del tuo client
-    origin: 'http://localhost:5173', 
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST'],
     credentials: true // Abilitato per 'withCredentials: true' nel client
   }
