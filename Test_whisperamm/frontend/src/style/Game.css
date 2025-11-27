@@ -14,7 +14,7 @@ html, body {
     flex-direction: column;
     width: 100vw;
     height: 100vh;
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    background: #120220;
     padding: 0; /* Rimuovi padding esterno per andare a bordo schermo */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     box-sizing: border-box;
@@ -22,7 +22,7 @@ html, body {
 
 /* La Card ora è il contenitore principale dell'App */
 .game-card {
-    background: white;
+    background: #120220;
     width: 100%;
     height: 100%; /* Occupa tutta l'altezza */
     max-width: none; /* Rimuovi limiti di larghezza */
@@ -42,32 +42,32 @@ html, body {
     justify-content: space-between;
     align-items: center;
     padding-bottom: 15px;
-    border-bottom: 2px solid #f0f0f0;
+    border-bottom: 2px solid #444;
     flex-shrink: 0; /* L'header non deve schiacciarsi */
 }
 
 .game-title {
     font-size: 2rem;
-    color: #2c3e50;
+    color: #ffffff;
     margin: 0;
     font-weight: 800;
 }
 
 .game-subtitle {
     font-size: 1.1rem;
-    color: #7f8c8d;
+    color: #d249ff;
     margin: 0;
     font-weight: 500;
 }
 
 .game-room-badge {
-    background-color: #ecf0f1;
-    color: #2c3e50;
+    background-color: #222;
+    color: #d249ff;
     padding: 8px 16px;
     border-radius: 30px;
     font-size: 1rem;
     font-weight: bold;
-    border: 2px solid #bdc3c7;
+    border: 2px solid #d249ff;
 }
 
 .divider { display: none; } 
@@ -80,44 +80,56 @@ html, body {
 }
 
 .secret-toggle {
-    background: #f8f9fa;
-    color: #34495e;
+    background: #222;
+    color: #d249ff;
     padding: 8px 20px;
     border-radius: 20px;
     cursor: pointer;
     font-weight: 700;
     font-size: 0.9rem;
-    border: 2px solid #e9ecef;
+    border: 2px solid #d249ff;
     display: inline-block;
     transition: background 0.2s;
 }
 
-.secret-toggle:hover { background: #e2e6ea; }
+.secret-toggle:hover { 
+    background: #333;
+    box-shadow: 0 0 12px rgba(210, 73, 255, 0.5);
+}
 
 .secret-content.revealed {
-    background: #2c3e50;
-    color: #ecf0f1;
+    background: #222;
+    color: #f0f0f0;
     padding: 10px 20px;
     border-radius: 12px;
     margin-top: 10px;
-    border: 1px solid #34495e;
+    border: 1px solid #444;
     animation: fadeIn 0.3s ease-in;
     display: inline-block;
 }
 
 .secret-content p { margin: 5px 0; }
-.secret-content span { color: #f1c40f; font-weight: bold; }
+.secret-content span { color: #d249ff; font-weight: bold; }
 
+/* Colori per i ruoli */
+.secret-content .role-impostor {
+    color: #ff4444;
+    font-weight: bold;
+}
+
+.secret-content .role-civilian {
+    color: #44ff44;
+    font-weight: bold;
+}
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
 /* --- TAVOLO DA GIOCO (Si espande per riempire lo schermo) --- */
 .game-table-area {
-    /* MAGIA: flex-grow 1 fa sì che questo div occupi tutto lo spazio vuoto rimanente */
     flex-grow: 1; 
     
-    background-color: #27ae60;
-    background-image: radial-gradient(circle, #2ecc71 0%, #27ae60 100%);
-    border: 8px solid #5d4037;
+    background-color: #1a4d2e;
+    background-image: radial-gradient(circle, #2d6a4f 0%, #1a4d2e 100%);
+    border: 8px solid #444;
     border-radius: 15px;
     margin: 15px 0;
     padding: 20px;
@@ -128,7 +140,7 @@ html, body {
     
     display: flex;
     flex-direction: column;
-    justify-content: center; /* Centra il contenuto (griglia o dadi) verticalmente */
+    justify-content: center;
 }
 
 /* Overlay 3D per i dadi */
@@ -165,15 +177,15 @@ html, body {
 }
 
 .player-slot.me {
-    background: rgba(241, 196, 15, 0.3);
-    border: 2px solid #f1c40f;
+    background: rgba(210, 73, 255, 0.15);
+    border: 2px solid #d249ff;
     transform: scale(1.05);
 }
 
 .player-name {
     font-size: 0.9rem;
     font-weight: bold;
-    color: white;
+    color: #f0f0f0;
     margin-bottom: 5px;
     text-shadow: 0 1px 2px black;
     white-space: nowrap;
@@ -183,8 +195,8 @@ html, body {
 }
 
 .dice-result-badge {
-    background: white;
-    color: #333;
+    background: #d249ff;
+    color: #120220;
     font-weight: 800;
     width: 32px;
     height: 32px;
@@ -193,7 +205,7 @@ html, body {
     justify-content: center;
     align-items: center;
     font-size: 1.1rem;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    box-shadow: 0 2px 4px rgba(210, 73, 255, 0.4);
 }
 
 /* --- FOOTER E BOTTONI (Grandi e Chiari) --- */
@@ -214,7 +226,7 @@ html, body {
 
 /* Bottone Lancia */
 .game-btn-action {
-    background: linear-gradient(to bottom, #ff9800, #e65100);
+    background: linear-gradient(to bottom, #d249ff, #a600ff);
     color: white;
     font-size: 1.4rem; 
     font-weight: 900;
@@ -231,19 +243,20 @@ html, body {
 
 .game-btn-action:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 0 #bf360c, 0 12px 25px rgba(0,0,0,0.4);
+    box-shadow: 0 8px 0 #7a0099, 0 12px 25px rgba(210, 73, 255, 0.4);
     filter: brightness(1.1);
 }
 
+
 .game-btn-action:active {
     transform: translateY(4px);
-    box-shadow: 0 2px 0 #bf360c, 0 4px 10px rgba(0,0,0,0.4);
+    box-shadow: 0 2px 0 #7a0099, 0 4px 10px rgba(210, 73, 255, 0.3);
 }
 
 /* Bottone Abbandona */
 .game-btn-danger {
-    background: white;
-    border: 2px solid #e74c3c;
+    background: #222;
+    border: 2px solid #d249ff;
     color: #e74c3c;
     font-size: 1rem;
     font-weight: 800;
@@ -262,26 +275,123 @@ html, body {
 
 .status-text {
     font-size: 1.2rem;
-    color: #555;
+    color: #d249ff;
     font-weight: 600;
     font-style: italic;
-    background: #f8f9fa;
+    background: #222;
     padding: 12px 30px;
     border-radius: 30px;
-    border: 1px solid #ddd;
+    border: 2px solid #d249ff;
 }
 
 /* --- LOADER --- */
 .game-loader {
     width: 100vw;
     height: 100vh;
-    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
-    color: white;
+    background-color: #120220;
+    color: #d249ff;
     font-size: 2rem;
     font-weight: bold;
     display: flex;
     justify-content: center;
     align-items: center;
+}
+
+/* SIDEBAR GIOCATORI - OVERLAY A DESTRA */
+.game-sidebar {
+    position: fixed;
+    right: 20px;
+    top: 120px;
+    width: 200px;
+    background-color: rgba(23, 24, 25, 0.1);
+    border-radius: 12px;
+    padding: 0.8rem 0.6rem;
+    border: 1px solid #444;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    max-height: 60vh;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(143, 64, 159, 0.4);
+    backdrop-filter: blur(10px);
+}
+
+.game-sidebar .sidebar-title {
+    font-size: 1rem;
+    font-weight: 800;
+    color: #f0f0f0;
+    margin: 0 0 0;
+}
+
+.game-sidebar .sidebar-players {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.game-sidebar .sidebar-player {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem;
+    background: rgba(34, 34, 34, 0.2);
+    border-radius: 6px;
+    border: 1px solid rgba(68, 68, 68, 0.5);
+    transition: all 0.2s;
+}
+
+.game-sidebar .sidebar-player:hover {
+    background: #2a2a2a;
+    border-color: #d249ff;
+}
+
+.game-sidebar .sidebar-player-me {
+    background: rgba(210, 73, 255, 0.2);
+    border: 1px solid #d249ff;
+}
+
+.game-sidebar .sidebar-player-avatar {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: #d249ff;
+    color: #120220;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.game-sidebar .sidebar-player-name {
+    font-size: 0.9rem;
+    color: #f0f0f0;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+@media (max-width: 1024px) {
+    .game-sidebar {
+        width: 180;
+        right: 10px;
+        top: 100px;
+        padding: 0.6rem 0.5rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .game-sidebar {
+        position: relative;
+        width: 100%;
+        right: auto;
+        top: auto;
+        margin-top: 15px;
+        max-height: none;
+    }
 }
 
 /* --- MOBILE --- */
