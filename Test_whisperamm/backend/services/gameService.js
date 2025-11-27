@@ -3,47 +3,38 @@ const crypto = require('crypto');
 const { Game, GamePhase } = require('../models/Game');
 const { GameSecretsUtil } = require('../utils/GameSecretsUtil'); 
 const RoomService = require('./roomService');
+const { PlayerData } = require('../models/playerData');
 
 class GameService {
 
     static async createGame(roomId) {
 
-        
         const gameId = crypto.randomUUID();
         const playersList = await RoomService.getPlayers(roomId);
-        //Da modificare perchè mo mi serviva per testare a volo
-        if (!playersList || playersList.length < 2) {
-            throw new Error("Servono almeno 2 giocatori");
-        }
 
         // Genera le parole per Civili e Impostori, in più l'impostore
         const gameSecrets = GameSecretsUtil.getRandomSecrets(); //arriva già seriealizzato
         const imposterIndex = Math.floor(Math.random() * playersList.length);
         const imposterUsername = playersList[imposterIndex];
 
-        // Genera i valori dei dadi per ogni utente (1-12 unici)
+        // Genera i valori dei dadi per ogni utente (2-12 unici)
         const availableNumbers = Array.from({ length: 11 }, (_, i) => i + 2);
 
+        // Per ogni player prendo un indice casuale dall'array dei numeri disponibili
+        // e lo assegno come valore totale dei dadi (d1 + d2)
         const diceValues = playersList.map(player => {
-            // Scegliamo un indice casuale basato sui numeri rimasti
             const randomIndex = Math.floor(Math.random() * availableNumbers.length);
-            
-            // Prendiamo il valore e lo elimino dall'array avaibleNumbers
+            // .spice rimuove l'elemento dall'array e lo ritorna come array
             const totalValue = availableNumbers.splice(randomIndex, 1)[0];
             
-            // Calcoliamo i limiti per il primo dado (d1)
-            // Il minimo deve essere almeno 1, ma abbastanza alto affinché d2 non superi 6.
-            // Esempio: Se totale è 11, d1 deve essere almeno 5 (perché 11-5=6).
+            // Definiamo un range sicuro per d1
             const minD1 = Math.max(1, totalValue - 6);
-            
-            // Il massimo deve essere al massimo 6, ma non può rendere d2 inferiore a 1.
             const maxD1 = Math.min(6, totalValue - 1);
-            
             // Generiamo d1 casualmente all'interno di questo range sicuro
             const d1 = Math.floor(Math.random() * (maxD1 - minD1 + 1)) + minD1;
-            
             // Calcoliamo d2 per differenza
             const d2 = totalValue - d1;
+
             // Ritorniamo l'oggetto per questo giocatore
             return {
                 username: player,
@@ -53,11 +44,10 @@ class GameService {
         });
 
         // Ordiniamo i valori dei dadi in ordine decrescente
-        diceValues.sort((a, b) => b.value - a.value);
-
-        // Assegniamo l'ordine sequenziale (1, 2, 3...) basato sulla posizione nell'array ordinato
+        // e assegniamo l'ordine di turno a ciascun giocatore
+        diceValues.sort((a, b) => (b.value1 + b.value2) - (a.value1 + a.value2));
         diceValues.forEach((data, index) => {
-        data.order = index + 1; // 1 based (1° giocatore, 2° giocatore...)
+        data.order = index + 1; 
         });
 
         // Costruisci mappa giocatori (che verrà serializzato)
@@ -84,25 +74,27 @@ class GameService {
 
     static _buildInitialPlayersMap(playersList, imposterUsername, diceValues) {
         const map = {};
+        
         playersList.forEach(username => {
             const isImpostor = (username === imposterUsername);
             const userDiceData = diceValues.find(d => d.username === username);
+            const role = isImpostor ? 'IMPOSTOR' : 'CIVILIAN';
 
-            const playerData = {
-                username: username,
-                role: isImpostor ? 'IMPOSTOR' : 'CIVILIAN',
-                isAlive: true,
-                canTalk: false,
-                votesReceived: 0,
-                hasRolled: false,
-                dice1: userDiceData.value1,
-                dice2: userDiceData.value2, //Per ora doppio uguale
-                order: userDiceData.order 
-            };
-            // Il Service converte in stringa per Redis
-            map[username] = JSON.stringify(playerData); 
-            
+            // Usiamo 
+            // Non costruiamo l'oggetto a mano qui.
+            const playerObj = PlayerData.createPlayerData(
+                username, 
+                role, 
+                userDiceData.value1, 
+                userDiceData.value2, 
+                null, // color 
+                userDiceData.order
+            );
+
+            // Serializziamo per Redis
+            map[username] = JSON.stringify(playerObj); 
         });
+
         return map;
     }
 
@@ -152,25 +144,8 @@ class GameService {
 
     // --- LOGICA DI AGGIORNAMENTO ---
 
-    /**
-     * Esempio di logica di aggiornamento spostata nel Service.
-     * Legge lo stato attuale, fa il merge, e risalva la stringa.
-     */
     static async updatePlayerState(gameId, username, partialData) {
-        // 1. Recupera stringa grezza
-        const rawJson = await Game.getPlayerRaw(gameId, username);
-        if (!rawJson) throw new Error("Giocatore non trovato");
-
-        // 2. Parse
-        let playerData = JSON.parse(rawJson);
-
-        // 3. Modifica (Business Logic)
-        playerData = { ...playerData, ...partialData };
-
-        // 4. Stringify e Salvataggio
-        await Game.savePlayerRaw(gameId, username, JSON.stringify(playerData));
-
-        return playerData;
+        return await PlayerData.update(gameId, username, partialData);
     }
 
     /**
