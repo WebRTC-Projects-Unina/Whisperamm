@@ -114,7 +114,6 @@ const Game = () => {
     // --- LOGICA DI SELEZIONE FASE ---
     const renderPhaseContent = () => {
         const phase = gameState.phase;
-
         // Gestiamo sia i nomi vecchi che nuovi se necessario
         if (phase === 'DICE' || phase === 'lancio_dadi') {
             return (
@@ -124,7 +123,7 @@ const Game = () => {
                     activeRolls={activeRolls}
                     onRollComplete={handleRollComplete}
                     onDiceRoll={handleDiceRoll}
-                    isWaiting={isWaiting}
+                    isWaiting={isWaiting}x
                 />
             );
         } 
@@ -141,6 +140,7 @@ const Game = () => {
         }
     };
 
+    console.log("Render Game con stato:", userIdentity, gameState);
     return (
         <div className="game-page">
             <div className="game-card">
@@ -161,18 +161,24 @@ const Game = () => {
                     </div>
                 </header>
                                 
-                {/* SEZIONE SEGRETA COMUNE */}
-                <div className="game-secret-section">
-                    <div className="secret-toggle" onClick={() => setRevealSecret(!revealSecret)}>
-                        {revealSecret ? "Nascondi Identità 🔒" : "Mostra Identità 👁️"}
-                    </div>
-                    {revealSecret && userIdentity && (
-                        <div className="secret-content revealed">
-                            <p><strong>Ruolo:</strong> <span className={userIdentity.role === 'Impostor' ? 'role-impostor' : 'role-civilian'}>{userIdentity.role}</span></p>
-                            <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
+                {/* SEZIONE SEGRETA COMUNE (Nascosta nella fase di isDicePhase*/}
+                {(gameState.phase !== 'DICE' && gameState.phase !== 'lancio_dadi') && (
+                    <div className="game-secret-section">
+                        <div className="secret-toggle" onClick={() => setRevealSecret(!revealSecret)}>
+                            {revealSecret ? "Nascondi Identità 🔒" : "Mostra Identità 👁️"}
                         </div>
-                    )}
-                </div>
+                        {revealSecret && userIdentity && (
+                            <div className="secret-content revealed">
+                                <p><strong>Ruolo: </strong> 
+                                    <span className={userIdentity.role === 'IMPOSTOR' ? 'role-impostor' : 'role-civilian'}>
+                                        {userIdentity.role}
+                                    </span>
+                                </p>
+                                <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
+                            </div>
+                        )}
+                    </div>
+                )}
 
                 {/* --- CONTENUTO DINAMICO DELLA FASE --- */}
                 {renderPhaseContent()}

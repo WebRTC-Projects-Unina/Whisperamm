@@ -14,7 +14,6 @@ const GamePayloadUtils = {
                 // --- AGGIUNTE FONDAMENTALI PER I DADI ---
                 hasRolled: p.hasRolled, // Per disabilitare il pulsante o mostrare la spunta
                 diceValue: p.diceValue, // Per mostrare il numero (visto che è pubblico)
-                
                 // --- AGGIUNTA PER L'ORDINE ---
                 // Quando la fase cambia in 'GAME', il frontend deve sapere l'ordine
                 order: p.order,
@@ -34,12 +33,6 @@ const GamePayloadUtils = {
             role: player.role,       
             secretWord: secretWord, 
             isImpostor: player.role === 'IMPOSTOR', // Flag comodo per il frontend
-        };
-    },
-
-    buildDiceRollResult: (diceValue) => {
-        return {
-            diceValue: diceValue
         };
     }
 };

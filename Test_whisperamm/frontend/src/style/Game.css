@@ -89,52 +89,103 @@
 /* =========================================
    3. SEZIONE SEGRETA
    ========================================= */
+/* 1. Il contenitore padre deve avere position relative per fare da ancora */
 .game-secret-section {
-    text-align: center;
-    /* Aumentiamo il margine per staccarlo dall'header se questo si espande */
-    margin: 15px 0; 
-    flex-shrink: 0;
-    z-index: 9;
+    position: relative; /* Fondamentale per posizionare il figlio absolute */
+    display: flex;
+    justify-content: center;
+    margin: 10px 0;
+    z-index: 200; /* Deve stare sopra al tavolo */
 }
 
+/* 2. Il bottone (Restyle opzionale per coerenza) */
 .secret-toggle {
-    background: rgba(34, 34, 34, 0.8);
+    background: #1a1a1a;
     color: #d249ff;
-    padding: 6px 20px;
+    padding: 8px 25px;
     border-radius: 20px;
     cursor: pointer;
     font-weight: 700;
     font-size: 0.9rem;
     border: 1px solid #d249ff;
-    display: inline-block;
     transition: all 0.2s;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
 }
 
-.secret-toggle:hover { background: #333; box-shadow: 0 0 15px rgba(210, 73, 255, 0.4); }
+.secret-toggle:hover {
+    background: #333;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(210, 73, 255, 0.4);
+}
 
+/* 3. La finestra che compare (POPUP SCURO) */
 .secret-content.revealed {
-    background: rgba(20, 20, 20, 0.95);
-    color: #f0f0f0;
-    padding: 10px 30px;
-    border-radius: 12px;
-    margin-top: 5px;
-    border: 1px solid #444;
-    animation: fadeIn 0.3s ease-in;
-    display: inline-block;
+    /* POSIZIONAMENTO */
     position: absolute;
-    top: 40px; 
+    top: 100%; /* Si posiziona esattamente alla fine del contenitore padre (sotto il bottone) */
     left: 50%;
-    transform: translateX(-50%);
-    box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+    transform: translateX(-50%); /* Si centra orizzontalmente */
+    margin-top: 15px; /* Aggiunge un po' di aria tra bottone e finestra */
+    
+    /* STILE SCURO E SOLIDO */
+    background-color: #050505; /* Nero profondo, niente trasparenze */
+    border: 1px solid #333;    /* Bordo grigio scuro sottile */
+    border-bottom: 3px solid #d249ff; /* Bordo colorato sotto per stile */
+    border-radius: 12px;
+    padding: 20px 30px;
+    
+    /* OMBRA PROFONDA per staccarlo dallo sfondo */
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 1); 
+    
+    z-index: 300; /* Altissimo, deve coprire tutto */
+    
+    /* ANIMAZIONE */
+    animation: slideDownFade 0.2s ease-out forwards;
+    
+    /* DIMENSIONI */
+    min-width: 200px;
     width: max-content;
+    max-width: 90vw; /* Su mobile non esce dallo schermo */
+    text-align: center;
 }
 
-.secret-content p { margin: 5px 0; font-size: 1.1rem; }
-.secret-content span { color: #d249ff; font-weight: bold; }
-.role-impostor { color: #ff4444; font-weight: 800; text-transform: uppercase; }
-.role-civilian { color: #44ff44; font-weight: 800; text-transform: uppercase; }
+/* Animazione di entrata più carina */
+@keyframes slideDownFade {
+    from {
+        opacity: 0;
+        transform: translate(-50%, -10px); /* Parte leggermente più in alto */
+    }
+    to {
+        opacity: 1;
+        transform: translate(-50%, 0); /* Arriva alla posizione finale */
+    }
+}
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+/* Stili interni del testo */
+.secret-content p {
+    margin: 8px 0;
+    font-size: 1.1rem;
+    color: #ccc;
+}
+
+.secret-content span {
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.2rem;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.secret-content .role-impostor { 
+    color: #ff4444 !important; /* !important per sicurezza estrema, o basta la specificità */
+    font-weight: 800; 
+    text-transform: uppercase; 
+}
+
+.secret-content .role-civilian { 
+    color: #44ff44 !important; 
+    font-weight: 800; 
+    text-transform: uppercase; 
+}
 
 /* =========================================
    4. AREA CENTRALE (GRIGLIA: TAVOLO + SIDEBAR)
