@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
 import DiceArena from '../components/DiceArena'; 
+import RollingDiceIcon from '../components/RollingDiceIcon'; // <--- IMPORTANTE: Assicurati di aver creato questo componente
 import '../style/Game.css';
 import '../style/Lobby.css'
 
@@ -13,12 +14,15 @@ const Game = () => {
     const { socket, disconnectSocket } = useSocket(); 
     
     const [gameState, setGameState] = useState(null);      
-    
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
     
     const [activeRolls, setActiveRolls] = useState([]); 
     const [isWaiting, setIsWaiting] = useState(false); 
+
+    // Ref per accedere allo stato corrente nei listener
+    const gameStateRef = useRef(gameState);
+    useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
     // --- PULIZIA TAVOLO ---
     useEffect(() => {
@@ -39,31 +43,31 @@ const Game = () => {
 
         const handlePrintDiceRoll = (payload) => {
             const rollId = Date.now() + Math.random();
-            console.log("Ricevuto lancio dadi:", payload);
+            
+            // Recupera il colore dal giocatore nello stato
+            const playerInState = gameStateRef.current?.players?.find(p => p.username === payload.username);
+            const playerColor = payload.color || playerInState?.color || '#ffffff';
+
             const newRoll = {
                 id: rollId,
                 username: payload.username,
                 dice1: payload.dice1,
                 dice2: payload.dice2,
-                color: payload.color
+                color: playerColor
             };
 
-            // 1. AGGIUNGIAMO IL DADO E FACCIAMO PARTIRE L'ANIMAZIONE
+            // 1. ANIMAZIONE 3D
             setActiveRolls(prev => [...prev, newRoll]);
-            
-            // NOTA: Abbiamo rimosso il setTimeout! 
-            // L'aggiornamento dello stato avverrà tramite la callback onRollComplete
         };
 
+        
         const handlePhaseChange = (payload) => {
             console.log("Cambio fase:", payload);
             setGameState(prevState => {
-                if (!prevState) return payload // Se non c'era stato, usa il payload
+                if (!prevState) return payload;
                 return {
-                    ...prevState,      // Mantieni i dati vecchi
-                    ...payload,        // Sovrascrivi con i nuovi (es. nuova fase, nuovo round)
-                    // Se il payload contiene anche la lista giocatori aggiornata (es. con l'ordine),
-                    // questa sovrascriverà quella vecchia.
+                    ...prevState,      
+                    ...payload,        
                 };
             });
         }
@@ -83,7 +87,7 @@ const Game = () => {
                 socket.off('lobbyError');
             }
         };
-    }, [socket, navigate, roomId, user.username]);
+    }, [socket, navigate, roomId]); // Rimosso user.username per evitare re-render ciclici
 
     const handleLeaveGame = () => {
         if (window.confirm("Uscire?")) { disconnectSocket(); navigate(`/`); }
@@ -95,16 +99,13 @@ const Game = () => {
         if(socket) socket.emit('DiceRoll'); 
     };
 
-    // --- NUOVA FUNZIONE CALLBACK ---
-    // Questa viene chiamata da DiceArena quando i dadi di un utente si fermano
+    // --- CALLBACK FINE ANIMAZIONE ---
     const handleRollComplete = (rollId, username, totalValue) => {
-        
-        // Sblocca il bottone se ero io
         if (username === user.username) {
             setIsWaiting(false);
         }
 
-        // Aggiorna lo stato per mostrare il numero
+        // Aggiorna lo stato per mostrare il numero e la spunta verde
         setGameState(prevState => {
             if (!prevState || !prevState.players) return prevState;
             return {
@@ -131,6 +132,8 @@ const Game = () => {
     return (
         <div className="game-page">
             <div className="game-card">
+                
+                {/* HEADER e SECRET SECTION rimangono in alto */}
                 <header className="game-header">
                     <div>
                         <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
@@ -155,94 +158,63 @@ const Game = () => {
                     )}
                 </div>
 
-                <div className="game-table-area">
-                    {/* DICE ARENA con CALLBACK */}
-                    <div className="dice-arena-overlay" style={{ pointerEvents: 'none' }}> 
-                        <DiceArena 
-                            activeRolls={activeRolls} 
-                            onRollComplete={handleRollComplete} // <--- Passiamo la funzione qui
-                        />
+                {/* --- NUOVO CONTENITORE FLEX PER AFFIANCARE TAVOLO E SIDEBAR --- */}
+                <div className="game-content-row">
+                    
+                    {/* 1. TAVOLO (Sinistra, elastico) */}
+                    <div className="game-table-area">
+                        <div className="dice-arena-overlay" style={{ pointerEvents: 'none' }}> 
+                            <DiceArena 
+                                activeRolls={activeRolls} 
+                                onRollComplete={handleRollComplete} 
+                            />
+                        </div>
                     </div>
 
-                    <div className="players-grid">
-                        {gameState.players && gameState.players.map((p) => (
-                            <div 
-                                key={p.username} 
-                                className={`player-slot ${p.username === user.username ? 'me' : ''}`}
-                                style={{
-                                    // Bordo colorato basato sul colore del player
-                                    border: `2px solid ${p.color || '#ccc'}`,
-                                    // Effetto ombra colorata (Glow)
-                                    boxShadow: `0 0 10px ${p.color || 'rgba(0,0,0,0.1)'}`
-                                }}
-                            >
-                                {/* Sezione Intestazione con Avatar e Nome */}
-                                <div className="player-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                    
-                                    {/* Avatar Colorato con Iniziale */}
-                                    <div 
-                                        className="player-avatar"
-                                        style={{
-                                            backgroundColor: p.color || '#777',
-                                            width: '35px',
-                                            height: '35px',
-                                            borderRadius: '50%',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: '#fff',
-                                            fontWeight: 'bold',
-                                            fontSize: '18px',
-                                            textShadow: '0 1px 2px rgba(0,0,0,0.5)'
-                                        }}
-                                    >
-                                        {p.username.charAt(0).toUpperCase()}
-                                    </div>
-
-                                    <div className="player-name">
-                                        {p.username} {p.username === user.username && <span style={{fontSize: '0.8em', opacity: 0.7}}>(Tu)</span>}
-                                    </div>
-                                </div>
-
-                                {/* Risultato Dadi */}
-                                <div className="dice-result-badge">
-                                    {p.hasRolled ? (
-                                        <span style={{ color: p.color || '#333', fontWeight: 'bold' }}>
-                                            {p.diceValue}
+                    {/* 2. SIDEBAR (Destra, fissa) */}
+                    <aside className="game-sidebar">
+                        <h2 className="sidebar-title">Giocatori</h2>
+                        <div className="sidebar-players">
+                            {gameState.players && gameState.players.map((p, idx) => (
+                                <div
+                                    key={idx}
+                                    className={`sidebar-player ${p.username === user.username ? 'me' : ''}`}
+                                    style={{ borderLeft: `4px solid ${p.color || '#ccc'}` }}
+                                >
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: 1, minWidth: 0 }}>
+                                        <span 
+                                            className="sidebar-player-avatar" 
+                                            style={{ backgroundColor: p.color || '#d249ff' }}
+                                        >
+                                            {p.username?.[0]?.toUpperCase() || '?'}
                                         </span>
-                                    ) : (
-                                        <span style={{ opacity: 0.5 }}>...</span>
-                                    )}
+                                        <span className="sidebar-player-name">
+                                            {p.username}
+                                            {p.username === user.username && ' (Tu)'}
+                                        </span>
+                                    </div>
+
+                                    <div className="sidebar-roll-status">
+                                        {p.hasRolled ? (
+                                            <div className="status-done">
+                                                <span className="dice-value-small">{p.diceValue}</span>
+                                                <span className="check-icon">✅</span>
+                                            </div>
+                                        ) : (
+                                            <div className="status-waiting">
+                                                <RollingDiceIcon />
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                {/* SIDEBAR GIOCATORI */}
-                <aside className="game-sidebar">
-                    <h2 className="sidebar-title">Giocatori</h2>
-                    <div className="sidebar-players">
-                        {gameState.players && gameState.players.map((p, idx) => (
-                            <div
-                                key={idx}
-                                className={
-                                    p.username === user.username
-                                        ? 'sidebar-player sidebar-player-me'
-                                        : 'sidebar-player'
-                                }
-                            >
-                                <span className="sidebar-player-avatar">
-                                    {p.username?.[0]?.toUpperCase() || '?'}
-                                </span>
-                                <span className="sidebar-player-name">
-                                    {p.username}
-                                    {p.username === user.username && ' (tu)'}
-                                    {p.hasRolled && ' ✅'}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </aside>
+                            ))}
+                        </div>
+                    </aside>
+
+                </div> 
+                {/* Fine game-content-row */}
+
+                {/* FOOTER BOTTONI */}
                 <div className="game-buttons">
                     {isDicePhase && !amIReady ? (
                         <button 

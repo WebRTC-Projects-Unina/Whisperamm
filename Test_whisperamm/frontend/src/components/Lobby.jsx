@@ -2,17 +2,17 @@ import React, {useEffect, useState} from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
+import { useLobbyValidation } from '../hooks/useLobbyValidation';
+import { useLobbySocket } from '../hooks/useLobbySocket';
+import { useLobbyHandlers } from '../hooks/useLobbyHandlers';
 import '../style/Lobby.css';
+import MiniForm from './MiniForm';
 import Game from './Game';
 
 const Lobby = () => {
     
     const { user, setUser } = useAuth();
-    
-    //1. RECUPERIAMO 'connectSocket' DAL PROVIDER
     const { socket, connectSocket, disconnectSocket } = useSocket();
-
-    const [isValidating, setIsValidating] = useState(!!user);
     const { roomId } = useParams();
     
     //hook
@@ -35,16 +35,10 @@ const Lobby = () => {
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [players, setPlayers] = useState([]);
-    const [roomName, setRoomName] = useState('');
-    const [maxPlayers, setMaxPlayers] = useState(null);
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(null);
     const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
     
-    const [isAdmin, setIsAdmin] = useState(false);
-    const [adminPlayer, setAdminPlayer] = useState(null);
-    const [lobbyError, setLobbyError] = useState(null);
-   
     const [isReady, setIsReady] = useState(false);
     const [canStartGame, setCanStartGame] = useState(false);
     const [allReady, setAllReady] = useState(false);
@@ -83,16 +77,14 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
     user
 );
     // --- 4. HANDLERS UTENTE ---
-
+/*
     const handleReady = () => {
         if (!socket) return;
         
         if (isReady) {
-            // Se è già pronto, reset
             socket.emit('resetReady', { roomId });
             setIsReady(false);
         } else {
-            // Se non è pronto, diventa pronto
             socket.emit('userReady', { roomId });
             setIsReady(true);
         }
@@ -115,6 +107,9 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
         setNewMessage('');
     };
 
+*/
+
+/*
     const handleJoinRegister = async (e) => {
         e.preventDefault();
         setError(null);
@@ -131,8 +126,6 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Errore');
-            
-            // Aggiornando l'user, il useEffect sopra scatterà
             setUser(data.user);
         } catch (err) {
             setError(err.message);
@@ -140,20 +133,17 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
     };
 
     const handleBackHome = () => {
-        // Qui l'utente vuole uscire davvero, quindi chiudiamo tutto.
         if (socket) {
-            console.log("Utente esce dalla lobby, disconnessione socket...");
-            socket.emit('leaveLobby', { roomId });
+            socket.emit('leaveLobby', { roomId }, () => {
+                console.log("leaveLobby processato dal server, disconnessione...");
+                disconnectSocket();
+            });
         }
-        setTimeout(() => {
-            disconnectSocket();
-        }, 200);        
-        navigate('/');
+        navigate('/');  
     };
 
-
-    // --- 5. RENDER ---
-
+    // --- 5. RENDER LOGIC ---
+*/
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
             setRoomFull("Stanza piena!");
@@ -175,21 +165,25 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
     if (isValidating) return <div className="lobby-page mini-form-page"><div className="lobby-card"><h1>Verifica...</h1></div></div>;
 
     if (lobbyError) return <div className="lobby-page"><div className="lobby-card"><h1 style={{color:'red'}}>Errore</h1><p>{lobbyError}</p></div></div>;
-
+/*
     if (!user) {
         return (
-        <div className="lobby-page mini-form-page">
-            <div className="lobby-card">
-                <h1 className="lobby-title">Unisciti</h1>
-                <p className="lobby-room-code">{roomId}</p>
-                <form className="chat-input-form" onSubmit={handleJoinRegister}>
-                    <input type="text" className="chat-input" placeholder="Nome..." value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} autoFocus />
-                    <button type="submit" className="chat-send-btn">Entra</button>
-                </form>
-                {error && <p style={{ color: 'red'}}>{error}</p>}
+            <div className="lobby-page mini-form-page">
+                <div className="lobby-card">
+                    <h1 className="lobby-title">Unisciti</h1>
+                    <p className="lobby-room-code">{roomId}</p>
+                    <form className="chat-input-form" onSubmit={handleJoinRegister}>
+                        <input type="text" className="chat-input" placeholder="Nome..." value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} autoFocus />
+                        <button type="submit" className="chat-send-btn">Entra</button>
+                    </form>
+                    {error && <p style={{ color: 'red'}}>{error}</p>}
+                </div>
             </div>
-        </div>
         );
+    }
+*/
+   if (!user) {
+        return <MiniForm roomId={roomId} onUserCreated={setUser} error={error} />;
     }
 
     return (
@@ -266,7 +260,7 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
                             <button 
                                 className="lobby-main-btn admin-btn" 
                                 onClick={handleStartGame}
-                                disabled={!canStartGame}  // ✅ AGGIUNTO il controllo
+                                disabled={!canStartGame}
                             >
                                 {canStartGame ? '✅ Inizia Partita' : '⏳ In Attesa'}
                             </button>
@@ -314,7 +308,6 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
                                     {p}
                                     {p === user.username && ' (tu)'}
                                     {p === adminPlayer && '👑'}
-                                    {/* ✅ NUOVO: Mostra il check se l'utente è pronto (NON per admin) */}
                                     {readyStates[p] && p !== adminPlayer && <span className="ready-check">✅</span>}    
                                 </span>
                             </div>
@@ -324,8 +317,6 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
             </div>
         </div>
     );
-
-
 }
 
 export default Lobby;
