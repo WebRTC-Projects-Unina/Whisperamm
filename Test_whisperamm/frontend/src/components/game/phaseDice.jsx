@@ -1,5 +1,5 @@
 // src/components/game/PhaseDice.jsx
-import React from 'react';
+import React, { useState, useEffect } from 'react'; 
 import DiceArena from '../DiceArena';
 import RollingDiceIcon from '../RollingDiceIcon';
 
@@ -9,15 +9,50 @@ const PhaseDice = ({
     activeRolls, 
     onRollComplete, 
     onDiceRoll, 
-    isWaiting 
+    isWaiting
 }) => {
     
     // Calcoliamo qui se l'utente ha già lanciato
     const myPlayer = gameState.players?.find(p => p.username === user.username);
     const amIReady = myPlayer?.hasRolled;
 
+    // --- LOGICA TIMER E AUTO-LANCIO ---
+    const [timeLeft, setTimeLeft] = useState(15); 
+
+    useEffect(() => {
+        // 1. Se il tempo è scaduto...
+        if (timeLeft === 0) {
+            // ...e non ho ancora lanciato e non sto già aspettando...
+            if (!amIReady && !isWaiting) {
+                console.log("⏰ Tempo scaduto! Auto-lancio in corso...");
+                onDiceRoll(); // <--- SIMULA IL CLICK DEL BOTTONE
+            }
+            return;
+        }
+
+        // 2. Se ho già lanciato, fermiamo il countdown (opzionale, ma pulito)
+        if (amIReady) return;
+
+        // 3. Countdown normale
+        const interval = setInterval(() => {
+            setTimeLeft((prev) => prev - 1);
+        }, 1000);
+
+        return () => clearInterval(interval);
+    }, [timeLeft, amIReady, isWaiting, onDiceRoll]);
+
     return (
         <>
+            {/* Sezione Timer (visibile solo se non ho ancora lanciato) */}
+            {!amIReady && (
+                <div className="dice-phase-timer">
+                    <p>Tempo Rimanente</p>
+                    <div className={`timer-display ${timeLeft <= 5 ? 'urgent' : ''}`}>
+                        {timeLeft}s
+                    </div>
+                </div>
+            )}
+
             <div className="game-content-row">
                 {/* 1. TAVOLO (Sinistra) */}
                 <div className="game-table-area">
@@ -67,14 +102,14 @@ const PhaseDice = ({
                 </aside>
             </div>
 
-            {/* FOOTER BOTTONI SPECIFICO PER QUESTA FASE */}
+            {/* FOOTER BOTTONI */}
             <div className="game-footer">
                 <div className="game-buttons">
                     {!amIReady ? (
                         <button 
                             className="game-btn-action" 
                             onClick={onDiceRoll}
-                            disabled={isWaiting}
+                            disabled={isWaiting} // Non disabilitiamo più con timeLeft === 0
                             style={{ opacity: isWaiting ? 0.6 : 1, cursor: isWaiting ? 'not-allowed' : 'pointer' }}
                         >
                             {isWaiting ? "Lancio in corso..." : "🎲 LANCIA I DADI"}

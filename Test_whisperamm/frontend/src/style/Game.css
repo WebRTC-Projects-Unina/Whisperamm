@@ -469,6 +469,50 @@
     box-shadow: 0 0 15px rgba(231, 76, 60, 0.4);
 }
 
+/* TIMER FASE DADI */
+.dice-phase-timer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    margin-top: -5px; /* Tira un po' su per risparmiare spazio */
+    flex-shrink: 0;
+}
+
+.dice-phase-timer p {
+    margin: 0 0 5px 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #aaa;
+    letter-spacing: 1px;
+}
+
+.timer-display {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 20px;
+    border-radius: 20px;
+    border: 2px solid #d249ff;
+    box-shadow: 0 0 10px rgba(210, 73, 255, 0.3);
+    transition: all 0.3s ease;
+}
+
+/* Effetto Urgenza (Rosso) quando mancano 5 secondi */
+.timer-display.urgent {
+    color: #ff4444;
+    border-color: #ff4444;
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.6);
+    animation: pulse-urgent 0.8s infinite alternate;
+}
+
+@keyframes pulse-urgent {
+    from { transform: scale(1); }
+    to { transform: scale(1.1); }
+}
+
 
 /* =========================================
    7. MEDIA QUERIES (MOBILE)

@@ -114,6 +114,8 @@ const Game = () => {
     // --- LOGICA DI SELEZIONE FASE ---
     const renderPhaseContent = () => {
         const phase = gameState.phase;
+
+        const startTimer = gameState.startTimer || false
         // Gestiamo sia i nomi vecchi che nuovi se necessario
         if (phase === 'DICE' || phase === 'lancio_dadi') {
             return (
@@ -123,7 +125,8 @@ const Game = () => {
                     activeRolls={activeRolls}
                     onRollComplete={handleRollComplete}
                     onDiceRoll={handleDiceRoll}
-                    isWaiting={isWaiting}x
+                    isWaiting={isWaiting}
+                    startTimer={startTimer}
                 />
             );
         } 

@@ -63,8 +63,12 @@ async function handleGameStarted(io, socket, { roomId }) {
             io,
             roomId,
             'phaseChanged',
-            { phase: GamePhase.DICE }
+            {   phase: GamePhase.DICE,
+                startTimer: true  // Indica al frontend di avviare il timer
+             }
         );
+
+
 
     } catch (err) {
         console.error(`[Errore] handleGameStarted:`, err);
