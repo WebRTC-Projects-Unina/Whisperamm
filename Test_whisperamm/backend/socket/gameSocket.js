@@ -123,7 +123,7 @@ async function handleRollDice(io, socket) {
             // Aspettiamo magari 2-3 secondi per far vedere l'animazione dell'ultimo dado
             setTimeout(() => {
                 NotificationService.broadcastToRoom(io, roomId, 'phaseChanged', payload);
-            }, 10000);
+            }, 4000);
         }
 
     } catch (err) {
