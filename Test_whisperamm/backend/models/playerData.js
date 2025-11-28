@@ -1,112 +1,61 @@
-// backend/models/playerData.js
-const { getRedisClient } = require('../config_redis/redis');
+const { getRedisClient } = require('./redis');
 
-const PlayerRole = {
-  CIVILIAN: '0',
-  IMPOSTOR: '1'
-};
+// Definiamo qui la chiave Redis standard per coerenza
+const getPlayersKey = (gameId) => `game:${gameId}:players`; 
 
 class PlayerData {
   
   /**
-   * Crea un nuovo giocatore da zero.
-   * Usa questo quando inizia la partita.
+   * FACTORY METHOD: Restituisce l'oggetto Player standardizzato.
+   * Non salva in Redis, prepara solo i dati.
    */
-  static async create(gameId, username, diceValue = 0, role, color) {
-    const client = getRedisClient();
-    const key = `game:${gameId}:playerData`;
-
-    const newPlayer = {
+  static createPlayerData(username, role, dice1, dice2, color = null, order = 0) {
+    return {
         username,
+        role,           // 'CIVILIAN' o 'IMPOSTOR'
+        color,
         dice1,
-        dice2, // Valore del dado (1-12)
-        role, // Ruolo del giocatore (es. civile o impostore)
-        color,     // Colore scelto dal giocatore
-        isRolling: false, // Se il giocatore sta lanciando i dadi/ ha lanciato
-        isAlive: true, // Se il giocatore è vivo o eliminato
-        canTalk: true,
+        dice2,
+        order,          // Ordine di turno
+        hasRolled: false,
+        isAlive: true,
+        canTalk: true, // Di base true in quanto appena accedo a Game posso parlare
         votesReceived: 0, 
     };
-
-    // Nota: Se usi 'executor' (multi), non mettere 'await' qui se vuoi concatenare
-    // Ma per semplicità qui assumiamo uso standard o che gestisci la promise fuori.
-    await client.hSet(key, username, JSON.stringify(newPlayer));
-    
-    return newPlayer;
   }
 
-
-  /**
-   * Recupera i dati di un SINGOLO giocatore
-   * Utile quando un utente fa un'azione specifica.
-   * @returns {Promise<Object|null>} L'oggetto player o null se non esiste
-   */
-  static async get(gameId, username) {
-    const client = getRedisClient();
-    const key = `game:${gameId}:playerData`;
-    
-    // Legge solo il campo specifico (veloce)
-    const rawData = await client.hGet(key, username);
-    
-    if (!rawData) return null;
-    return JSON.parse(rawData);
-  }
-
-  /**
-   * Recupera TUTTI i giocatori della partita.
-   * FONDAMENTALE per inviare lo stato iniziale al frontend via WebSocket.
-   * @returns {Promise<Array>} Lista di oggetti player
-   */
-  static async getAll(gameId) {
-    const client = getRedisClient();
-    const key = `game:${gameId}:playerData`;
-
-    // Scarica tutto l'Hash in un colpo solo
-    const allDataRaw = await client.hGetAll(key);
-    
-    // Converte da { "mario": "{...}", "luigi": "{...}" } 
-    // a [ {username: "mario", ...}, {username: "luigi", ...} ]
-    return Object.values(allDataRaw).map(jsonStr => JSON.parse(jsonStr));
-  }
-
-  /**
-   * Aggiorna SOLO alcuni campi di un giocatore esistente.
-   * Esempio: update(gameId, 'Mario', { diceValue: 5, isRolling: false })
-   * @param {Object} updates - Oggetto con i campi da modificare
-   */
   static async update(gameId, username, updates) {
     const client = getRedisClient();
-    const key = `game:${gameId}:playerData`;
+    const key = getPlayersKey(gameId); // USO LA FUNZIONE HELPER
 
-    // 1. Leggiamo lo stato attuale (per non perdere il colore o il ruolo)
-    //    Dobbiamo usare 'this.get' perché siamo in un metodo statico
-    const currentPlayer = await PlayerData.get(gameId, username);
+    // 1. Leggi vecchio
+    const rawData = await client.hGet(key, username);
+    if (!rawData) throw new Error(`Player ${username} non trovato`);
 
-    if (!currentPlayer) {
-      throw new Error(`Giocatore ${username} non trovato nella partita ${gameId}`);
-    }
+    // 2. Unisci
+    const currentPlayer = JSON.parse(rawData);
+    const updatedPlayer = { ...currentPlayer, ...updates };
 
-    // 2. Facciamo il merge dei dati vecchi con quelli nuovi
-    //    I campi in 'updates' sovrascrivono quelli vecchi
-    const updatedPlayer = {
-      ...currentPlayer,
-      ...updates
-    };
-
-    // 3. Salviamo il nuovo oggetto completo
+    // 3. Salva
     await client.hSet(key, username, JSON.stringify(updatedPlayer));
 
     return updatedPlayer;
   }
-
-  /**
-   * Rimuove un giocatore (es. disconnessione o morte definitiva)
-   */
-  static async remove(gameId, username) {
-    const client = getRedisClient();
-    await client.hDel(`game:${gameId}:playerData`, username);
+  
+  static async get(gameId, username) {
+      const client = getRedisClient();
+      const key = getPlayersKey(gameId); // USO LA FUNZIONE HELPER
+      const raw = await client.hGet(key, username);
+      return raw ? JSON.parse(raw) : null;
   }
 
+  static async remove(gameId, username) {
+    const client = getRedisClient();
+    const key = getPlayersKey(gameId); // USO LA FUNZIONE HELPER (Corretto il bug :playerData)
+    await client.hDel(key, username);
+  }
+  
 }
 
-module.exports = { PlayerData, PlayerRole };
+
+module.exports = { PlayerData };

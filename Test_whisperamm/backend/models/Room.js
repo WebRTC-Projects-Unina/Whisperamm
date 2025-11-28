@@ -34,8 +34,6 @@ class Room {
             maxPlayers: maxPlayers.toString(),
             rounds: rounds.toString(),
             status: RoomStatus.WAITING,
-            createdAt,
-            updatedAt: createdAt
         });
         
         // Lista di giocatori
@@ -73,8 +71,6 @@ class Room {
             status: roomData.status,
             players,
             currentPlayers: players.length,
-            createdAt: roomData.createdAt,
-            updatedAt: roomData.updatedAt
         };
     }
 
@@ -230,6 +226,40 @@ class Room {
     static async countPlayers(roomId) {
         const client = getRedisClient();
         return await client.sCard(`room:${roomId}:players`);
+    }
+
+
+    // -- GESTIONE DELLE SOCKET -- 27/11/2025 - suso
+    //Imposta il socket per un utente.
+    static async setSocket(roomId, username, socketId) {
+        const client = getRedisClient();
+        return await client.hSet(`room:${roomId}:sockets`, username, socketId);
+    }
+
+    /**
+     * Recupera il socket di un utente.
+     */
+    static async getSocket(roomId, username) {
+        const client = getRedisClient();
+        return await client.hGet(`room:${roomId}:sockets`, username);
+    }
+
+    //Elimina il socket di un utente.
+    static async deleteSocket(roomId, username) {
+        const client = getRedisClient();
+        return await client.hDel(`room:${roomId}:sockets`, username);
+    }
+
+    //Recupera tutti i socket della stanza.
+    static async getAllSockets(roomId) {
+        const client = getRedisClient();
+        return await client.hGetAll(`room:${roomId}:sockets`);
+    }
+
+    //Elimina tutti i socket della stanza.
+    static async deleteAllSockets(roomId) {
+        const client = getRedisClient();
+        return await client.del(`room:${roomId}:sockets`);
     }
 }
 

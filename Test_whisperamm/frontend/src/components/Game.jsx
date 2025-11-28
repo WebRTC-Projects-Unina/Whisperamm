@@ -13,6 +13,7 @@ const Game = () => {
     const { socket, disconnectSocket } = useSocket(); 
     
     const [gameState, setGameState] = useState(null);      
+    
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
     
@@ -38,12 +39,13 @@ const Game = () => {
 
         const handlePrintDiceRoll = (payload) => {
             const rollId = Date.now() + Math.random();
-            
+            console.log("Ricevuto lancio dadi:", payload);
             const newRoll = {
                 id: rollId,
                 username: payload.username,
                 dice1: payload.dice1,
-                dice2: payload.dice2
+                dice2: payload.dice2,
+                color: payload.color
             };
 
             // 1. AGGIUNGIAMO IL DADO E FACCIAMO PARTIRE L'ANIMAZIONE
@@ -53,9 +55,23 @@ const Game = () => {
             // L'aggiornamento dello stato avverrà tramite la callback onRollComplete
         };
 
+        const handlePhaseChange = (payload) => {
+            console.log("Cambio fase:", payload);
+            setGameState(prevState => {
+                if (!prevState) return payload // Se non c'era stato, usa il payload
+                return {
+                    ...prevState,      // Mantieni i dati vecchi
+                    ...payload,        // Sovrascrivi con i nuovi (es. nuova fase, nuovo round)
+                    // Se il payload contiene anche la lista giocatori aggiornata (es. con l'ordine),
+                    // questa sovrascriverà quella vecchia.
+                };
+            });
+        }
+
         socket.on('parametri', handleGameParams);
         socket.on('identityAssigned', handleIdentity);
         socket.on('playerRolledDice', handlePrintDiceRoll);
+        socket.on('phaseChanged', handlePhaseChange);
         socket.on('lobbyError', (err) => { alert(err.message); navigate('/'); });
 
         return () => {
@@ -63,6 +79,7 @@ const Game = () => {
                 socket.off('parametri');
                 socket.off('identityAssigned');
                 socket.off('playerRolledDice');
+                socket.off('phaseChange');
                 socket.off('lobbyError');
             }
         };
@@ -149,13 +166,53 @@ const Game = () => {
 
                     <div className="players-grid">
                         {gameState.players && gameState.players.map((p) => (
-                            <div key={p.username} className={`player-slot ${p.username === user.username ? 'me' : ''}`}>
-                                <div className="player-name">
-                                    {p.username} {p.username === user.username && "(Tu)"}
+                            <div 
+                                key={p.username} 
+                                className={`player-slot ${p.username === user.username ? 'me' : ''}`}
+                                style={{
+                                    // Bordo colorato basato sul colore del player
+                                    border: `2px solid ${p.color || '#ccc'}`,
+                                    // Effetto ombra colorata (Glow)
+                                    boxShadow: `0 0 10px ${p.color || 'rgba(0,0,0,0.1)'}`
+                                }}
+                            >
+                                {/* Sezione Intestazione con Avatar e Nome */}
+                                <div className="player-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                                    
+                                    {/* Avatar Colorato con Iniziale */}
+                                    <div 
+                                        className="player-avatar"
+                                        style={{
+                                            backgroundColor: p.color || '#777',
+                                            width: '35px',
+                                            height: '35px',
+                                            borderRadius: '50%',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            color: '#fff',
+                                            fontWeight: 'bold',
+                                            fontSize: '18px',
+                                            textShadow: '0 1px 2px rgba(0,0,0,0.5)'
+                                        }}
+                                    >
+                                        {p.username.charAt(0).toUpperCase()}
+                                    </div>
+
+                                    <div className="player-name">
+                                        {p.username} {p.username === user.username && <span style={{fontSize: '0.8em', opacity: 0.7}}>(Tu)</span>}
+                                    </div>
                                 </div>
+
+                                {/* Risultato Dadi */}
                                 <div className="dice-result-badge">
-                                    {/* Il numero apparirà magicamente quando DiceArena chiamerà la funzione */}
-                                    {p.hasRolled ? p.diceValue : "..."}
+                                    {p.hasRolled ? (
+                                        <span style={{ color: p.color || '#333', fontWeight: 'bold' }}>
+                                            {p.diceValue}
+                                        </span>
+                                    ) : (
+                                        <span style={{ opacity: 0.5 }}>...</span>
+                                    )}
                                 </div>
                             </div>
                         ))}

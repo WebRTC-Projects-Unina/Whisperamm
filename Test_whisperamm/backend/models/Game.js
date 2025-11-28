@@ -6,6 +6,9 @@ const GamePhase = {
     DICE: 'lancio_dadi', 
     TURN_ASSIGNMENT: 'ordine_gioco',
     GAME: 'inizio_gioco',
+    DISCUSSION: 'discussione',
+    VOTING: 'votazione',
+    RESULTS: 'risultati',
     FINISH: 'finita'
 };
 
@@ -38,6 +41,7 @@ class Game {
         }
 
         await multi.exec();
+        console.log(`[Game] Partita ${gameId} creata in room ${metaData.roomId}`);
         return gameId;
     }
 
@@ -68,19 +72,6 @@ class Game {
         await client.hSet(`game:${gameId}`, field, value);
     }
     
-    
-    //Update  i dati di un giocatore, e riceve già la stringa JSON pronta
-    static async savePlayerRaw(gameId, username, playerJsonString) {
-        const client = getRedisClient();
-        await client.hSet(`game:${gameId}:players`, username, playerJsonString);
-    }
-    
-
-    //READ dei dati grezzi di un singolo giocatore, che verrano poi parsati dal Service. 
-    static async getPlayerRaw(gameId, username) {
-        const client = getRedisClient();
-        return await client.hGet(`game:${gameId}:players`, username);
-    }
 
 }
 
