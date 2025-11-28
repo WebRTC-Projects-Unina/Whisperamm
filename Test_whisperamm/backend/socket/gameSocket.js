@@ -42,8 +42,6 @@ async function handleGameStarted(io, socket, { roomId }) {
             publicPayload
         );
 
-        console.log("Tutti hanno ricevuto le informazioni base")
-
         // 4. STEP B: TARGETED (Dati Privati)
         // Diciamo a ciascuno: "Ecco chi sei tu segretamente".
         // Il Frontend userà questo per mostrare la parola segreta.
@@ -88,26 +86,29 @@ async function handleRollDice(io, socket) {
         if (!gameId) return;
 
         // RECUPERIAMO IL GIOCO AGGIORNATO (che ora include il hasRolled: true appena messo)
-        const game = await GameService.getGameSnapshot(gameId);
+        let game = await GameService.getGameSnapshot(gameId);
 
         // Inviamo il risultato a tutti (Broadcast)
         const myData = game.players.find(p => p.username === username);
 
+        // Ignora se ha già lanciato, in teoria è gestita dal frontend ma per sicurezza
         if (myData.hasRolled) {
-        return; // Ignora la richiesta se ha già fatto
+        return; 
         }
 
-        // AGGIORNAMENTO STATO
-        // Questo aggiorna solo il singolo giocatore su Redis
+        // Questo aggiorna solo il singolo giocatore su Redis e ritorna la lista aggiornata
         await GameService.updatePlayerState(gameId, username, { hasRolled: true });
-
         
         NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
             username: username,
             dice1: myData.dice1,
-            dice2: myData.dice2
+            dice2: myData.dice2,
+            color: myData.color
         });
         
+        // Recupera di nuovo lo stato del gioco aggiornato
+        game = await GameService.getGameSnapshot(gameId);
+
         // Controlliamo se TUTTI hanno lanciato
         if (GameService.checkAllPlayersRolled(game.players)) {
             console.log(`[Game] Tutti hanno lanciato in room ${roomId}. Cambio fase!`);
@@ -121,7 +122,7 @@ async function handleRollDice(io, socket) {
             
             // Aspettiamo magari 2-3 secondi per far vedere l'animazione dell'ultimo dado
             setTimeout(() => {
-                NotificationService.broadcastToRoom(io, roomId, 'phaseChange', payload);
+                NotificationService.broadcastToRoom(io, roomId, 'phaseChanged', payload);
             }, 3000);
         }
 

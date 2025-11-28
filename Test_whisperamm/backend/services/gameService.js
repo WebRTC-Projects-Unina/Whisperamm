@@ -23,7 +23,7 @@ class GameService {
             colors[username] = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
         });
 
-        
+
         // Genera i valori dei dadi per ogni utente (2-12 unici)
         const availableNumbers = Array.from({ length: 11 }, (_, i) => i + 2);
 
@@ -156,12 +156,9 @@ class GameService {
         return await PlayerData.update(gameId, username, partialData);
     }
 
-    /**
-     * NUOVO: Controlla se tutti i giocatori hanno lanciato i dadi
-     * Ritorna TRUE se tutti hanno fatto, FALSE altrimenti.
-     */
+    
     static checkAllPlayersRolled(playersArray) {
-        // playersArray è la lista che ti ritorna getGameSnapshot
+        // Controlla che ogni giocatore abbia hasRolled === true
         return playersArray.every(p => p.hasRolled === true);
     }
 

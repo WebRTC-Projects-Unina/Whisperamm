@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
@@ -12,18 +12,12 @@ const Game = () => {
     const { socket, disconnectSocket } = useSocket(); 
     
     const [gameState, setGameState] = useState(null);      
-    // 2. CREIAMO UN REF CHE TIENE SEMPRE IL GAMESTATE AGGIORNATO
-    const gameStateRef = useRef(gameState);
+    
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
     
     const [activeRolls, setActiveRolls] = useState([]); 
     const [isWaiting, setIsWaiting] = useState(false); 
-
-    // Manteniamo il ref aggiornato (Per i colori dei dadi tutto questo)
-    useEffect(() => {
-        gameStateRef.current = gameState;
-    }, [gameState]);
 
     // --- PULIZIA TAVOLO ---
     useEffect(() => {
@@ -44,21 +38,13 @@ const Game = () => {
 
         const handlePrintDiceRoll = (payload) => {
             const rollId = Date.now() + Math.random();
-            
-            // 4. QUI LA MAGIA: Usiamo gameStateRef.current invece di gameState
-            // Questo ci dà accesso ai dati "freschi" senza rompere la closure
-            const currentPlayers = gameStateRef.current?.players || [];
-            
-            // Cerchiamo il giocatore in questione per prendere il suo colore
-            const player = currentPlayers.find(p => p.username === payload.username);
-            const diceColor = player ? player.color : '#fffbf0'; // Fallback se non trovato
-
+            console.log("Ricevuto lancio dadi:", payload);
             const newRoll = {
                 id: rollId,
                 username: payload.username,
                 dice1: payload.dice1,
                 dice2: payload.dice2,
-                color: diceColor
+                color: payload.color
             };
 
             // 1. AGGIUNGIAMO IL DADO E FACCIAMO PARTIRE L'ANIMAZIONE
@@ -68,9 +54,23 @@ const Game = () => {
             // L'aggiornamento dello stato avverrà tramite la callback onRollComplete
         };
 
+        const handlePhaseChange = (payload) => {
+            console.log("Cambio fase:", payload);
+            setGameState(prevState => {
+                if (!prevState) return payload // Se non c'era stato, usa il payload
+                return {
+                    ...prevState,      // Mantieni i dati vecchi
+                    ...payload,        // Sovrascrivi con i nuovi (es. nuova fase, nuovo round)
+                    // Se il payload contiene anche la lista giocatori aggiornata (es. con l'ordine),
+                    // questa sovrascriverà quella vecchia.
+                };
+            });
+        }
+
         socket.on('parametri', handleGameParams);
         socket.on('identityAssigned', handleIdentity);
         socket.on('playerRolledDice', handlePrintDiceRoll);
+        socket.on('phaseChanged', handlePhaseChange);
         socket.on('lobbyError', (err) => { alert(err.message); navigate('/'); });
 
         return () => {
@@ -78,6 +78,7 @@ const Game = () => {
                 socket.off('parametri');
                 socket.off('identityAssigned');
                 socket.off('playerRolledDice');
+                socket.off('phaseChange');
                 socket.off('lobbyError');
             }
         };
