@@ -35,8 +35,8 @@ class RoomService {
     }
 
     // --- GESTIONE ACCESSO ---
-
     static async checkRoomAccess(roomId, username) {
+        console.log("checkroomAccess...")
         const room = await Room.get(roomId);
         if (!room) {
             return { canJoin: false, reason: 'ROOM_NOT_FOUND', room: null };
@@ -56,17 +56,24 @@ class RoomService {
             return { canJoin: false, reason: 'GAME_ALREADY_STARTED', room };
         }
 
+
         return { canJoin: true, reason: 'CAN_JOIN', room, isRejoining: false };
     }
 
     static async addPlayerToRoom(roomId, username) {
+        console.log("addplayertoroom "+username)
         // Verifica accesso 
         const accessCheck = await this.checkRoomAccess(roomId, username);
-        if (!accessCheck.canJoin) {throw new Error(accessCheck.reason);}
+        if (!accessCheck.canJoin) throw new Error(accessCheck.reason);
 
+        console.log("accessCheck.canJoin")
+
+        console.log("accessCheck.isRejoining" +accessCheck.isRejoining)
         if (accessCheck.isRejoining) {
+            console.log("perchè..")
             return { added: false, isRejoining: true, room: accessCheck.room };
         }
+        console.log("accesscheck.isrejoining")
 
         const userExists = await User.exists(username);
         if (!userExists) throw new Error('USER_NOT_FOUND');
@@ -74,14 +81,16 @@ class RoomService {
         const success = await Room.addPlayer(roomId, username);
         if (!success) throw new Error('ADD_PLAYER_FAILED');
 
-        console.log(`[RoomService] Giocatore ${username} aggiunto logica room ${roomId}`);
-        
         return { added: true, isRejoining: false, room: await Room.get(roomId) };
     }
 
     static async removePlayerFromRoom(roomId, username) {
         const room = await Room.get(roomId);
         if (!room) throw new Error('ROOM_NOT_FOUND');
+
+        //Aggiunta alla lista di players_leaved
+        Room.moveToLeaved(roomId,username)
+
 
         const remainingCount = await Room.removePlayer(roomId, username);
         if (remainingCount === -1) throw new Error('ROOM_NOT_FOUND');

@@ -169,9 +169,6 @@ class Room {
         });
     }
 
-
-
-
     /*
      * Aggiorna l'host di una stanza.
      */
@@ -238,6 +235,13 @@ class Room {
     static async countPlayers(roomId) {
         const client = getRedisClient();
         return await client.sCard(`room:${roomId}:players`);
+    }
+
+
+    // -- GESTIONE LEAVED
+    static async moveToLeaved(roomId,username){
+        const client = getRedisClient();
+        client.sAdd(`room:${roomId}:leaved`, username);
     }
 
 

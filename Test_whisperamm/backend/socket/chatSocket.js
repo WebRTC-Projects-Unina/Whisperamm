@@ -3,10 +3,11 @@ const { lobbies, disconnectTimeouts, RECONNECT_TOLERANCE_MS, registerUserSocket,
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');
+const NotificationService = require('../services/notificationService')
 // --- HANDLERS ---
 async function handleJoinLobby(io, socket, { roomId, user }) {
     // 1. Validazione input base
-    console.log(`[Socket] Utente tenta di entrare in lobby ${roomId}`);
+    console.log(`[Socket] Utente tenta di stabilire connessione WebSocket..${roomId}`);
     if (!roomId || !user || !user.username) {
         socket.emit('lobbyError', { message: 'Dati mancanti per l\'ingresso.' });
         return;
@@ -14,16 +15,20 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
 
     const username = user.username;
 
-    // 2. LOGICA DI ACCESSO
+  
     try {
-        //Internamente, addPlayerToRoom già fa il check per ogni cosa da controllare
-        const result = await RoomService.addPlayerToRoom(roomId, username);
         
-        if (result.added) {
-            console.log(`[Business] Utente ${username} aggiunto alla stanza ${roomId}`);
-        } else if (result.isRejoining) {
-            console.log(`[Business] Utente ${username} già presente in ${roomId} (riconnessione)`);
-        }
+        // 2. SETUP SOCKET - Iscrizione dell'utente (la sua connessione) al canale roomId
+        socket.data.roomId = roomId;
+        socket.data.username = username;
+        socket.join(roomId);
+        
+        // 3. LOGICA DI ACCESSO
+        // 3.1 Check per capire se ti stai riconnettendo oppure è una nuova connessione
+        // 3.2 Upsert per la gestione delle entry, ma la connessione della socket al canale è già avvenuta
+        await SocketService.registerConnection(roomId, username, socket.id); 
+        
+         //Capire se serve oldSocket.disconnect(true), in teoria dovrebbe succedere nell'handleDisconnect, perchè dovrebbe rimanere aperta?
        
     } catch (error) {
         socket.emit('lobbyError', { message: error.message });
@@ -31,37 +36,18 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         return;
     }
 
-    // 3. SETUP SOCKET
-    socket.data.roomId = roomId;
-    socket.data.username = username;
-    socket.join(roomId);
-
-    // 4. Registrazione SocketID con Socket Service
-    const { oldSocketId } = await SocketService.registerConnection(roomId, username, socket.id);
-
-    // 5. GESTIONE CONNESSIONE UNICA (KICK VECCHIA SCHEDA)
-    if (oldSocketId && oldSocketId !== socket.id) {
-        console.log(`[Socket] ${username} nuova connessione rilevata. Chiusura vecchio socket: ${oldSocketId}`);
-        
-        const oldSocket = io.sockets.sockets.get(oldSocketId);
-        if (oldSocket) {
-            oldSocket.emit('lobbyError', { message: 'Hai aperto il gioco in un\'altra scheda. Questa connessione è stata chiusa.' });
-            oldSocket.disconnect(true);
-        }
-    }
-
-    // 6. NOTIFICHE AGLI ALTRI
-    
-        socket.to(roomId).emit('chatMessage', {
+    // 4. Messaggio di Sistema in Broadcast
+        NotificationService.broadcastToRoom(io,roomId,'chatMessage',{
             from: 'system',
             text: `${username} è entrato nella lobby`,
             timestamp: Date.now()
         });
 
+
     // Inviamo la lista aggiornata a tutti
     const updatedPlayers = await RoomService.getPlayers(roomId);
     const readyStates = await RoomService.getReadyStates(roomId);
-    io.to(roomId).emit('lobbyPlayers', { 
+        NotificationService.broadcastToRoom(io,roomId,'lobbyPlayers',{ 
         players: updatedPlayers,
         readyStates
     });

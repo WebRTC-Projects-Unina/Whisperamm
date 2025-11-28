@@ -1,4 +1,5 @@
 // controllers/roomController.js
+const { Room } = require('../models/Room');
 const RoomService = require('../services/roomService');
 
 exports.createGame = async (req, res) => {
@@ -18,7 +19,7 @@ exports.createGame = async (req, res) => {
             rounds
         );
 
-        console.log(`[Controller] Stanza ${roomId} creata con successo.`);
+        console.log(`[Controller] Stanza ${roomId} creata con successo e utente `+user.username+ " aggiunto a Room!");
         res.status(201).json({ roomId });
 
     } catch (error) {

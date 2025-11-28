@@ -15,14 +15,10 @@ class SocketService {
      * Ritorna l'eventuale vecchio socket-
      */
     static async registerConnection(roomId, username, newSocketId) {
+        //Check per vedere se l'utente si era già connesso
         const oldSocketId = await Room.getSocket(roomId, username);
         await Room.setSocket(roomId, username, newSocketId); // Upsert
-
-        if (oldSocketId && oldSocketId !== newSocketId) {
-            console.log(`[SocketService] ${username} aggiorna socket: ${oldSocketId} -> ${newSocketId}`);
-        }
-
-        return { oldSocketId };
+        return oldSocketId;
     }
 
     //Rimuove il socket dal DB SOLO se corrisponde a quello attuale (Protezione F5).
