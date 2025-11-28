@@ -84,6 +84,7 @@ async function handleRollDice(io, socket) {
     try {
 
         // Recupera Game ID
+        console.log("ma io penso sia qui il problema..")
         const gameId = await Game.findGameIdByRoomId(roomId);
         if (!gameId) return;
 

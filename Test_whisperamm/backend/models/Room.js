@@ -74,7 +74,7 @@ class Room {
         };
     }
 
-    /**
+    /*
      * Recupera tutte le stanze attive.
      */
     static async getAll() {
@@ -93,7 +93,7 @@ class Room {
         return rooms.filter(room => room !== null);
     }
     
-    /**
+    /*
      * Aggiunge un giocatore a una stanza.
      * Ritorna true se successo, false se la stanza non esiste o l'utente non esiste.
      */
@@ -115,14 +115,12 @@ class Room {
         const multi = client.multi();
         
         multi.sAdd(`room:${roomId}:players`, username);
-        multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
-
         await multi.exec();
         
         return true;
     }
     
-    /**
+    /*
      * Rimuove un giocatore da una stanza.
      * Ritorna il numero di giocatori rimanenti, o -1 se la stanza non esiste.
      */
@@ -141,7 +139,7 @@ class Room {
         return remainingPlayers.length;
     }
     
-    /**
+    /*
      * Aggiorna lo status di una stanza.
      */
     static async updateStatus(roomId, newStatus) {
@@ -159,8 +157,22 @@ class Room {
         await multi.exec();
         return true;
     }
-    
-    /**
+
+    /*
+     * Link la Room col Game, durante la transazione della creazione del game.
+     * e passa la room allo stato playing!
+     */
+    static linkToGame(multi, roomId,gameId){
+        multi.hSet(`room:${roomId}`, { 
+            gameId: gameId,
+            status: 'playing' 
+        });
+    }
+
+
+
+
+    /*
      * Aggiorna l'host di una stanza.
      */
     static async updateHost(roomId, newHostUsername) {
@@ -179,7 +191,7 @@ class Room {
         return true;
     }
     
-    /**
+    /*
      * Elimina una stanza.
      */
     static async delete(roomId) {
@@ -196,7 +208,7 @@ class Room {
         return results.some(result => result > 0);
     }
     
-    /**
+    /*
      * Verifica se una stanza esiste.
      */
     static async exists(roomId) {
@@ -204,7 +216,7 @@ class Room {
         return await client.exists(`room:${roomId}`) === 1;
     }
     
-    /**
+    /*
      * Recupera i giocatori di una stanza.
      */
     static async getPlayers(roomId) {
@@ -212,7 +224,7 @@ class Room {
         return await client.sMembers(`room:${roomId}:players`);
     }
 
-    /**
+    /*
      * Verifica se un utente è nella stanza.
      */
     static async isPlayerInRoom(roomId, username) {
@@ -220,7 +232,7 @@ class Room {
         return await client.sIsMember(`room:${roomId}:players`, username);
     }
 
-    /**
+    /*
      * Conta i giocatori in una stanza.
      */
     static async countPlayers(roomId) {
@@ -236,7 +248,7 @@ class Room {
         return await client.hSet(`room:${roomId}:sockets`, username, socketId);
     }
 
-    /**
+    /*
      * Recupera il socket di un utente.
      */
     static async getSocket(roomId, username) {

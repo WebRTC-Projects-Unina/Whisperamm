@@ -7,8 +7,7 @@ const { PlayerData } = require('../models/playerData');
 
 class GameService {
 
-    static async createGame(roomId) {
-
+    static async createGame(roomId) {       
         const gameId = crypto.randomUUID();
         const playersList = await RoomService.getPlayers(roomId);
 
@@ -174,6 +173,15 @@ class GameService {
         return await this.getGameSnapshot(gameId);
     }
 
+    /*
+     * NUOVO: Cancella la partita.
+     * Da usare quando la stanza viene distrutta o la partita finisce.
+     */
+    static async deleteGame(gameId) {
+        if (!gameId) return;
+        console.log(`[GameService] Eliminazione dati gioco: ${gameId}`);
+        await Game.delete(gameId);
+    }
 }
 
 module.exports = GameService;

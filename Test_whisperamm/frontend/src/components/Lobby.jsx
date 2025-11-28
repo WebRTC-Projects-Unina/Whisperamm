@@ -76,74 +76,8 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
     setNewMessage, 
     user
 );
-    // --- 4. HANDLERS UTENTE ---
-/*
-    const handleReady = () => {
-        if (!socket) return;
-        
-        if (isReady) {
-            socket.emit('resetReady', { roomId });
-            setIsReady(false);
-        } else {
-            socket.emit('userReady', { roomId });
-            setIsReady(true);
-        }
-    };
-
-    const handleStartGame = () => {
-        if (!canStartGame || !socket) return;
-        console.log("Admin preme Start...");
-        socket.emit('gameStarted', { roomId });
-    };
-
-    const handleSubmitChat = (e) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !socket || !user) return;
-        socket.emit('chatMessage', {
-            roomId,
-            from: user.username,
-            text: newMessage.trim(),
-        });
-        setNewMessage('');
-    };
-
-*/
-
-/*
-    const handleJoinRegister = async (e) => {
-        e.preventDefault();
-        setError(null);
-        if (usernameInput.length < 3) {
-            setError('Nome troppo corto.');
-            return;
-        }
-        try {
-            const response = await fetch('/api/register', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: usernameInput }),
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Errore');
-            setUser(data.user);
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
-    const handleBackHome = () => {
-        if (socket) {
-            socket.emit('leaveLobby', { roomId }, () => {
-                console.log("leaveLobby processato dal server, disconnessione...");
-                disconnectSocket();
-            });
-        }
-        navigate('/');  
-    };
-
+ 
     // --- 5. RENDER LOGIC ---
-*/
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
             setRoomFull("Stanza piena!");
