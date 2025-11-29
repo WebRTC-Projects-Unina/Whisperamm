@@ -19,6 +19,8 @@ const PhaseWord = ({ gameState, user}) => {
             } else {
                 // Fine dei turni
                 console.log("Tutti hanno detto la parola!");
+                //cambio di scena
+                //socket.emit('WordPhaseComplete');
             }
             return;
         }
@@ -30,6 +32,8 @@ const PhaseWord = ({ gameState, user}) => {
         return () => clearInterval(interval);
     }, [timeLeft, currentTurnIndex, gameState.players?.length]);
 
+
+
     // Auto-conferma dopo 30 secondi
     useEffect(() => {
         if (timeLeft === 0 && isMyTurn) {
@@ -39,77 +43,78 @@ const PhaseWord = ({ gameState, user}) => {
 
     return (
         <div className="phase-word-container">
-            {/* TIMER IN ALTO */}
-            <div className={`word-timer ${timeLeft <= 5 ? 'urgent' : ''}`}>
-                <p>Tempo rimanente</p>
-                <div className="timer-value">{timeLeft}s</div>
-            </div>
-
-            {/* AREA CENTRALE CON GIOCATORE ATTUALE */}
-            <div className="word-turn-area">
-                <div className="turn-header">
-                    <p className="turn-label">È il turno di...</p>
-                </div>
-
-                <div className="current-player-display">
-                    <div 
-                        className={`player-avatar-huge ${isMyTurn ? 'highlight' : ''}`}
-                        style={{ backgroundColor: currentPlayer?.color || '#777' }}
-                    >
-                        {currentPlayer?.username?.charAt(0).toUpperCase()}
+            <div className="word-content-grid">
+                {/* COLONNA SINISTRA - AREA TURNO */}
+                <div className="word-turn-section">
+                    <div className="turn-header">
+                        <p className="turn-label">È il turno di...</p>
                     </div>
 
-                    <div className="player-turn-info">
-                        <h2 className="current-player-name">
-                            {currentPlayer?.username}
-                        </h2>
-                        {isMyTurn && (
-                            <p className="turn-indicator-me">🎤 Dì la parola a voce!</p>
-                        )}
-                        <p className="turn-status">
-                            {isMyTurn ? "Toccherà a te tra breve" : "In attesa..."}
-                        </p>
-                    </div>
-                </div>
-
-                {/* BOTTONE CONFERMA (solo per il giocatore attuale) */}
-                {isMyTurn && (
-                    <div className="word-actions">
-                        <button 
-                            className="game-btn-action" 
-                            disabled
+                    <div className="current-player-display">
+                        <div 
+                            className={`player-avatar-huge ${isMyTurn ? 'highlight' : ''}`}
+                            style={{ backgroundColor: currentPlayer?.color || '#777' }}
                         >
-                        </button>
+                            {currentPlayer?.username?.charAt(0).toUpperCase()}
+                        </div>
+
+                        <div className="player-turn-info">
+                            <h2 className="current-player-name">
+                                {currentPlayer?.username}
+                            </h2>
+                            {isMyTurn && (
+                                <p className="turn-indicator-me">🎤 Dì la parola a voce!</p>
+                            )}
+                            <p className="turn-status">
+                                {isMyTurn ? "Toccherà a te tra breve" : "In attesa..."}
+                            </p>
+                        </div>
                     </div>
-                )}
-            </div>
 
-            {/* LISTA GIOCATORI CON STATO */}
-            <div className="word-players-list">
-                <h3 className="list-title">Ordine dei turni</h3>
-                <div className="players-order">
-                    {gameState.players?.map((p, idx) => {
-                        const isDone = idx < currentTurnIndex;
-                        const isCurrent = idx === currentTurnIndex;
-                        const isNext = idx === currentTurnIndex + 1;
-
-                        return (
-                            <div 
-                                key={p.username}
-                                className={`order-card ${isCurrent ? 'current' : ''} ${isDone ? 'done' : ''}`}
-                                style={{ borderColor: p.color || '#ccc' }}
+                    {/* TIMER E BOTTONE CONFERMA */}
+                    <div className="word-actions">
+                        <div className={`word-timer ${timeLeft <= 5 ? 'urgent' : ''}`}>
+                            <span className="timer-label">Tempo:</span>
+                            <span className="timer-value">{timeLeft}s</span>
+                        </div>
+                        {isMyTurn && (
+                            <button 
+                                className="game-btn-action" 
+                                onClick={handleNextTurn}
                             >
-                                <div className="order-number">{idx + 1}</div>
-                                <div className="order-avatar" style={{ backgroundColor: p.color || '#777' }}>
-                                    {p.username?.charAt(0).toUpperCase()}
+                                Conferma
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* COLONNA DESTRA - LISTA GIOCATORI */}
+                <div className="word-players-section">
+                    <h3 className="list-title">Ordine dei turni</h3>
+                    <div className="players-order">
+                        {gameState.players?.map((p, idx) => {
+                            const isDone = idx < currentTurnIndex;
+                            const isCurrent = idx === currentTurnIndex;
+                            const isNext = idx === currentTurnIndex + 1;
+
+                            return (
+                                <div 
+                                    key={p.username}
+                                    className={`order-card ${isCurrent ? 'current' : ''} ${isDone ? 'done' : ''}`}
+                                    style={{ borderColor: p.color || '#ccc' }}
+                                >
+                                    <div className="order-number">{idx + 1}</div>
+                                    <div className="order-avatar" style={{ backgroundColor: p.color || '#777' }}>
+                                        {p.username?.charAt(0).toUpperCase()}
+                                    </div>
+                                    <div className="order-name">{p.username}</div>
+                                    {isDone && <div className="order-status">✅</div>}
+                                    {isCurrent && <div className="order-status">🎤</div>}
+                                    {isNext && <div className="order-status">⏭️</div>}
                                 </div>
-                                <div className="order-name">{p.username}</div>
-                                {isDone && <div className="order-status">✅</div>}
-                                {isCurrent && <div className="order-status">🎤</div>}
-                                {isNext && <div className="order-status">⏭️</div>}
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
                 </div>
             </div>
         </div>

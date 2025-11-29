@@ -164,14 +164,16 @@ const Game = () => {
                             Fase: <span style={{color: '#ff9800', textTransform:'uppercase'}}>{gameState.phase}</span>
                         </p>
                     </div>
-                    
+                        <div className="game-header-center">
+                        {/* Qui potrai aggiungere elementi nelle fasi successive */}
+                    </div>
                     {/* MODIFICA: Aggiunta classe 'game-header-right' invece dello style inline */}
                     <div className="game-header-right">
                         <div className="game-room-badge">Stanza: {roomId}</div>
                         <button className="game-btn-danger btn-small" onClick={handleLeaveGame}>Esci</button>
                     </div>
                 </header>
-                                
+                <br/>
                 {/* SEZIONE SEGRETA COMUNE (Nascosta nella fase di isDicePhase*/}
                 {(gameState.phase !== 'DICE' && gameState.phase !== 'lancio_dadi') && (
                     <div className="game-secret-section">
