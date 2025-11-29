@@ -24,15 +24,27 @@ a:hover {
 
 body {
   margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
+  /* RIMUOVI place-items e assicurati che sia block */
+  display: block; 
+  width: 100%;
   min-height: 100vh;
+  
   background-color: #120220;
   background:         
         linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
-        url('../imgs/banner.jpg') center/cover no-repeat !important;
-  width: 100%;
+        url('../imgs/loop.gif') center/cover no-repeat !important;
+}
+
+#root {
+  /* È lui che deve occupare tutto lo spazio */
+  width: 100%; 
+  min-height: 100vh;
+  
+  /* Centriamo il contenuto (il MiniForm) qui dentro */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
 }
 
 html {

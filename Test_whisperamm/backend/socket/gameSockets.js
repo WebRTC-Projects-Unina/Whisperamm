@@ -141,12 +141,8 @@ async function handleOrderPhaseComplete(io, socket) {
     try {
         // 1. Recupera il Game ID
         const gameId = await Game.findGameIdByRoomId(roomId);
-        if (!gameId) {
-            console.log("❌ Game non trovato per room:", roomId);
-            return;
-        }
+        if (!gameId) return;
 
-        console.log(`[Socket] OrderPhaseComplete ricevuto in room ${roomId}`);
 
         // 2. Cambia fase a GAME (inizio_gioco)
         const updatedGame = await GameService.advancePhase(gameId, GamePhase.GAME);

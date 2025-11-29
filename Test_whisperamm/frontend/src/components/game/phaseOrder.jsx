@@ -4,11 +4,11 @@ import '../../style/phaseOrder.css'; // Creeremo questo file per tenere pulito
 
 const PhaseOrder = ({ gameState, user, socket }) => {
     
-    // 1. Ordiniamo i giocatori basandoci sul campo 'order' che arriva dal backend
+    // Ordiniamo i giocatori basandoci sul campo 'order' che arriva dal backend
     // Se 'order' non esiste, facciamo fallback sul valore dei dadi
     const sortedPlayers = [...(gameState.players || [])].sort((a, b) => {
         if (a.order !== undefined && b.order !== undefined) {
-            return a.order - b.order; // Ordine crescente (1, 2, 3...)
+            return a.order - b.order; // Ordine crescente
         }
         return b.diceValue - a.diceValue; // Fallback decrescente
     });
@@ -19,16 +19,23 @@ const PhaseOrder = ({ gameState, user, socket }) => {
     useEffect(() => {
         // Se il tempo arriva a 0, notifichiamo il backend
         if (timeLeft === 0) {
-            console.log("⏰ Timer finito! Passaggio a PhaseWord...");
             if (socket) {
                 socket.emit('OrderPhaseComplete'); // Notifica al backend
             }
             return;
         }
 
-        const interval = setInterval(() => {
-            setTimeLeft((prev) => prev - 1);
-        }, 1000);
+        if(interval===5){
+            const interval = setInterval(() => {
+                setTimeLeft((prev) => prev - 0.1);
+            }, 100);
+        }else{
+            const interval = setInterval(() => {
+                setTimeLeft((prev) => prev - 1);
+            }, 1000);
+     }   
+
+        
 
         return () => clearInterval(interval);
     }, [timeLeft, socket]);    
