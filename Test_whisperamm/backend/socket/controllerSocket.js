@@ -1,5 +1,5 @@
-const chatSocket = require('./chatSocket');
-const gameSocket = require('./gameSocket');
+const chatSocket = require('./roomSockets');
+const gameSocket = require('./gameSockets');
 
 //Central socket controller
 

@@ -68,55 +68,17 @@ const Lobby = () => {
         lobbyError
     );
 
-    const { handleReady, handleStartGame, handleSubmitChat} = useLobbyHandlers(
-        socket, 
-        roomId, 
-        disconnectSocket, 
-        isReady, 
-        setIsReady, 
-        newMessage, 
-        setNewMessage, 
-        user
-    );
-
-    useEffect(() => {
-        if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
-            setRoomFull("Stanza piena!");
-        } else {
-            setRoomFull("In attesa di altri giocatori...");
-        }
-    }, [players, maxPlayers]);
-
-    useEffect(() => {
-        // Quando cambia isAdmin, resetta isReady se diventa admin
-        if (isAdmin && isReady) {
-            setIsReady(false);
-        }
-    }, [isAdmin]);
-
-
-    if (gameLoading) return <Game />; 
-
-    if (isValidating) return <div className="lobby-page mini-form-page"><div className="lobby-card"><h1>Verifica...</h1></div></div>;
-
-    if (lobbyError) return <div className="lobby-page"><div className="lobby-card"><h1 style={{color:'red'}}>Errore</h1><p>{lobbyError}</p></div></div>;
-/*
-    if (!user) {
-        return (
-            <div className="lobby-page mini-form-page">
-                <div className="lobby-card">
-                    <h1 className="lobby-title">Unisciti</h1>
-                    <p className="lobby-room-code">{roomId}</p>
-                    <form className="chat-input-form" onSubmit={handleJoinRegister}>
-                        <input type="text" className="chat-input" placeholder="Nome..." value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} autoFocus />
-                        <button type="submit" className="chat-send-btn">Entra</button>
-                    </form>
-                    {error && <p style={{ color: 'red'}}>{error}</p>}
-                </div>
-            </div>
-        );
-    }
-*/
+const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLobbyHandlers(
+    socket, 
+    roomId, 
+    disconnectSocket, 
+    isReady, 
+    setIsReady, 
+    newMessage, 
+    setNewMessage, 
+    user
+);
+   
    if (!user) {
         return <MiniForm roomId={roomId} onUserCreated={setUser} error={error} />;
     }
@@ -207,7 +169,7 @@ const Lobby = () => {
                                 {isReady ? '✅ Pronto' : 'Pronto'}
                             </button>
                         )}
-                        <button className="lobby-main-btn" onClick={() => navigate('/')} >
+                        <button className="lobby-main-btn" onClick={(handleBackHome)} >
                             Torna alla Home
                         </button>
                     </div>

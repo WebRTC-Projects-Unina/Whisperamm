@@ -1,10 +1,15 @@
+// src/pages/Game.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
-import DiceArena from '../components/DiceArena'; 
+
+// Importiamo le Viste (Phases)
+import PhaseDice from './game/phaseDice';
+import PhaseOrder from './game/phaseOrder';
+import PhaseWord from './game/phaseWord';
 import '../style/Game.css';
-import '../style/Lobby.css'
+import '../style/Lobby.css';
 
 const Game = () => {
     const { roomId } = useParams(); 
@@ -13,25 +18,22 @@ const Game = () => {
     const { socket, disconnectSocket } = useSocket(); 
     
     const [gameState, setGameState] = useState(null);      
-    // 2. CREIAMO UN REF CHE TIENE SEMPRE IL GAMESTATE AGGIORNATO
-    const gameStateRef = useRef(gameState);
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
     
+    // Stati specifici per la fase Dadi (mantenuti qui perché gestiti dai socket globali)
     const [activeRolls, setActiveRolls] = useState([]); 
     const [isWaiting, setIsWaiting] = useState(false); 
 
-    // Manteniamo il ref aggiornato (Per i colori dei dadi tutto questo)
-    useEffect(() => {
-        gameStateRef.current = gameState;
-    }, [gameState]);
+    const gameStateRef = useRef(gameState);
+    useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
-    // --- PULIZIA TAVOLO ---
+    // Pulizia tavolo dadi al cambio fase
     useEffect(() => {
-        if (gameState?.phase || gameState?.round) {
+        if (gameState?.phase && gameState.phase !== 'DICE' && gameState.phase !== 'lancio_dadi') {
             setActiveRolls([]); 
         }
-    }, [gameState?.phase, gameState?.round]);
+    }, [gameState?.phase]);
 
     useEffect(() => {
         if (!socket) { navigate('/'); return; }
@@ -44,34 +46,31 @@ const Game = () => {
         const handleIdentity = (payload) => setUserIdentity(payload);
 
         const handlePrintDiceRoll = (payload) => {
-            const rollId = Date.now() + Math.random();
-            
-            // 4. QUI LA MAGIA: Usiamo gameStateRef.current invece di gameState
-            // Questo ci dà accesso ai dati "freschi" senza rompere la closure
-            const currentPlayers = gameStateRef.current?.players || [];
-            
-            // Cerchiamo il giocatore in questione per prendere il suo colore
-            const player = currentPlayers.find(p => p.username === payload.username);
-            const diceColor = player ? player.color : '#fffbf0'; // Fallback se non trovato
+            const playerInState = gameStateRef.current?.players?.find(p => p.username === payload.username);
+            const playerColor = payload.color || playerInState?.color || '#ffffff';
 
             const newRoll = {
-                id: rollId,
+                id: Date.now() + Math.random(),
                 username: payload.username,
                 dice1: payload.dice1,
                 dice2: payload.dice2,
-                color: diceColor
+                color: playerColor
             };
-
-            // 1. AGGIUNGIAMO IL DADO E FACCIAMO PARTIRE L'ANIMAZIONE
             setActiveRolls(prev => [...prev, newRoll]);
-            
-            // NOTA: Abbiamo rimosso il setTimeout! 
-            // L'aggiornamento dello stato avverrà tramite la callback onRollComplete
+        };
+
+        const handlePhaseChange = (payload) => {
+            console.log("⚡ Cambio fase:", payload);
+            setGameState(prevState => {
+                if (!prevState) return payload;
+                return { ...prevState, ...payload };
+            });
         };
 
         socket.on('parametri', handleGameParams);
         socket.on('identityAssigned', handleIdentity);
         socket.on('playerRolledDice', handlePrintDiceRoll);
+        socket.on('phaseChanged', handlePhaseChange);
         socket.on('lobbyError', (err) => { alert(err.message); navigate('/'); });
 
         return () => {
@@ -79,10 +78,11 @@ const Game = () => {
                 socket.off('parametri');
                 socket.off('identityAssigned');
                 socket.off('playerRolledDice');
+                socket.off('phaseChanged');
                 socket.off('lobbyError');
             }
         };
-    }, [socket, navigate, roomId, user.username]);
+    }, [socket, navigate, roomId]);
 
     const handleLeaveGame = () => {
         if (window.confirm("Uscire?")) { disconnectSocket(); navigate(`/`); }
@@ -94,27 +94,15 @@ const Game = () => {
         if(socket) socket.emit('DiceRoll'); 
     };
 
-    // --- NUOVA FUNZIONE CALLBACK ---
-    // Questa viene chiamata da DiceArena quando i dadi di un utente si fermano
     const handleRollComplete = (rollId, username, totalValue) => {
-        
-        // Sblocca il bottone se ero io
-        if (username === user.username) {
-            setIsWaiting(false);
-        }
-
-        // Aggiorna lo stato per mostrare il numero
+        if (username === user.username) setIsWaiting(false);
         setGameState(prevState => {
             if (!prevState || !prevState.players) return prevState;
             return {
                 ...prevState,
                 players: prevState.players.map(p => 
                     p.username === username 
-                        ? { 
-                            ...p, 
-                            hasRolled: true, 
-                            diceValue: totalValue 
-                          } 
+                        ? { ...p, hasRolled: true, diceValue: totalValue } 
                         : p
                 )
             };
@@ -123,142 +111,91 @@ const Game = () => {
 
     if (!socket || !gameState) return <div className="game-loader">Caricamento...</div>;
 
-    const myPlayer = gameState.players?.find(p => p.username === user.username);
-    const amIReady = myPlayer?.hasRolled;
-    const isDicePhase = gameState.phase === 'DICE' || gameState.phase === 'lancio_dadi';
+    // --- LOGICA DI SELEZIONE FASE ---
+    const renderPhaseContent = () => {
+        const phase = gameState.phase;
 
+        const startTimer = gameState.startTimer || false
+        // Gestiamo sia i nomi vecchi che nuovi se necessario
+        if (phase === 'DICE' || phase === 'lancio_dadi') {
+            return (
+                <PhaseDice 
+                    gameState={gameState}
+                    user={user}
+                    activeRolls={activeRolls}
+                    onRollComplete={handleRollComplete}
+                    onDiceRoll={handleDiceRoll}
+                    isWaiting={isWaiting}
+                    startTimer={startTimer}
+                />
+            );
+        } 
+        else if (phase === 'TURN_ASSIGNMENT' || phase === 'ordine_gioco') {
+            return (
+                <PhaseOrder 
+                    gameState={gameState}
+                    user={user}
+                    socket={socket}
+                />
+            );
+        }else if (phase === 'GAME' || phase === 'inizio_gioco') {
+            return (
+                <PhaseWord
+                    gameState={gameState}
+                    user={user}
+                    socket={socket}
+                />
+            );
+        } else {
+            return <div style={{color: 'white', textAlign: 'center'}}>Fase sconosciuta: {phase}</div>;
+        }
+    };
+
+    console.log("Render Game con stato:", userIdentity, gameState);
     return (
         <div className="game-page">
             <div className="game-card">
-                <header className="game-header">
-                    <div>
-                        <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
-                        <p className="game-subtitle">Fase: {gameState.phase}</p>
-                    </div>
-                    <div className="game-room-badge">Stanza: {roomId}</div>
-                </header>
                 
-                <div className="game-secret-section">
-                    <div className="secret-toggle" onClick={() => setRevealSecret(!revealSecret)}>
-                        {revealSecret ? "Nascondi Identità 🔒" : "Mostra Identità 👁️"}
-                    </div>
-                    {revealSecret && userIdentity && (
-                        <div className="secret-content revealed">
-                            <p><strong>Ruolo: </strong> 
-                                <span className={userIdentity.role === 'Impostor' ? 'role-impostor' : 'role-civilian'}>
-                                    {userIdentity.role}
-                                </span>
-                            </p>
-                            <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
-                        </div>
-                    )}
-                </div>
-
-                <div className="game-table-area">
-                    {/* DICE ARENA con CALLBACK */}
-                    <div className="dice-arena-overlay" style={{ pointerEvents: 'none' }}> 
-                        <DiceArena 
-                            activeRolls={activeRolls} 
-                            onRollComplete={handleRollComplete} // <--- Passiamo la funzione qui
-                        />
-                    </div>
-
-                    <div className="players-grid">
-                        {gameState.players && gameState.players.map((p) => (
-                            <div 
-                                key={p.username} 
-                                className={`player-slot ${p.username === user.username ? 'me' : ''}`}
-                                style={{
-                                    // Bordo colorato basato sul colore del player
-                                    border: `2px solid ${p.color || '#ccc'}`,
-                                    // Effetto ombra colorata (Glow)
-                                    boxShadow: `0 0 10px ${p.color || 'rgba(0,0,0,0.1)'}`
-                                }}
-                            >
-                                {/* Sezione Intestazione con Avatar e Nome */}
-                                <div className="player-header" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
-                                    
-                                    {/* Avatar Colorato con Iniziale */}
-                                    <div 
-                                        className="player-avatar"
-                                        style={{
-                                            backgroundColor: p.color || '#777',
-                                            width: '35px',
-                                            height: '35px',
-                                            borderRadius: '50%',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            color: '#fff',
-                                            fontWeight: 'bold',
-                                            fontSize: '18px',
-                                            textShadow: '0 1px 2px rgba(0,0,0,0.5)'
-                                        }}
-                                    >
-                                        {p.username.charAt(0).toUpperCase()}
-                                    </div>
-
-                                    <div className="player-name">
-                                        {p.username} {p.username === user.username && <span style={{fontSize: '0.8em', opacity: 0.7}}>(Tu)</span>}
-                                    </div>
-                                </div>
-
-                                {/* Risultato Dadi */}
-                                <div className="dice-result-badge">
-                                    {p.hasRolled ? (
-                                        <span style={{ color: p.color || '#333', fontWeight: 'bold' }}>
-                                            {p.diceValue}
-                                        </span>
-                                    ) : (
-                                        <span style={{ opacity: 0.5 }}>...</span>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                {/* SIDEBAR GIOCATORI */}
-                <aside className="game-sidebar">
-                    <h2 className="sidebar-title">Giocatori</h2>
-                    <div className="sidebar-players">
-                        {gameState.players && gameState.players.map((p, idx) => (
-                            <div
-                                key={idx}
-                                className={
-                                    p.username === user.username
-                                        ? 'sidebar-player sidebar-player-me'
-                                        : 'sidebar-player'
-                                }
-                            >
-                                <span className="sidebar-player-avatar">
-                                    {p.username?.[0]?.toUpperCase() || '?'}
-                                </span>
-                                <span className="sidebar-player-name">
-                                    {p.username}
-                                    {p.username === user.username && ' (tu)'}
-                                    {p.hasRolled && ' ✅'}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </aside>
-                <div className="game-buttons">
-                    {isDicePhase && !amIReady ? (
-                        <button 
-                            className="game-btn-action" 
-                            onClick={handleDiceRoll}
-                            disabled={isWaiting}
-                            style={{ opacity: isWaiting ? 0.6 : 1, cursor: isWaiting ? 'not-allowed' : 'pointer' }}
-                        >
-                            {isWaiting ? "Lancio in corso..." : "🎲 LANCIA I DADI"}
-                        </button>
-                    ) : (
-                        <p className="status-text">
-                            {amIReady ? "Hai già lanciato." : "Attendi..."}
+                {/* HEADER COMUNE */}
+                <header className="game-header">
+                    <div className="game-header-left">
+                        <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
+                        <p className="game-subtitle">
+                            Fase: <span style={{color: '#ff9800', textTransform:'uppercase'}}>{gameState.phase}</span>
                         </p>
-                    )}
-                    <button className="game-btn-danger" onClick={handleLeaveGame}>Abbandona</button>
-                </div>
+                    </div>
+                        <div className="game-header-center">
+                        {/* Qui potrai aggiungere elementi nelle fasi successive */}
+                    </div>
+                    {/* MODIFICA: Aggiunta classe 'game-header-right' invece dello style inline */}
+                    <div className="game-header-right">
+                        <div className="game-room-badge">Stanza: {roomId}</div>
+                        <button className="game-btn-danger btn-small" onClick={handleLeaveGame}>Esci</button>
+                    </div>
+                </header>
+                <br/>
+                {/* SEZIONE SEGRETA COMUNE (Nascosta nella fase di isDicePhase*/}
+                {(gameState.phase !== 'DICE' && gameState.phase !== 'lancio_dadi') && (
+                    <div className="game-secret-section">
+                        <div className="secret-toggle" onClick={() => setRevealSecret(!revealSecret)}>
+                            {revealSecret ? "Nascondi Identità 🔒" : "Mostra Identità 👁️"}
+                        </div>
+                        {revealSecret && userIdentity && (
+                            <div className="secret-content revealed">
+                                <p><strong>Ruolo: </strong> 
+                                    <span className={userIdentity.role === 'IMPOSTOR' ? 'role-impostor' : 'role-civilian'}>
+                                        {userIdentity.role}
+                                    </span>
+                                </p>
+                                <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* --- CONTENUTO DINAMICO DELLA FASE --- */}
+                {renderPhaseContent()}
+
             </div>
         </div>
     );

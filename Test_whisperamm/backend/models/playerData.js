@@ -16,6 +16,7 @@ class PlayerData {
         color,
         dice1,
         dice2,
+        diceValue: dice1 + dice2, // Somma dei due dadi
         order,          // Ordine di turno
         hasRolled: false,
         isAlive: true,

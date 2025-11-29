@@ -1,0 +1,169 @@
+/* src/style/PhaseOrder.css */
+
+.phase-order-container {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    animation: fadeIn 0.5s ease-out;
+}
+
+.phase-title {
+    font-size: 2rem;
+    color: #fff;
+    text-transform: uppercase;
+    margin-bottom: 5px;
+    text-shadow: 0 0 10px rgba(210, 73, 255, 0.5);
+}
+
+.phase-subtitle {
+    color: #aaa;
+    margin-bottom: 30px;
+    font-style: italic;
+}
+
+/* Lista verticale */
+.ranked-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+}
+
+/* Card del singolo giocatore */
+.ranked-card {
+    display: flex;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.05);
+    border: 2px solid #444; /* Default border */
+    border-radius: 12px;
+    padding: 15px 20px;
+    transition: transform 0.2s, background 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+
+.ranked-card:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: translateX(5px);
+}
+
+.ranked-card.me {
+    background: rgba(255, 255, 255, 0.12);
+}
+
+/* Badge Numero (#1, #2) */
+.rank-badge {
+    font-size: 1.2rem;
+    font-weight: 900;
+    color: #120220;
+    width: 40px;
+    height: 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 8px;
+    margin-right: 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+/* Avatar Grande */
+.player-avatar-large {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    font-weight: bold;
+    color: white;
+    margin-right: 20px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    border: 2px solid rgba(255,255,255,0.2);
+}
+
+/* Testi */
+.player-info-large {
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.player-name-large {
+    font-size: 1.3rem;
+    font-weight: bold;
+    color: white;
+}
+
+.me-tag {
+    font-size: 0.8rem;
+    color: #aaa;
+    font-weight: normal;
+    margin-left: 10px;
+}
+
+.roll-info {
+    font-size: 0.9rem;
+    color: #ccc;
+}
+
+.roll-info strong {
+    color: #d249ff;
+    font-size: 1.1rem;
+}
+
+.turn-indicator {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #ffd700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+/* Animazione entrata a cascata */
+.ranked-card {
+    animation: slideInRank 0.5s ease-out forwards;
+    opacity: 0;
+}
+
+/* Ritardi progressivi per effetto cascata */
+.ranked-card:nth-child(1) { animation-delay: 0.1s; }
+.ranked-card:nth-child(2) { animation-delay: 0.2s; }
+.ranked-card:nth-child(3) { animation-delay: 0.3s; }
+.ranked-card:nth-child(4) { animation-delay: 0.4s; }
+.ranked-card:nth-child(5) { animation-delay: 0.5s; }
+.ranked-card:nth-child(6) { animation-delay: 0.6s; }
+
+@keyframes slideInRank {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+    .ranked-card {
+        padding: 10px;
+    }
+    .player-avatar-large {
+        width: 40px; height: 40px; font-size: 1.2rem; margin-right: 10px;
+    }
+    .player-name-large { font-size: 1.1rem; }
+    .rank-badge { width: 30px; height: 30px; font-size: 1rem; margin-right: 10px; }
+}

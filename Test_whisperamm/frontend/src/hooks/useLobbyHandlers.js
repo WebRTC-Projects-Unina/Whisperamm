@@ -34,10 +34,8 @@ export const useLobbyHandlers = (socket, roomId, disconnectSocket, isReady, setI
 
     const handleBackHome = () => {
         if (socket) {
-            //socket.emit('leaveLobby', { roomId }, () => {
-            //console.log("leaveLobby processato dal server, disconnessione...");
             disconnectSocket();
-        };
+        }
         navigate('/');  
     }
     

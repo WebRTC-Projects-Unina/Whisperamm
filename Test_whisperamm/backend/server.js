@@ -10,7 +10,7 @@ const { connectRedis } = require('./models/redis');
 // aggancio socket controller
 const http = require('http');
 const { Server } = require('socket.io');
-const registerSocketController = require('./socket/socketController');
+const registerSocketController = require('./socket/controllerSocket');
 
 const server = http.createServer(app);
 

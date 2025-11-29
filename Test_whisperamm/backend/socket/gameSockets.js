@@ -42,8 +42,6 @@ async function handleGameStarted(io, socket, { roomId }) {
             publicPayload
         );
 
-        console.log("Tutti hanno ricevuto le informazioni base")
-
         // 4. STEP B: TARGETED (Dati Privati)
         // Diciamo a ciascuno: "Ecco chi sei tu segretamente".
         // Il Frontend userà questo per mostrare la parola segreta.
@@ -65,8 +63,12 @@ async function handleGameStarted(io, socket, { roomId }) {
             io,
             roomId,
             'phaseChanged',
-            { phase: GamePhase.DICE }
+            {   phase: GamePhase.DICE,
+                startTimer: true  // Indica al frontend di avviare il timer
+             }
         );
+
+
 
     } catch (err) {
         console.error(`[Errore] handleGameStarted:`, err);
@@ -89,26 +91,29 @@ async function handleRollDice(io, socket) {
         if (!gameId) return;
 
         // RECUPERIAMO IL GIOCO AGGIORNATO (che ora include il hasRolled: true appena messo)
-        const game = await GameService.getGameSnapshot(gameId);
+        let game = await GameService.getGameSnapshot(gameId);
 
         // Inviamo il risultato a tutti (Broadcast)
         const myData = game.players.find(p => p.username === username);
 
+        // Ignora se ha già lanciato, in teoria è gestita dal frontend ma per sicurezza
         if (myData.hasRolled) {
-        return; // Ignora la richiesta se ha già fatto
+        return; 
         }
 
-        // AGGIORNAMENTO STATO
-        // Questo aggiorna solo il singolo giocatore su Redis
+        // Questo aggiorna solo il singolo giocatore su Redis e ritorna la lista aggiornata
         await GameService.updatePlayerState(gameId, username, { hasRolled: true });
-
         
         NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
             username: username,
             dice1: myData.dice1,
-            dice2: myData.dice2
+            dice2: myData.dice2,
+            color: myData.color
         });
         
+        // Recupera di nuovo lo stato del gioco aggiornato
+        game = await GameService.getGameSnapshot(gameId);
+
         // Controlliamo se TUTTI hanno lanciato
         if (GameService.checkAllPlayersRolled(game.players)) {
             console.log(`[Game] Tutti hanno lanciato in room ${roomId}. Cambio fase!`);
@@ -122,8 +127,8 @@ async function handleRollDice(io, socket) {
             
             // Aspettiamo magari 2-3 secondi per far vedere l'animazione dell'ultimo dado
             setTimeout(() => {
-                NotificationService.broadcastToRoom(io, roomId, 'phaseChange', payload);
-            }, 3000);
+                NotificationService.broadcastToRoom(io, roomId, 'phaseChanged', payload);
+            }, 4000);
         }
 
     } catch (err) {
@@ -131,9 +136,41 @@ async function handleRollDice(io, socket) {
     }
 }
 
+async function handleOrderPhaseComplete(io, socket) {
+    const roomId = socket.data.roomId;
+
+    try {
+        // 1. Recupera il Game ID
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) return;
+
+
+        // 2. Cambia fase a GAME (inizio_gioco)
+        const updatedGame = await GameService.advancePhase(gameId, GamePhase.GAME);
+
+        // 3. Costruisci il payload pubblico
+        const payload = PayloadUtils.buildPublicGameData(updatedGame);
+
+        // 4. Notifica TUTTI i giocatori del cambio fase
+        NotificationService.broadcastToRoom(
+            io,
+            roomId,
+            'phaseChanged',
+            payload
+        );
+
+        console.log(`✅ Game ${gameId} → Fase: ${GamePhase.GAME} (inizio_gioco)`);
+
+    } catch (err) {
+        console.error(`[Errore] handleOrderPhaseComplete:`, err);
+        socket.emit('lobbyError', { message: 'Errore cambio fase' });
+    }
+}
+
 function attach(socket, io) {
     socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
     socket.on('DiceRoll', () => handleRollDice(io, socket));
+    socket.on('OrderPhaseComplete', () => handleOrderPhaseComplete(io, socket));
 }
 
 module.exports = { attach };

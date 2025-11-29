@@ -160,6 +160,7 @@ class RoomService {
         const room = await this.getRoom(roomId);
         if(!room) return { allReady: false, readyStates: {} };
 
+        if (room.players.length < 2) return { allReady: false, readyStates: {} };
         const readyStates = await this.getReadyStates(roomId);
         
         // Verifica che ogni giocatore nella lista della stanza sia 'true' in readyStates
