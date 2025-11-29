@@ -1,9 +1,11 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, setIsAdmin, setPlayers, setReadyStates, setIsReady, setAllReady, setCanStartGame, setLobbyError, setAdminPlayer, setMessages, setGameLoading, isValidating, lobbyError) => {
-    
+    // Ref per evitare join multipli nello stesso ciclo di vita se le dipendenze cambiano
+    const joinedRef = useRef(false); 
     useEffect(() => {
         if(isValidating || lobbyError || !user) return;
+
 
         if (!socket) {
             console.log("🔌 Lobby: Socket nullo, richiedo connessione al Provider...");
@@ -14,6 +16,7 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         const handleLobbyPlayers = (payload) => {
             setPlayers(payload.players || []);
             setReadyStates(payload.readyStates || {});
+            console.log("[Socket] Aggiornamento giocatori lobby:", payload.players);
         };
 
         const handleUserReadyUpdate = (payload) => {
@@ -53,9 +56,6 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
             setGameLoading(true);            
         };    
 
-        console.log("Socket pronta, invio joinLobby...");
-        socket.emit('joinLobby', { roomId, user });
-
         socket.on('lobbyError', handleLobbySocketError); 
         socket.on('lobbyPlayers', handleLobbyPlayers); 
         socket.on('chatMessage', handleChatMessage); 
@@ -65,6 +65,20 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         socket.on('allUsersReady', handleAllUsersReady); 
         socket.on('gameStarted', handleGameStarted); 
 
+        // Inizio JOIN robusto
+        const performJoin = () => {
+            if (joinedRef.current) return; // Esce se già fatto
+            
+            socket.emit('joinLobby', { roomId, user });
+            joinedRef.current = true;
+        };
+
+        // Mettiti in ascolto (copre riconnessioni o connessioni lente)
+        socket.on('connect', performJoin);
+
+        // Se già connesso esegui subito, altrimenti avvia connessione
+        socket.connected ? performJoin() : socket.connect();
+        
         return () => {
             if (socket) {
                 console.log("🧹 Lobby smontata: Rimozione listener (Socket resta viva)");

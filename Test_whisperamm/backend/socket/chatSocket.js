@@ -51,12 +51,12 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
     }
 
     // 6. NOTIFICHE AGLI ALTRI
-    
-        socket.to(roomId).emit('chatMessage', {
-            from: 'system',
-            text: `${username} è entrato nella lobby`,
-            timestamp: Date.now()
-        });
+    console.log(`[Socket] Notifica ingresso di ${username} in lobby ${roomId}`);
+    socket.to(roomId).emit('chatMessage', {
+        from: 'system',
+        text: `${username} è entrato nella lobby`,
+        timestamp: Date.now()
+    });
 
     // Inviamo la lista aggiornata a tutti
     const updatedPlayers = await RoomService.getPlayers(roomId);
@@ -65,6 +65,7 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         players: updatedPlayers,
         readyStates
     });
+    console.log(`[Socket] ${username} unito a lobby ${roomId} con successo.`);
 }
 
 async function notifyHostChange(io, roomId) {
