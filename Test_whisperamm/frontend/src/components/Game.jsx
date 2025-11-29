@@ -7,7 +7,7 @@ import { useSocket } from '../context/SocketProvider';
 // Importiamo le Viste (Phases)
 import PhaseDice from './game/phaseDice';
 import PhaseOrder from './game/phaseOrder';
-
+import PhaseWord from './game/phaseWord';
 import '../style/Game.css';
 import '../style/Lobby.css';
 
@@ -135,10 +135,18 @@ const Game = () => {
                 <PhaseOrder 
                     gameState={gameState}
                     user={user}
+                    socket={socket}
                 />
             );
-        }
-        else {
+        }else if (phase === 'GAME' || phase === 'inizio_gioco') {
+            return (
+                <PhaseWord
+                    gameState={gameState}
+                    user={user}
+                    socket={socket}
+                />
+            );
+        } else {
             return <div style={{color: 'white', textAlign: 'center'}}>Fase sconosciuta: {phase}</div>;
         }
     };

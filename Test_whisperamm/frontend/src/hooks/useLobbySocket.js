@@ -46,7 +46,6 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         const handleHostChanged = (payload) => {
             setAdminPlayer(payload.newHost);
             if (user.username === payload.newHost) {
-                // Aggiorna isAdmin solo per questo user
                 setIsAdmin(true);
             }
         };
