@@ -1,6 +1,6 @@
 // services/roomService.js
 const { Room, RoomStatus } = require('../models/Room');
-const { User } = require('../models/User');
+const { User, UserStatus} = require('../models/User')
 const crypto = require('crypto');
 
 class RoomService {
@@ -61,19 +61,17 @@ class RoomService {
     }
 
     static async addPlayerToRoom(roomId, username) {
-        console.log("addplayertoroom "+username)
+        
         // Verifica accesso 
         const accessCheck = await this.checkRoomAccess(roomId, username);
         if (!accessCheck.canJoin) throw new Error(accessCheck.reason);
 
-        console.log("accessCheck.canJoin")
-
-        console.log("accessCheck.isRejoining" +accessCheck.isRejoining)
+    
         if (accessCheck.isRejoining) {
-            console.log("perchè..")
+        
             return { added: false, isRejoining: true, room: accessCheck.room };
         }
-        console.log("accesscheck.isrejoining")
+      
 
         const userExists = await User.exists(username);
         if (!userExists) throw new Error('USER_NOT_FOUND');
@@ -85,34 +83,39 @@ class RoomService {
     }
 
     static async removePlayerFromRoom(roomId, username) {
+        let deletedRoom = false //Inizializziamo a false. 
+        let updatedRoom=null
+        let hostChanged = false
+
+
         const room = await Room.get(roomId);
         if (!room) throw new Error('ROOM_NOT_FOUND');
 
-        //Aggiunta alla lista di players_leaved
-        Room.moveToLeaved(roomId,username)
+        //Ritorna il numero di player rimanenti
+        const playerNumber = await Room.removePlayer(roomId, username);
 
-
-        const remainingCount = await Room.removePlayer(roomId, username);
-        if (remainingCount === -1) throw new Error('ROOM_NOT_FOUND');
-
-        // Elimina stanza se vuota
-        if (remainingCount === 0) {
+        // CASO1: Elimina stanza se vuota
+        if (playerNumber === 0) {
             await Room.delete(roomId);
-            console.log(`[RoomService] Stanza ${roomId} eliminata (vuota)`);
-            return null; // Stanza non esiste più
-        }
+            deletedRoom=true; // Stanza non esiste più 
 
-        // Cambio Host
-        if (room.host === username) {
-            const players = await Room.getPlayers(roomId);
-            if (players.length > 0) {
-                await Room.updateHost(roomId, players[0]);
-                console.log(`[RoomService] Nuovo host in ${roomId}: ${players[0]}`);
-            }
-        }
+        }else{
+        //CASO2: La stanza esiste ancora
 
-        return await Room.get(roomId);
+            // Gestione evenutale Cambio Host
+            if (room.host === username) {
+                    await Room.updateHost(roomId, players[0]);
+                    await UserService.setUserReady(room.host, false); //Setta lo stato del nuovo o del vecchio host a False
+                    hostChanged = true;
+                }
+            
+
+            //Recuperiamo la stanza aggioranata, ma solo se esiste ancora
+            updatedRoom = await Room.get(roomId)
+        }
+        return {updatedRoom, hostChanged,deletedRoom};
     }
+
 
     // --- UTILITIES ---
 

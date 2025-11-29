@@ -135,7 +135,7 @@ class Room {
         await client.sRem(`room:${roomId}:players`, username);
         
         const remainingPlayers = await client.sMembers(`room:${roomId}:players`);
-        
+        console.log("rimangono "+remainingPlayers.length)
         return remainingPlayers.length;
     }
     
@@ -264,6 +264,14 @@ class Room {
     static async deleteSocket(roomId, username) {
         const client = getRedisClient();
         return await client.hDel(`room:${roomId}:sockets`, username);
+    }
+    
+    // Imposta il socket di un utente a stringa vuota (null) mantenendo lo username nella mappa
+    static async clearSocket(roomId, username) {
+        const client = getRedisClient();
+        // Usiamo hSet invece di hDel per sovrascrivere il valore
+        // Nota: Redis non accetta 'null' puro, usiamo stringa vuota ''
+        return await client.hSet(`room:${roomId}:sockets`, username, '');
     }
 
     //Recupera tutti i socket della stanza.

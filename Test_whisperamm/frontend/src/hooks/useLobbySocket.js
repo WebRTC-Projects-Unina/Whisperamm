@@ -6,7 +6,7 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         if(isValidating || lobbyError || !user) return;
 
         if (!socket) {
-            console.log("🔌 Lobby: Socket nullo, richiedo connessione al Provider...");
+            console.log("Lobby: Socket nullo...");
             connectSocket(); 
             return; 
         }
@@ -49,7 +49,7 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         };
 
         const handleGameStarted = (payload) => {
-            console.log("🚀 Partita iniziata! Navigazione verso Game...");
+            console.log("Partita iniziata! Navigazione verso Game...");
             setGameLoading(true);            
         };    
 
@@ -76,8 +76,9 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
                 socket.off('gameCanStart', handleGameCanStart);
                 socket.off('allUsersReady', handleAllUsersReady);
                 socket.off('gameStarted', handleGameStarted);
+                socket.disconnect();
             }
         };
         
-    }, [roomId, user, lobbyError, isValidating, socket, connectSocket, isAdmin]);
+    }, [roomId, user, lobbyError, isValidating, connectSocket, isAdmin]);
 };

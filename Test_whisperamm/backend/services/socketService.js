@@ -21,7 +21,7 @@ class SocketService {
         return oldSocketId;
     }
 
-    //Rimuove il socket dal DB SOLO se corrisponde a quello attuale (Protezione F5).
+    //Pulisce il socket dal DB SOLO se corrisponde a quello attuale.
     static async unregisterConnection(roomId, username, socketIdToRemove) {
         const currentSocketId = await Room.getSocket(roomId, username);
         
@@ -30,7 +30,19 @@ class SocketService {
             return false; 
         }
 
-        await Room.deleteSocket(roomId, username);
+        await Room.clearSocket(roomId, username); 
+        return true;
+    }
+
+    static async deleteConnection(roomId,username,socketIdToRemove){
+        const currentSocketId = await Room.getSocket(roomId, username);
+        
+        if (!currentSocketId || socketIdToRemove !== currentSocketId) {
+            // È un socket vecchio o la connessione è già stata sovrascritta
+            return false; 
+        }
+
+        await Room.deleteSocket(roomId, username); 
         return true;
     }
 

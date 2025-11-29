@@ -45,6 +45,8 @@ const Lobby = () => {
     const [readyStates, setReadyStates] = useState({});
     const [gameLoading, setGameLoading] = useState(false);
 
+    const navigate = useNavigate();
+
     //hook
     useLobbySocket(
         socket, 
@@ -66,18 +68,17 @@ const Lobby = () => {
         lobbyError
     );
 
-const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLobbyHandlers(
-    socket, 
-    roomId, 
-    disconnectSocket, 
-    isReady, 
-    setIsReady, 
-    newMessage, 
-    setNewMessage, 
-    user
-);
- 
-    // --- 5. RENDER LOGIC ---
+    const { handleReady, handleStartGame, handleSubmitChat} = useLobbyHandlers(
+        socket, 
+        roomId, 
+        disconnectSocket, 
+        isReady, 
+        setIsReady, 
+        newMessage, 
+        setNewMessage, 
+        user
+    );
+
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
             setRoomFull("Stanza piena!");
@@ -206,7 +207,7 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome } = useLo
                                 {isReady ? '✅ Pronto' : 'Pronto'}
                             </button>
                         )}
-                        <button className="lobby-main-btn" onClick={handleBackHome}>
+                        <button className="lobby-main-btn" onClick={() => navigate('/')} >
                             Torna alla Home
                         </button>
                     </div>

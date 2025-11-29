@@ -81,13 +81,13 @@ class UserService {
 
 
    // Imposta lo stato ready dell'utente
-  static async setUserReady(username, isReady) {
+  static async setUserReady(username, state) {
     const exists = await User.exists(username);
     if (!exists) {
       throw new Error('USER_NOT_FOUND');
     }
     
-    await User.setReady(username, isReady);
+    await User.setReady(username, state);
   }
 
   // Ottiene lo stato ready di un utente
