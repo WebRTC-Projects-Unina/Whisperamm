@@ -497,6 +497,7 @@
     border-radius: 20px;
     border: 2px solid #d249ff;
     box-shadow: 0 0 10px rgba(210, 73, 255, 0.3);
+    margin: 0 0 0px 0; 
     transition: all 0.3s ease;
 }
 
@@ -507,6 +508,28 @@
     box-shadow: 0 0 15px rgba(255, 68, 68, 0.6);
     animation: pulse-urgent 0.8s infinite alternate;
 }
+
+.phase-order-timer-display {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 20px;
+    border-radius: 20px;
+    border: 2px solid #d249ff;
+    box-shadow: 0 0 10px rgba(210, 73, 255, 0.3);
+    margin: 0 0 15px 0; 
+    transition: all 0.3s ease;
+}
+
+.phase-order-timer-display.urgent {
+    color: #ff4444;
+    border-color: #ff4444;
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.6);
+    animation: pulse-urgent 0.8s infinite alternate;
+}
+
+
 
 @keyframes pulse-urgent {
     from { transform: scale(1); }

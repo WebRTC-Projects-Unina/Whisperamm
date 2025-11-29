@@ -135,9 +135,45 @@ async function handleRollDice(io, socket) {
     }
 }
 
+async function handleOrderPhaseComplete(io, socket) {
+    const roomId = socket.data.roomId;
+
+    try {
+        // 1. Recupera il Game ID
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) {
+            console.log("❌ Game non trovato per room:", roomId);
+            return;
+        }
+
+        console.log(`[Socket] OrderPhaseComplete ricevuto in room ${roomId}`);
+
+        // 2. Cambia fase a GAME (inizio_gioco)
+        const updatedGame = await GameService.advancePhase(gameId, GamePhase.GAME);
+
+        // 3. Costruisci il payload pubblico
+        const payload = PayloadUtils.buildPublicGameData(updatedGame);
+
+        // 4. Notifica TUTTI i giocatori del cambio fase
+        NotificationService.broadcastToRoom(
+            io,
+            roomId,
+            'phaseChanged',
+            payload
+        );
+
+        console.log(`✅ Game ${gameId} → Fase: ${GamePhase.GAME} (inizio_gioco)`);
+
+    } catch (err) {
+        console.error(`[Errore] handleOrderPhaseComplete:`, err);
+        socket.emit('lobbyError', { message: 'Errore cambio fase' });
+    }
+}
+
 function attach(socket, io) {
     socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
     socket.on('DiceRoll', () => handleRollDice(io, socket));
+    socket.on('OrderPhaseComplete', () => handleOrderPhaseComplete(io, socket));
 }
 
 module.exports = { attach };
