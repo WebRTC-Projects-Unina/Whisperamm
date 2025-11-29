@@ -24,16 +24,10 @@ const PhaseOrder = ({ gameState, user, socket }) => {
             }
             return;
         }
-
-        if(interval===5){
-            const interval = setInterval(() => {
-                setTimeLeft((prev) => prev - 0.1);
-            }, 100);
-        }else{
-            const interval = setInterval(() => {
-                setTimeLeft((prev) => prev - 1);
-            }, 1000);
-     }   
+        
+        const interval = setInterval(() => {
+            setTimeLeft((prev) => prev - 1);
+        }, 1000);
 
         
 
