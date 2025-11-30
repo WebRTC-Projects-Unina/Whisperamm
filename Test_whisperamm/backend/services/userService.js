@@ -66,21 +66,51 @@ class UserService {
   static async getAuthenticatedUser(token) {
     const decoded = this.verifyToken(token);
     
-    if (!decoded.username) {
-      throw new Error('TOKEN_INVALID');
-    }
+    if (!decoded.username) {throw new Error('TOKEN_INVALID');}
 
     const user = await User.get(decoded.username);
     
-    if (!user) {
-      throw new Error('USER_NOT_FOUND');
-    }
+    if (!user) {throw new Error('USER_NOT_FOUND');}
 
     return user;
   }
 
+  // Verifica se un utente esiste
+  static async userExists(username) {
+    return await User.exists(username);
+  }
 
-   // Imposta lo stato ready dell'utente
+  //Per aggiornare in Game o Online.
+  static async updateStatus(username, newStatus){
+    User.updateStatus(username,newStatus)
+  }
+
+  // Imposta lo stato di più utenti
+  static async setMultipleUsersStatus(usernames, status) {
+    console.log("MultipleUsers Status: "+usernames+" status: "+status)
+    usernames.forEach(async username => {
+      try{
+        await this.setUserStatus(username,status)
+        console.log("MultipleUsers Status: "+username+" status: "+status)
+      }catch (err) {
+        return false
+      }
+    })
+    return true; //Se è andata tutto ok
+  }
+
+  // Imposta lo stato di un utente
+  static async setUserStatus(username, status) {
+    const exists = await User.exists(username);
+    if (!exists) {
+      throw new Error('USER_NOT_FOUND');
+    }
+    await User.updateStatus(username, status);
+  }
+
+  
+
+  // Imposta lo stato ready dell'utente
   static async setUserReady(username, state) {
     const exists = await User.exists(username);
     if (!exists) {
@@ -117,3 +147,4 @@ class UserService {
 }
 
 module.exports = UserService;
+module.exports.UserStatus = UserStatus; //Per evitare di importare User in Room..

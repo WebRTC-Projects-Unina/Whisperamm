@@ -1,5 +1,4 @@
-// chatSocket.js
-const { lobbies, disconnectTimeouts, RECONNECT_TOLERANCE_MS, registerUserSocket, unregisterUserSocket } = require('./stateSocket');
+// roomSocket.js
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');

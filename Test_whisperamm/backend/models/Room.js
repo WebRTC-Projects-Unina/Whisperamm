@@ -136,13 +136,8 @@ class Room {
     
         // 2. Logghiamo il risultato della cancellazione
         // sRem restituisce: 1 se ha rimosso, 0 se l'utente non c'era
-        const removedCount = await client.sRem(`room:${roomId}:players`, username);
+        await client.sRem(`room:${roomId}:players`, username);
         
-        if (removedCount === 1) {
-             console.log(`[Redis Debug] SUCCESSO: Utente ${username} rimosso.`);
-        } else {
-             console.log(`[Redis Debug] ATTENZIONE: sRem ha restituito 0. L'utente ${username} NON era nella lista (forse già rimosso?).`);
-        }
         
         // 3. Logghiamo cosa è rimasto
         const remainingPlayers = await client.sMembers(`room:${roomId}:players`);

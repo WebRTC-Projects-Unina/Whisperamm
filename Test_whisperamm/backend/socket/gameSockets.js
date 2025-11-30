@@ -86,7 +86,6 @@ async function handleRollDice(io, socket) {
     try {
 
         // Recupera Game ID
-        console.log("ma io penso sia qui il problema..")
         const gameId = await Game.findGameIdByRoomId(roomId);
         if (!gameId) return;
 
@@ -116,8 +115,6 @@ async function handleRollDice(io, socket) {
 
         // Controlliamo se TUTTI hanno lanciato
         if (GameService.checkAllPlayersRolled(game.players)) {
-            console.log(`[Game] Tutti hanno lanciato in room ${roomId}. Cambio fase!`);
-
             // Cambia fase nel DB
             const updatedGame = await GameService.advancePhase(gameId, GamePhase.TURN_ASSIGNMENT); // o TURN_ASSIGNMENT
 
@@ -158,8 +155,6 @@ async function handleOrderPhaseComplete(io, socket) {
             'phaseChanged',
             payload
         );
-
-        console.log(`✅ Game ${gameId} → Fase: ${GamePhase.GAME} (inizio_gioco)`);
 
     } catch (err) {
         console.error(`[Errore] handleOrderPhaseComplete:`, err);

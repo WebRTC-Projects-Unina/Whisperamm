@@ -6,7 +6,7 @@ const UserStatus = {
   INGAME: 'inGame',
 };
 
-const TOKEN_TTL = 3*60; // 3 ore in secondi (deve corrispondere al JWT)
+const TOKEN_TTL = 3*60*60; // 3 ore in secondi (deve corrispondere al JWT)
 
 class User {
   static async create(username, status = UserStatus.ONLINE) {
@@ -23,7 +23,6 @@ class User {
       username,
       status,
       isready: 'false',
-      createdAt: Date.now().toString()
     });
     
     // Imposta TTL - Redis eliminerà automaticamente dopo 3 ore
@@ -145,4 +144,4 @@ class User {
   }
 }
 
-module.exports = { User, UserStatus, TOKEN_TTL };
+module.exports = { User, UserStatus };

@@ -63,10 +63,10 @@ class Game {
     }
 
     static async findGameIdByRoomId(roomId) {
-        console.log("findGameIdbyRoomId: "+roomId)
+       
         const client = getRedisClient();
         const gameId = await client.hGet(`room:${roomId}`, 'gameId');
-        console.log("mio dio mi pento e mi dolgo con tutto il cuore dai miei peccati")
+       
         return gameId;
     }
 
