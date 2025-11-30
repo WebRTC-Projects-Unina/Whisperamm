@@ -133,6 +133,35 @@ async function handleRollDice(io, socket) {
     }
 }
 
+async function handleOrderPlayers(io, socket){
+    const roomId = socket.data.roomId;
+
+    try {
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) {
+            console.log("❌ Game non trovato per room:", roomId);
+            return;
+        }
+        console.log(`[Socket] OrderPlayers ricevuto in room ${roomId}`);
+        let game = await GameService.getGameSnapshot(gameId);
+        const sortedPlayers = GameService.sortPlayersByDice(game.players, game.round);
+
+        // TBD Aggiorna l'ordine dei giocatori nel DB 
+        for (const player of sortedPlayers) {
+            await GameService.updatePlayerState(gameId, player.username, { order: player.order });
+        }
+
+        // Ritorna l'ordine al frontend
+        NotificationService.broadcastToRoom(io, roomId, 'playersOrdered', { players: sortedPlayers.sort((a, b) => a.order - b.order) });
+        
+        console.log("Giocatori ordinati inviati al frontend.");
+    }catch (err) {
+        console.error(`[Errore] handleOrderPlayers:`, err);
+        socket.emit('lobbyError', { message: 'Errore ordinamento giocatori' });
+    }
+}
+
+
 async function handleOrderPhaseComplete(io, socket) {
     const roomId = socket.data.roomId;
 
@@ -156,16 +185,83 @@ async function handleOrderPhaseComplete(io, socket) {
             payload
         );
 
+        console.log(`Game ${gameId} → Fase: ${GamePhase.GAME} (inizio_gioco)`);
+
     } catch (err) {
         console.error(`[Errore] handleOrderPhaseComplete:`, err);
         socket.emit('lobbyError', { message: 'Errore cambio fase' });
     }
 }
 
+async function handleConfirmWord(io,socket){ 
+    const roomId = socket.data.roomId;
+    const username = socket.data.username;
+
+    try {
+        // 1. Recupera il Game ID
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) {
+            console.log("❌ Game non trovato per room:", roomId);
+            return;
+        }
+        let game = await GameService.getGameSnapshot(gameId);
+
+        // Questo aggiorna solo il singolo giocatore su Redis e ritorna la lista aggiornata
+        await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
+
+        NotificationService.broadcastToRoom(io, roomId, 'playerSpoken', {
+            username: username,
+            color: game.players.find(p => p.username === username)?.color
+        });
+
+        game = await GameService.getGameSnapshot(gameId);
+
+        // Controlliamo se TUTTI hanno parlato
+        if (GameService.checkAllPlayersSpoken(game.players)) {
+            console.log(`[Game] Tutti hanno parlato in room ${roomId}. Fine fase parola!`);
+
+            const updatedGame = await GameService.advancePhase(gameId, GamePhase.DISCUSSION); // Sostituisci con la fase successiva
+            payload = PayloadUtils.buildPublicGameData(updatedGame);
+            NotificationService.broadcastToRoom(io, roomId, 'phaseChanged', payload);
+        }
+    } catch (err) {
+        console.error(`[Errore] handleConfirmWord:`, err);
+    }
+}
+
+async function handleDiscussionPhaseComplete(io, socket) {
+    const roomId = socket.data.roomId;
+    try {
+        // 1. Recupera il Game ID
+        const gameId = await Game.findGameIdByRoomId(roomId);  
+        if (!gameId) {
+            console.log("❌ Game non trovato per room:", roomId);
+            return;
+        }
+        console.log(`[Socket] DiscussionPhaseComplete ricevuto in room ${roomId}`);
+        // 2. Cambia fase a VOTING (votazione)
+        const updatedGame = await GameService.advancePhase(gameId, GamePhase.VOTING);
+        // 3. Costruisci il payload pubblico
+        const payload = PayloadUtils.buildPublicGameData(updatedGame);
+        // 4. Notifica TUTTI i giocatori del cambio fase
+        NotificationService.broadcastToRoom(
+            io,
+            roomId,
+            'phaseChanged',
+            payload
+        );
+    } catch (err) {
+        console.error(`[Errore] handleDiscussionPhaseComplete:`, err);
+    }
+}
+
 function attach(socket, io) {
     socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
     socket.on('DiceRoll', () => handleRollDice(io, socket));
+    socket.on('OrderPlayers', () => handleOrderPlayers(io, socket));
     socket.on('OrderPhaseComplete', () => handleOrderPhaseComplete(io, socket));
+    socket.on('ConfirmWord', () => handleConfirmWord(io, socket));
+    socket.on('DiscussionPhaseComplete', () => handleDiscussionPhaseComplete(io, socket));
 }
 
 module.exports = { attach };

@@ -1,20 +1,36 @@
-import React from 'react';
-import { useState, useEffect } from 'react';
+import React, { use } from 'react'; 
+import { useState, useEffect, useRef } from 'react';
 import '../../style/phaseOrder.css'; // Creeremo questo file per tenere pulito
 
 const PhaseOrder = ({ gameState, user, socket }) => {
     
-    // Ordiniamo i giocatori basandoci sul campo 'order' che arriva dal backend
-    // Se 'order' non esiste, facciamo fallback sul valore dei dadi
-    const sortedPlayers = [...(gameState.players || [])].sort((a, b) => {
-        if (a.order !== undefined && b.order !== undefined) {
-            return a.order - b.order; // Ordine crescente
-        }
-        return b.diceValue - a.diceValue; // Fallback decrescente
-    });
-
+    const [sortedPlayers, setSortedPlayers] = useState([]);
     // --- LOGICA TIMER E AUTO-LANCIO ---
-    const [timeLeft, setTimeLeft] = useState(15); 
+    const [timeLeft, setTimeLeft] = useState(10); 
+    const hasEmitted = useRef(false);   
+    // Ordiniamo i players al mount
+    useEffect(() => {
+        if (socket && !hasEmitted.current) {
+            console.log("📤 Emetto 'OrderPlayers' al backend...");
+            socket.emit('OrderPlayers');
+            hasEmitted.current = true;
+        }
+    }, [socket]);
+
+    // Ascolta il backend per l'ordine aggiornato
+    useEffect(() => {
+        if (!socket) return;
+
+        socket.on('playersOrdered', (payload) => {
+            console.log("📥 Ricevuti giocatori ordinati:", payload);
+            setSortedPlayers(payload.players || []);
+        });
+
+        return () => {
+            socket.off('playersOrdered');
+        };
+    }, [socket]);
+
 
     useEffect(() => {
         // Se il tempo arriva a 0, notifichiamo il backend

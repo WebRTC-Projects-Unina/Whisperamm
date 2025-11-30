@@ -19,6 +19,7 @@ class PlayerData {
         diceValue: dice1 + dice2, // Somma dei due dadi
         order,          // Ordine di turno
         hasRolled: false,
+        hasSpoken: false,
         isAlive: true,
         canTalk: true, // Di base true in quanto appena accedo a Game posso parlare
         votesReceived: 0, 
