@@ -10,7 +10,7 @@ exports.createGame = async (req, res) => {
             return res.status(400).json({ message: "Dati Admin mancanti."});
         }
 
-        // Crea la stanza tramite il service
+        // Crea la stanza tramite il service e aggiunge l'admin alla lista.
         const roomId = await RoomService.createRoom(
             roomName,
             user.username,
@@ -18,7 +18,7 @@ exports.createGame = async (req, res) => {
             rounds
         );
 
-        console.log(`[Controller] Stanza ${roomId} creata con successo.`);
+        console.log(`[RoomController] Stanza ${roomId} creata con successo e utente `+user.username+ " aggiunto a Room!");
         res.status(201).json({ roomId });
 
     } catch (error) {
@@ -39,7 +39,7 @@ exports.createGame = async (req, res) => {
 
 exports.checkRoom = async (req, res) => {
     try {
-        const { gameId } = req.params; //Qua dovrebbe
+        const { gameId } = req.params; //Qua dovrebbe essere roomId
         const { user } = req.body;
 
         // Validazione input
@@ -49,7 +49,7 @@ exports.checkRoom = async (req, res) => {
             });
         }
 
-        // Verifica accesso alla stanza
+        // Verifica se è consentito l'accesso alla stanza per user
         const accessCheck = await RoomService.checkRoomAccess(gameId, user.username);
 
         // Gestione dei vari casi
@@ -90,7 +90,7 @@ exports.checkRoom = async (req, res) => {
         // Se può entrare, aggiungi l'utente
         const result = await RoomService.addPlayerToRoom(gameId, user.username);
 
-        console.log(`[Controller] Utente ${user.username} aggiunto alla stanza ${gameId}`);
+        console.log(`[RoomController] Utente ${user.username} aggiunto alla stanza ${gameId}`);
 
         return res.status(200).json({
             message: `Benvenuto nella stanza!`,

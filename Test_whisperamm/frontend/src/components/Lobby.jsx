@@ -78,74 +78,9 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLob
     setNewMessage, 
     user
 );
-    // --- 4. HANDLERS UTENTE ---
-/*
-    const handleReady = () => {
-        if (!socket) return;
-        
-        if (isReady) {
-            socket.emit('resetReady', { roomId });
-            setIsReady(false);
-        } else {
-            socket.emit('userReady', { roomId });
-            setIsReady(true);
-        }
-    };
-
-    const handleStartGame = () => {
-        if (!canStartGame || !socket) return;
-        console.log("Admin preme Start...");
-        socket.emit('gameStarted', { roomId });
-    };
-
-    const handleSubmitChat = (e) => {
-        e.preventDefault();
-        if (!newMessage.trim() || !socket || !user) return;
-        socket.emit('chatMessage', {
-            roomId,
-            from: user.username,
-            text: newMessage.trim(),
-        });
-        setNewMessage('');
-    };
-
-*/
-
-/*
-    const handleJoinRegister = async (e) => {
-        e.preventDefault();
-        setError(null);
-        if (usernameInput.length < 3) {
-            setError('Nome troppo corto.');
-            return;
-        }
-        try {
-            const response = await fetch('/api/register', { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: usernameInput }),
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Errore');
-            setUser(data.user);
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
-    const handleBackHome = () => {
-        if (socket) {
-            socket.emit('leaveLobby', { roomId }, () => {
-                console.log("leaveLobby processato dal server, disconnessione...");
-                disconnectSocket();
-            });
-        }
-        navigate('/');  
-    };
-
+   
     // --- 5. RENDER LOGIC ---
-*/
+
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
             setRoomFull("Stanza piena!");
@@ -167,24 +102,8 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLob
     if (isValidating) return <div className="lobby-page mini-form-page"><div className="lobby-card"><h1>Verifica...</h1></div></div>;
 
     if (lobbyError) return <div className="lobby-page"><div className="lobby-card"><h1 style={{color:'red'}}>Errore</h1><p>{lobbyError}</p></div></div>;
-/*
+
     if (!user) {
-        return (
-            <div className="lobby-page mini-form-page">
-                <div className="lobby-card">
-                    <h1 className="lobby-title">Unisciti</h1>
-                    <p className="lobby-room-code">{roomId}</p>
-                    <form className="chat-input-form" onSubmit={handleJoinRegister}>
-                        <input type="text" className="chat-input" placeholder="Nome..." value={usernameInput} onChange={(e) => setUsernameInput(e.target.value)} autoFocus />
-                        <button type="submit" className="chat-send-btn">Entra</button>
-                    </form>
-                    {error && <p style={{ color: 'red'}}>{error}</p>}
-                </div>
-            </div>
-        );
-    }
-*/
-   if (!user) {
         return <MiniForm roomId={roomId} onUserCreated={setUser} error={error} />;
     }
 

@@ -1,5 +1,6 @@
 // src/models/Game.js
 const { getRedisClient } = require('./redis'); 
+const {Room} = require('./Room')
 
 // Questo enum serve al Service, lo lasciamo esportato qui per comodità
 const GamePhase = {
@@ -24,24 +25,25 @@ class Game {
         const client = getRedisClient();
         const multi = client.multi();
 
-        // Salvataggio Metadati (Piatto)
+        // 1. Salvataggio Metadati (Piatto)
         // Redis v4 accetta oggetti JS direttamente se i valori sono stringhe/numeri
         multi.hSet(`game:${gameId}`, metaData);
 
-        // Salvataggio Giocatori (Mappa di stringhe JSON)
+        // 2.Salvataggio Giocatori (Mappa di stringhe JSON)
         if (playersMap && Object.keys(playersMap).length > 0){
             multi.hSet(`game:${gameId}:players`, playersMap);
         }
 
-        // Salvataggio del Puntatore: RoomID -> GameID
-        // Senza questa riga, Redis non sa che in questa stanza c'è questa partita.
+        // 3. Linking: aggiorniamo la Room esistente, (Hash room:id)
+        // Non modifico direttamente qui perchè il modello di Game non dovrebbe sapere
+        // di Room, stiamo usando MVC.. dunque deleghiamo Room 
+        // dato che comunque deve essere terminata la transazione, passandogli l'oggetto multi!
         if (metaData.roomId) {
-            // Nota: uso .set perchè è una stringa semplice, non un hash
-            multi.set(`room:${metaData.roomId}:gameId`, gameId);
+            Room.linkToGame(multi,metaData.roomId,gameId)
         }
 
         await multi.exec();
-        console.log(`[Game] Partita ${gameId} creata in room ${metaData.roomId}`);
+
         return gameId;
     }
 
@@ -61,8 +63,10 @@ class Game {
     }
 
     static async findGameIdByRoomId(roomId) {
+       
         const client = getRedisClient();
-        const gameId = await client.get(`room:${roomId}:gameId`);
+        const gameId = await client.hGet(`room:${roomId}`, 'gameId');
+       
         return gameId;
     }
 

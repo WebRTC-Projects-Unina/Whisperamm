@@ -1,12 +1,11 @@
-// chatSocket.js
-const { lobbies, disconnectTimeouts, RECONNECT_TOLERANCE_MS, registerUserSocket, unregisterUserSocket } = require('./stateSocket');
+// roomSocket.js
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');
+const NotificationService = require('../services/notificationService')
 // --- HANDLERS ---
 async function handleJoinLobby(io, socket, { roomId, user }) {
     // 1. Validazione input base
-    console.log(`[Socket] Utente tenta di entrare in lobby ${roomId}`);
     if (!roomId || !user || !user.username) {
         socket.emit('lobbyError', { message: 'Dati mancanti per l\'ingresso.' });
         return;
@@ -14,16 +13,19 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
 
     const username = user.username;
 
-    // 2. LOGICA DI ACCESSO
     try {
-        //Internamente, addPlayerToRoom già fa il check per ogni cosa da controllare
-        const result = await RoomService.addPlayerToRoom(roomId, username);
         
-        if (result.added) {
-            console.log(`[Business] Utente ${username} aggiunto alla stanza ${roomId}`);
-        } else if (result.isRejoining) {
-            console.log(`[Business] Utente ${username} già presente in ${roomId} (riconnessione)`);
-        }
+        // 2. SETUP SOCKET - Iscrizione dell'utente (la sua connessione) al canale roomId
+        socket.data.roomId = roomId;
+        socket.data.username = username;
+        socket.join(roomId);
+        
+        // 3. LOGICA DI ACCESSO
+        // 3.1 Check per capire se ti stai riconnettendo oppure è una nuova connessione
+        // 3.2 Upsert per la gestione delle entry, ma la connessione della socket al canale è già avvenuta
+        await SocketService.registerConnection(roomId, username, socket.id); 
+        
+         //Capire se serve oldSocket.disconnect(true), in teoria dovrebbe succedere nell'handleDisconnect, perchè dovrebbe rimanere aperta?
        
     } catch (error) {
         socket.emit('lobbyError', { message: error.message });
@@ -31,97 +33,85 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         return;
     }
 
-    // 3. SETUP SOCKET
-    socket.data.roomId = roomId;
-    socket.data.username = username;
-    socket.join(roomId);
+    // 4. Messaggio di Sistema in Broadcast
+        NotificationService.broadcastToRoom(io,roomId,'chatMessage',{
+            from: 'system',
+            text: `${username} è entrato nella lobby`,
+            timestamp: Date.now()
+        });
 
-    // 4. Registrazione SocketID con Socket Service
-    const { oldSocketId } = await SocketService.registerConnection(roomId, username, socket.id);
-
-    // 5. GESTIONE CONNESSIONE UNICA (KICK VECCHIA SCHEDA)
-    if (oldSocketId && oldSocketId !== socket.id) {
-        console.log(`[Socket] ${username} nuova connessione rilevata. Chiusura vecchio socket: ${oldSocketId}`);
-        
-        const oldSocket = io.sockets.sockets.get(oldSocketId);
-        if (oldSocket) {
-            oldSocket.emit('lobbyError', { message: 'Hai aperto il gioco in un\'altra scheda. Questa connessione è stata chiusa.' });
-            oldSocket.disconnect(true);
-        }
-    }
-
-    // 6. NOTIFICHE AGLI ALTRI
-    console.log(`[Socket] Notifica ingresso di ${username} in lobby ${roomId}`);
-    socket.to(roomId).emit('chatMessage', {
-        from: 'system',
-        text: `${username} è entrato nella lobby`,
-        timestamp: Date.now()
-    });
 
     // Inviamo la lista aggiornata a tutti
     const updatedPlayers = await RoomService.getPlayers(roomId);
     const readyStates = await RoomService.getReadyStates(roomId);
-    io.to(roomId).emit('lobbyPlayers', { 
+    NotificationService.broadcastToRoom(io,roomId,'lobbyPlayers',{ 
         players: updatedPlayers,
         readyStates
     });
-    console.log(`[Socket] ${username} unito a lobby ${roomId} con successo.`);
+    console.log(`[ChatSocket] ${username} ufficialmente in ${roomId}`);
 }
 
-async function notifyHostChange(io, roomId) {
-    try {
-        const room = await RoomService.getRoom(roomId);
-        if (room) {
-            await UserService.setUserReady(room.host, false);
-            io.to(roomId).emit('hostChanged', { 
-                newHost: room.host 
-            });
-        }
-    } catch (err) {
-        console.error(`[Errore] Impossibile notificare cambio host in ${roomId}:`, err);
-    }
-}
 
 async function handleDisconnect(io, socket) {
     const { roomId, username } = socket.data;
+
     
     if (!roomId || !username) return;
-
-    const isCurrentSocket = await SocketService.unregisterConnection(roomId, username, socket.id);
-    if (!isCurrentSocket) {
-        console.log(`[Socket] Disconnessione ignorata per ${username} (Socket obsoleto)`);
-        return;
-    }
-    console.log(`[Socket] ${username} offline da ${roomId}. Rimozione effettuata.`);
-
     try{
-        const updatedRoom = await RoomService.removePlayerFromRoom(roomId, username);
+        //1. Disaccoppiare username-socket da Room:sockets, ma teniamo comunque l'username nella lista delle Socket, 
+        // nel caso di re-join semplicemente riassociamo quell'username ad un altro socket-id con la upsert!
+        const isCurrentSocket = await SocketService.unregisterConnection(roomId, username, socket.id);
+        if (!isCurrentSocket) {
+            console.log(`[RoomSocket] Disconnessione ignorata per ${username} (Socket obsoleto)`);
+            return;
+        }
+        
+        //2. Rimozione dalla struttura Room:players
+        const {updatedRoom,hostChanged,deletedRoom} = await RoomService.removePlayerFromRoom(roomId, username);
 
-        //Questo perchè internamente, removePlayerFromRoom verifica anche se 
-        //era l'ultimo utente nella lobby e nel caso elimina
-        if (!updatedRoom) {
-                console.log(`[SERVICE] Stanza ${roomId} eliminata (vuota).`);
-                return; 
+        //Internamente, removePlayerFromRoom verifica anche se 
+        //era l'ultimo utente nella lobby e nel caso elimina la room e anche le sockets associate!
+        if (deletedRoom) {
+            console.log(`[RoomSocket] Stanza ${roomId} eliminata (vuota).`);
+            //Qui va anche rimosso il file Socket corrispondente!
+            return; 
         }
 
-        // Notifica cambio host se necessario
-        await notifyHostChange(io, roomId);
+        // 3. Notifiche da inviare ai client
+        // 3.1 Cambio host se avviene, la modifica interna la fa sempre removePlayerFromRoom
+        // 3.2 Messaggio in Chat del [System]
+        // 3.3 Nuova lista di players da displayare
 
-        io.to(roomId).emit('chatMessage', {
-            from: 'system',
+        // Se arriviamo qui, deletedRoom è false, quindi updatedRoom ESISTE SICURAMENTE.
+        if(hostChanged){
+            NotificationService.broadcastToRoom(io,roomId,'hostChanged',{newHost: updatedRoom.host});
+        }
+        NotificationService.broadcastToRoom(io,roomId,'chatMessage',{
+            from: 'system', 
             text: `${username} ha lasciato la lobby`,
             timestamp: Date.now()
         });
-    
-        io.to(roomId).emit('lobbyPlayers', {
+
+        updatedRoom.players.forEach(element => {
+            console.log("player: "+element)
+        });
+       
+        NotificationService.broadcastToRoom(io,roomId,'lobbyPlayers',{
             players: updatedRoom.players
         });
+
+
+        console.log(`[RoomSocket] ${username} offline da ${roomId}.`);
 
     }catch(err){
         console.error(`[Errore] Rimozione ${username} da ${roomId}:`, err);
     }
 
+    // A quanto pare qui non c'è la necessità di mettere socket.leave, perchè al socket.disconnect
+    // ricevuto dal front-end, qui lo fa automaticamente
 } 
+
+
 
 
 function handleChatMessage(io, socket, { roomId, text }) {
@@ -129,7 +119,7 @@ function handleChatMessage(io, socket, { roomId, text }) {
     
     if (!roomId || !text || !username) return;
 
-    io.to(roomId).emit('chatMessage', {
+    NotificationService.broadcastToRoom(io,roomId,'chatMessage',{
         from: username,
         text,
         timestamp: Date.now(),
@@ -155,14 +145,16 @@ async function handleUserReady(io, socket, { roomId }) {
         const readyStates = await RoomService.getReadyStates(roomId);
 
         // Notifica tutti nella stanza
-        io.to(roomId).emit('userReadyUpdate', { 
+        NotificationService.broadcastToRoom(io,roomId,'userReadyUpdate',{ 
             username,
             readyStates 
         });
 
+
+        // PROSSIMA COSA DA SISTEMARE
         // Controlla se TUTTI sono pronti
-        const { allReady } = await RoomService.checkAllUsersReady(roomId);
-        io.to(roomId).emit('allUsersReady', { allReady }); //non ho capito
+        const { allReady } = await RoomService.checkAllUsersReady(roomId); //True se tutti sono pronti..
+        io.to(roomId).emit('allUsersReady', {allReady }); //Forse non serve mi sa
         
         if (allReady) {
             io.to(roomId).emit('gameCanStart', { 
@@ -201,56 +193,12 @@ async function handleResetReady(io, socket, { roomId }) {
     }
 }
 
-async function handleLeaveLobby(io, socket) {
-    const { roomId, username } = socket.data;
-
-    if (!roomId || !username) return;
-
-    try {
-        // L'utente non è più ready
-        await UserService.setUserReady(username, false);
-
-        // Rimuovi il player dalla stanza
-        const updatedRoom = await RoomService.removePlayerFromRoom(roomId, username);
-        const readyStates = await RoomService.getReadyStates(roomId);
-
-        if (!updatedRoom) {
-            console.log(`[SERVICE] Stanza ${roomId} eliminata (vuota) per leaveLobby.`);
-            return;
-        }
-
-        // Notifica cambio host se necessario
-        await notifyHostChange(io, roomId);
-
-        io.to(roomId).emit('chatMessage', {
-            from: 'system',
-            text: `${username} ha lasciato la lobby`,
-            timestamp: Date.now()
-        });
-        io.to(roomId).emit('lobbyPlayers', {
-            players: updatedRoom.players,
-            readyStates
-        });
-
-        const { allReady } = await RoomService.checkAllUsersReady(roomId);
-        io.to(roomId).emit('allUsersReady', { allReady });
-
-    } catch (err) {
-        console.error(`[Errore] handleLeaveLobby per ${username} in ${roomId}:`, err);
-    } finally {
-        // Esci dal roomId di socket.io
-        socket.leave(roomId);
-        socket.data.roomId = null;
-    }
-}
-
 // --- EXPORT E REGISTRAZIONE ---
 function attach(socket, io) {
     socket.on('joinLobby', (payload) => handleJoinLobby(io, socket, payload));
     socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));
     socket.on('userReady', (payload) => handleUserReady(io, socket, payload));
     socket.on('resetReady', (payload) => handleResetReady(io, socket, payload));
-    socket.on('leaveLobby', () => handleLeaveLobby(io, socket));
     socket.on('disconnect', () => handleDisconnect(io, socket));
 }
 

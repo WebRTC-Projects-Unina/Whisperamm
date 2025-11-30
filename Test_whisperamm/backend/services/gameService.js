@@ -7,10 +7,12 @@ const { PlayerData } = require('../models/playerData');
 
 class GameService {
 
-    static async createGame(roomId) {
-
+    static async createGame(roomId) {       
         const gameId = crypto.randomUUID();
-        const playersList = await RoomService.getPlayers(roomId);
+        await RoomService.setAllPlayersInGame(roomId) //Novità peppiniana
+        
+        const playersList = await RoomService.getPlayers(roomId); 
+
 
         // Genera le parole per Civili e Impostori, in più l'impostore
         const gameSecrets = GameSecretsUtil.getRandomSecrets(); //arriva già seriealizzato

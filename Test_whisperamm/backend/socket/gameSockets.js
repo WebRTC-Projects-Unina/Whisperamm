@@ -9,7 +9,7 @@ async function handleGameStarted(io, socket, { roomId }) {
     const { username } = socket.data;
 
     gamePayload = {roomId}
-    console.log("Game Payload"+gamePayload)
+    
     NotificationService.broadcastToRoom(
         io,             // 1. io
         roomId,         // 2. roomId (Corretto: prima la stanza)
@@ -115,8 +115,6 @@ async function handleRollDice(io, socket) {
 
         // Controlliamo se TUTTI hanno lanciato
         if (GameService.checkAllPlayersRolled(game.players)) {
-            console.log(`[Game] Tutti hanno lanciato in room ${roomId}. Cambio fase!`);
-
             // Cambia fase nel DB
             const updatedGame = await GameService.advancePhase(gameId, GamePhase.TURN_ASSIGNMENT); // o TURN_ASSIGNMENT
 

@@ -1,6 +1,6 @@
 // services/roomService.js
 const { Room, RoomStatus } = require('../models/Room');
-const { User } = require('../models/User');
+const UserService = require('./userService');
 const crypto = require('crypto');
 
 class RoomService {
@@ -16,7 +16,8 @@ class RoomService {
         if (maxPlayers < 2 || maxPlayers > 10) throw new Error('INVALID_MAX_PLAYERS');
         if (rounds < 1 || rounds > 20) throw new Error('INVALID_ROUNDS');
 
-        const hostExists = await User.exists(hostUsername);
+       
+        const hostExists = await UserService.userExists(hostUsername);
         if (!hostExists) throw new Error('HOST_NOT_FOUND');
 
         const roomId = crypto.randomUUID().slice(0, 6).toUpperCase();
@@ -35,8 +36,8 @@ class RoomService {
     }
 
     // --- GESTIONE ACCESSO ---
-
     static async checkRoomAccess(roomId, username) {
+
         const room = await Room.get(roomId);
         if (!room) {
             return { canJoin: false, reason: 'ROOM_NOT_FOUND', room: null };
@@ -59,50 +60,58 @@ class RoomService {
         return { canJoin: true, reason: 'CAN_JOIN', room, isRejoining: false };
     }
 
+    //Add player semplice, senza check che deve avvenire a monte.
     static async addPlayerToRoom(roomId, username) {
-        // Verifica accesso 
-        const accessCheck = await this.checkRoomAccess(roomId, username);
-        if (!accessCheck.canJoin) {throw new Error(accessCheck.reason);}
 
-        if (accessCheck.isRejoining) {
-            return { added: false, isRejoining: true, room: accessCheck.room };
-        }
-
-        const userExists = await User.exists(username);
+        const userExists = await UserService.userExists(username);
         if (!userExists) throw new Error('USER_NOT_FOUND');
 
         const success = await Room.addPlayer(roomId, username);
         if (!success) throw new Error('ADD_PLAYER_FAILED');
 
-        console.log(`[RoomService] Giocatore ${username} aggiunto logica room ${roomId}`);
-        
         return { added: true, isRejoining: false, room: await Room.get(roomId) };
     }
 
     static async removePlayerFromRoom(roomId, username) {
+        let deletedRoom = false;
+        let updatedRoom = null;
+        let hostChanged = false;
+
+        
         const room = await Room.get(roomId);
         if (!room) throw new Error('ROOM_NOT_FOUND');
 
-        const remainingCount = await Room.removePlayer(roomId, username);
-        if (remainingCount === -1) throw new Error('ROOM_NOT_FOUND');
+        // Ritorna i player rimanenti
+        let players = await Room.removePlayer(roomId, username);
+        let playerNumber = players.length;
 
-        // Elimina stanza se vuota
-        if (remainingCount === 0) {
+        
+        // CASO 1: Elimina stanza se vuota
+        if (playerNumber === 0) {
             await Room.delete(roomId);
-            console.log(`[RoomService] Stanza ${roomId} eliminata (vuota)`);
-            return null; // Stanza non esiste più
-        }
+            await Room.deleteAllSockets(roomId);
+            deletedRoom = true; 
 
-        // Cambio Host
-        if (room.host === username) {
-            const players = await Room.getPlayers(roomId);
-            if (players.length > 0) {
-                await Room.updateHost(roomId, players[0]);
-                console.log(`[RoomService] Nuovo host in ${roomId}: ${players[0]}`);
+        } else {
+            // CASO 2: La stanza esiste ancora
+
+            // Gestione eventuale Cambio Host
+            if (room.host === username) { 
+                const players = await Room.getPlayers(roomId);
+                
+                // Controllo di sicurezza: assicuriamoci che ci sia un nuovo host
+                if (players && players.length > 0) {
+                    const newHost = players[0]; // Il primo della lista diventa host
+                    await Room.updateHost(roomId, newHost);
+                    hostChanged = true;
+                }
             }
-        }
 
-        return await Room.get(roomId);
+            // Recuperiamo la stanza aggiornata
+            updatedRoom = await Room.get(roomId);
+        }
+        
+        return { updatedRoom, hostChanged, deletedRoom };
     }
 
     // --- UTILITIES ---
@@ -113,7 +122,6 @@ class RoomService {
     }
 
     static async getPlayers(roomId) {
-        // Opzionale: check exists
         return await Room.getPlayers(roomId);
     }
 
@@ -133,9 +141,7 @@ class RoomService {
 
     static async getReadyStates(roomId) {
         const room = await this.getRoom(roomId);
-        if(!room) return {};
-
-        const UserService = require('./userService'); // Require lazy per evitare cicli
+        if (!room) return {};
         
         const playersToCheck = room.players.filter(p => p !== room.host);
         const readyStates = await UserService.getMultipleUsersReady(playersToCheck);
@@ -146,16 +152,37 @@ class RoomService {
 
     static async checkAllUsersReady(roomId) {
         const room = await this.getRoom(roomId);
-        if(!room) return { allReady: false, readyStates: {} };
+        if (!room) return { allReady: false, readyStates: {} };
 
         if (room.players.length < 2) return { allReady: false, readyStates: {} };
         const readyStates = await this.getReadyStates(roomId);
-        
+
         // Verifica che ogni giocatore nella lista della stanza sia 'true' in readyStates
         const allReady = room.players.every(u => readyStates[u] === true);
-        
         return { allReady, readyStates };
     }
+    
+
+    // Imposta tutti i player della room nello stato IN_GAME
+    static async setAllPlayersInGame(roomId) {
+        const players = await this.getPlayers(roomId)
+        if (!players) throw new Error('PLAYERS_NOT_FOUND');
+        
+        // Imposta tutti i player nello stato IN_GAME tramite UserService
+        return await UserService.setMultipleUsersStatus(players, UserService.UserStatus.INGAME);
+
+    }
+
+    // Imposta tutti i player della room nello stato ONLINE (utile a fine partita)
+    static async setAllPlayersOnline(roomId) {
+        const room = await this.getRoom(roomId);
+        if (!room) throw new Error('ROOM_NOT_FOUND');
+        // Imposta tutti i player nello stato ONLINE tramite UserService
+        const results = await UserService.setMultipleUsersStatus(room.players, UserStatus.ONLINE);
+        
+        return results;
+    }
+
 }
 
 module.exports = RoomService;

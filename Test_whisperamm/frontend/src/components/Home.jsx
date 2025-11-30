@@ -41,7 +41,7 @@ const Home = () => {
         }
 
         try {
-            console.log("Famo arriva sta richiestina..")
+            
             const response = await fetch('/api/createGame', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -54,8 +54,6 @@ const Home = () => {
                 throw new Error(data.message || 'Errore durante la creazione');
             }
 
-            console.log("Stanza creata, ID:", data.roomId);
-            console.log("Reindirizzo a /match/".concat(data.roomId));
             navigate(`/match/${data.roomId}`);
 
         } catch (err) {
@@ -89,7 +87,6 @@ const Home = () => {
                     throw new Error("Errore sconosciuto.");
                 }
             }else{
-                console.log("Stanza trovata e accessibile.");
                 // Se tutto va bene, reindirizza alla pagina della partita
                 //Qui forse user malevolo potrebbe accedere anche se non esiste, togliendo il check sulla response.ok
                 navigate(`/match/${roomId}`);

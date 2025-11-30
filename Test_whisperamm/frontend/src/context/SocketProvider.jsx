@@ -12,8 +12,6 @@ export const SocketProvider = ({ children }) => {
     const connectSocket = () => {
         // Se esiste già, non ne creiamo un'altra
         if (socket) return;
-
-        console.log("[SocketProvider] Inizializzazione connessione globale...");
         
         const newSocket = io('http://localhost:8080', {
             withCredentials: true,
@@ -21,6 +19,7 @@ export const SocketProvider = ({ children }) => {
         });
 
         setSocket(newSocket);
+        console.log("[SocketProvider] Connessione globale WS Abilitata");
     };
 
     // Funzione per chiudere

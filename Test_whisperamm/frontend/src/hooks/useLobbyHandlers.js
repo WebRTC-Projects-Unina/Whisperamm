@@ -37,7 +37,9 @@ export const useLobbyHandlers = (socket, roomId, disconnectSocket, isReady, setI
             disconnectSocket();
         }
         navigate('/');  
-    };
-
+    }
+    
     return { handleReady, handleStartGame, handleSubmitChat, handleBackHome };
 };
+
+  
