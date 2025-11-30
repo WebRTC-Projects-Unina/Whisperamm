@@ -86,6 +86,10 @@ async function handleDisconnect(io, socket) {
         if(hostChanged){
             NotificationService.broadcastToRoom(io,roomId,'hostChanged',{newHost: updatedRoom.host});
         }
+        // Controllo se abbiamo bisogno di resettare lo stato ready
+        const isReady = await UserService.getUserReady(username);
+        if (isReady) handleResetReady(io,socket,{roomId}); //Resetta lo stato ready dell'utente che esce
+
         NotificationService.broadcastToRoom(io,roomId,'chatMessage',{
             from: 'system', 
             text: `${username} ha lasciato la lobby`,
@@ -150,15 +154,12 @@ async function handleUserReady(io, socket, { roomId }) {
             readyStates 
         });
 
-
-        // PROSSIMA COSA DA SISTEMARE
-        // Controlla se TUTTI sono pronti
+        // Controlla se TUTTI sono pronti, se si manda notifica gameCanStart
         const { allReady } = await RoomService.checkAllUsersReady(roomId); //True se tutti sono pronti..
-        io.to(roomId).emit('allUsersReady', {allReady }); //Forse non serve mi sa
         
         if (allReady) {
             io.to(roomId).emit('gameCanStart', { 
-                message: 'Tutti i giocatori sono pronti!' 
+                message: true
             });
         }
     } catch (err) {
@@ -185,8 +186,14 @@ async function handleResetReady(io, socket, { roomId }) {
             readyStates 
         });
 
-        // Notifica che NON tutti sono più pronti
-        io.to(roomId).emit('allUsersReady', { allReady: false });
+        // Controlla se TUTTI sono pronti, se no manda notifica gameCanStart = false
+        const { allReady } = await RoomService.checkAllUsersReady(roomId);
+        
+        if (!allReady) {
+            io.to(roomId).emit('gameCanStart', {
+                message: false
+            });
+        }
         
     } catch (err) {
         console.error(`[Errore] handleResetReady:`, err);
