@@ -89,6 +89,7 @@ class RoomService {
         // CASO 1: Elimina stanza se vuota
         if (playerNumber === 0) {
             await Room.delete(roomId);
+            await Room.deleteAllSockets(roomId)
             deletedRoom = true; 
 
         } else {

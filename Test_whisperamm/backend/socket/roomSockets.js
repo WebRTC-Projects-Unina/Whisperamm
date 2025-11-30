@@ -71,9 +71,10 @@ async function handleDisconnect(io, socket) {
         const {updatedRoom,hostChanged,deletedRoom} = await RoomService.removePlayerFromRoom(roomId, username);
 
         //Internamente, removePlayerFromRoom verifica anche se 
-        //era l'ultimo utente nella lobby e nel caso elimina
+        //era l'ultimo utente nella lobby e nel caso elimina la room e anche le sockets associate!
         if (deletedRoom) {
             console.log(`[RoomSocket] Stanza ${roomId} eliminata (vuota).`);
+            //Qui va anche rimosso il file Socket corrispondente!
             return; 
         }
 
@@ -84,7 +85,6 @@ async function handleDisconnect(io, socket) {
 
         // Se arriviamo qui, deletedRoom è false, quindi updatedRoom ESISTE SICURAMENTE.
         if(hostChanged){
-            
             NotificationService.broadcastToRoom(io,roomId,'hostChanged',{newHost: updatedRoom.host});
         }
         NotificationService.broadcastToRoom(io,roomId,'chatMessage',{
