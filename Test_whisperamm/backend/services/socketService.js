@@ -8,7 +8,7 @@ const UserService = require('./userService');
 //che poi successivamente nella lista di socket.
 class SocketService {
 
-    // ========== GESTIONE SOCKET) ==========
+    // ========== GESTIONE SOCKET ==========
     
     /*
      * Registra il socket ID nel DB.

@@ -3,12 +3,12 @@ import { useEffect, useRef } from 'react';
 export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, setIsAdmin, setPlayers, setReadyStates, setIsReady, setAllReady, setCanStartGame, setLobbyError, setAdminPlayer, setMessages, setGameLoading, isValidating, lobbyError) => {
     // Ref per evitare join multipli nello stesso ciclo di vita se le dipendenze cambiano
     const joinedRef = useRef(false); 
+
     useEffect(() => {
         if(isValidating || lobbyError || !user) return;
 
 
         if (!socket) {
-            console.log("Lobby: Socket nullo...");
             connectSocket(); 
             return; 
         }
@@ -93,5 +93,5 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
             }
         };
         
-    }, [roomId, user, lobbyError, isValidating, connectSocket, isAdmin]);
+    }, [roomId, user, lobbyError, isValidating, connectSocket]);
 };

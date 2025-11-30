@@ -79,7 +79,31 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLob
     user
 );
    
-   if (!user) {
+    // --- 5. RENDER LOGIC ---
+
+    useEffect(() => {
+        if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
+            setRoomFull("Stanza piena!");
+        } else {
+            setRoomFull("In attesa di altri giocatori...");
+        }
+    }, [players, maxPlayers]);
+
+    useEffect(() => {
+        // Quando cambia isAdmin, resetta isReady se diventa admin
+        if (isAdmin && isReady) {
+            setIsReady(false);
+        }
+    }, [isAdmin]);
+
+
+    if (gameLoading) return <Game />; 
+
+    if (isValidating) return <div className="lobby-page mini-form-page"><div className="lobby-card"><h1>Verifica...</h1></div></div>;
+
+    if (lobbyError) return <div className="lobby-page"><div className="lobby-card"><h1 style={{color:'red'}}>Errore</h1><p>{lobbyError}</p></div></div>;
+
+    if (!user) {
         return <MiniForm roomId={roomId} onUserCreated={setUser} error={error} />;
     }
 

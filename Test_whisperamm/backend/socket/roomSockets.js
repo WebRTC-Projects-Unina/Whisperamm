@@ -49,23 +49,21 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         players: updatedPlayers,
         readyStates
     });
-    console.log(`[ChatSocket] ${username} Ha stabilito una connessione WebSocket con la ${roomId}`);
+    console.log(`[ChatSocket] ${username} ufficialmente in ${roomId}`);
 }
 
 
 async function handleDisconnect(io, socket) {
     const { roomId, username } = socket.data;
+
     
-    console.log("disconnessione..")
-
     if (!roomId || !username) return;
-
     try{
         //1. Disaccoppiare username-socket da Room:sockets, ma teniamo comunque l'username nella lista delle Socket, 
         // nel caso di re-join semplicemente riassociamo quell'username ad un altro socket-id con la upsert!
         const isCurrentSocket = await SocketService.unregisterConnection(roomId, username, socket.id);
         if (!isCurrentSocket) {
-            console.log(`[ChatSocket] Disconnessione ignorata per ${username} (Socket obsoleto)`);
+            console.log(`[RoomSocket] Disconnessione ignorata per ${username} (Socket obsoleto)`);
             return;
         }
         
@@ -75,7 +73,7 @@ async function handleDisconnect(io, socket) {
         //Internamente, removePlayerFromRoom verifica anche se 
         //era l'ultimo utente nella lobby e nel caso elimina
         if (deletedRoom) {
-            console.log(`[ChatSocket] Stanza ${roomId} eliminata (vuota).`);
+            console.log(`[RoomSocket] Stanza ${roomId} eliminata (vuota).`);
             return; 
         }
 
@@ -86,11 +84,11 @@ async function handleDisconnect(io, socket) {
 
         // Se arriviamo qui, deletedRoom è false, quindi updatedRoom ESISTE SICURAMENTE.
         if(hostChanged){
-            console.log("Nuovo host:", updatedRoom.host); // Ora questo non darà errore
+            
             NotificationService.broadcastToRoom(io,roomId,'hostChanged',{newHost: updatedRoom.host});
         }
         NotificationService.broadcastToRoom(io,roomId,'chatMessage',{
-            from: 'system',
+            from: 'system', 
             text: `${username} ha lasciato la lobby`,
             timestamp: Date.now()
         });
@@ -104,7 +102,7 @@ async function handleDisconnect(io, socket) {
         });
 
 
-        console.log(`[Socket] ${username} offline da ${roomId}.`);
+        console.log(`[RoomSocket] ${username} offline da ${roomId}.`);
 
     }catch(err){
         console.error(`[Errore] Rimozione ${username} da ${roomId}:`, err);
@@ -202,7 +200,6 @@ function attach(socket, io) {
     socket.on('chatMessage', (payload) => handleChatMessage(io, socket, payload));
     socket.on('userReady', (payload) => handleUserReady(io, socket, payload));
     socket.on('resetReady', (payload) => handleResetReady(io, socket, payload));
-    socket.on('leaveLobby', () => handleLeaveLobby(io, socket));
     socket.on('disconnect', () => handleDisconnect(io, socket));
 }
 

@@ -125,18 +125,30 @@ class Room {
      * Ritorna il numero di giocatori rimanenti, o -1 se la stanza non esiste.
      */
     static async removePlayer(roomId, username) {
+    
         const client = getRedisClient();
         
         const roomExists = await client.exists(`room:${roomId}`);
         if (!roomExists) {
+            console.log(`[Redis Debug] ERRORE: La chiave room:${roomId} non esiste in Redis!`);
             return -1;
         }
+    
+        // 2. Logghiamo il risultato della cancellazione
+        // sRem restituisce: 1 se ha rimosso, 0 se l'utente non c'era
+        const removedCount = await client.sRem(`room:${roomId}:players`, username);
         
-        await client.sRem(`room:${roomId}:players`, username);
+        if (removedCount === 1) {
+             console.log(`[Redis Debug] SUCCESSO: Utente ${username} rimosso.`);
+        } else {
+             console.log(`[Redis Debug] ATTENZIONE: sRem ha restituito 0. L'utente ${username} NON era nella lista (forse già rimosso?).`);
+        }
         
+        // 3. Logghiamo cosa è rimasto
         const remainingPlayers = await client.sMembers(`room:${roomId}:players`);
-        console.log("rimangono "+remainingPlayers.length)
-        return remainingPlayers.length;
+
+
+        return remainingPlayers; // Ritorna un ARRAY di stringhe ['Marco', 'Luca']
     }
     
     /*
@@ -180,11 +192,8 @@ class Room {
             return false;
         }
         
-        const multi = client.multi();
-        multi.hSet(`room:${roomId}`, 'host', newHostUsername);
-        multi.hSet(`room:${roomId}`, 'updatedAt', new Date().toISOString());
-        
-        await multi.exec();
+        client.hSet(`room:${roomId}`, 'host', newHostUsername);
+
         return true;
     }
     

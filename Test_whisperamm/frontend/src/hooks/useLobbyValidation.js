@@ -25,6 +25,7 @@ export const useLobbyValidation = (roomId, user) => {
             return;
         }
 
+        //Definizione
         const checkLobby = async () => {
             setIsValidating(true);  
             setLobbyError(null);
@@ -61,6 +62,7 @@ export const useLobbyValidation = (roomId, user) => {
             }
         };
 
+        //Chiamata
         checkLobby();
         return () => {ignore = true;};
 

@@ -36,7 +36,7 @@ class RoomService {
 
     // --- GESTIONE ACCESSO ---
     static async checkRoomAccess(roomId, username) {
-        console.log("checkroomAccess...")
+
         const room = await Room.get(roomId);
         if (!room) {
             return { canJoin: false, reason: 'ROOM_NOT_FOUND', room: null };
@@ -60,18 +60,8 @@ class RoomService {
         return { canJoin: true, reason: 'CAN_JOIN', room, isRejoining: false };
     }
 
+    //Add player semplice, senza check che deve avvenire a monte.
     static async addPlayerToRoom(roomId, username) {
-        
-        // Verifica accesso 
-        const accessCheck = await this.checkRoomAccess(roomId, username);
-        if (!accessCheck.canJoin) throw new Error(accessCheck.reason);
-
-    
-        if (accessCheck.isRejoining) {
-        
-            return { added: false, isRejoining: true, room: accessCheck.room };
-        }
-      
 
         const userExists = await User.exists(username);
         if (!userExists) throw new Error('USER_NOT_FOUND');
@@ -83,39 +73,47 @@ class RoomService {
     }
 
     static async removePlayerFromRoom(roomId, username) {
-        let deletedRoom = false //Inizializziamo a false. 
-        let updatedRoom=null
-        let hostChanged = false
+        let deletedRoom = false;
+        let updatedRoom = null;
+        let hostChanged = false;
 
-
+        
         const room = await Room.get(roomId);
         if (!room) throw new Error('ROOM_NOT_FOUND');
 
-        //Ritorna il numero di player rimanenti
-        const playerNumber = await Room.removePlayer(roomId, username);
+        // Ritorna i player rimanenti
+        let players = await Room.removePlayer(roomId, username);
+        let playerNumber=players.length;
 
-        // CASO1: Elimina stanza se vuota
+        
+        // CASO 1: Elimina stanza se vuota
         if (playerNumber === 0) {
             await Room.delete(roomId);
-            deletedRoom=true; // Stanza non esiste più 
+            deletedRoom = true; 
 
-        }else{
-        //CASO2: La stanza esiste ancora
+        } else {
+            // CASO 2: La stanza esiste ancora
 
-            // Gestione evenutale Cambio Host
-            if (room.host === username) {
-                    await Room.updateHost(roomId, players[0]);
-                    await UserService.setUserReady(room.host, false); //Setta lo stato del nuovo o del vecchio host a False
+            // Gestione eventuale Cambio Host
+            if (room.host === username) { 
+                // FIX 2: Aggiunto 'await' qui sotto!
+                const players = await Room.getPlayers(roomId);
+                
+                // Controllo di sicurezza: assicuriamoci che ci sia un nuovo host
+                if (players && players.length > 0) {
+                    const newHost = players[0]; // Il primo della lista diventa host
+                    await Room.updateHost(roomId, newHost);
                     hostChanged = true;
                 }
-            
+                
+            }
 
-            //Recuperiamo la stanza aggioranata, ma solo se esiste ancora
-            updatedRoom = await Room.get(roomId)
+            // Recuperiamo la stanza aggiornata
+            updatedRoom = await Room.get(roomId);
         }
-        return {updatedRoom, hostChanged,deletedRoom};
+        
+        return { updatedRoom, hostChanged, deletedRoom };
     }
-
 
     // --- UTILITIES ---
 
@@ -162,10 +160,10 @@ class RoomService {
 
         if (room.players.length < 2) return { allReady: false, readyStates: {} };
         const readyStates = await this.getReadyStates(roomId);
-        
+
+        //readyStates= {"marco":true, "Giovanni":False...}
         // Verifica che ogni giocatore nella lista della stanza sia 'true' in readyStates
         const allReady = room.players.every(u => readyStates[u] === true);
-        
         return { allReady, readyStates };
     }
 }
