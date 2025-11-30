@@ -138,8 +138,11 @@ class GameService {
                     console.error("Errore parsing player service:", e);
                 }
             });
-
+        
         } 
+        if (players.length > 0 && players[0].order) {
+            players.sort((a, b) => a.order - b.order);
+        }   
         // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
         return { ...meta, players };
     }
@@ -171,6 +174,31 @@ class GameService {
         return await this.getGameSnapshot(gameId);
     }
 
+    static sortPlayersByDice(playersArray, round) {
+        if (round === 1) {
+            // Clona l'array per non modificare l'originale
+            const sorted = [...playersArray].sort((a, b) => {
+                return (b.dice1 + b.dice2) - (a.dice1 + a.dice2);
+            });
+
+            // Assegna l'ordine (1, 2, 3, ...) basato sulla posizione ordinata
+            sorted.forEach((player, index) => {
+                player.order = index + 1;
+            });
+            return sorted;
+        } else {
+            //round robin sull'ordine esistente
+            const sorted = [...playersArray].sort((a, b) => a.order - b.order);
+            const firstPlayer = sorted.shift();
+            sorted.push(firstPlayer);
+            return sorted;
+        }
+    }
+    
+    static checkAllPlayersSpoken(playersArray) {
+        // Controlla che ogni giocatore abbia hasSpoken === true
+        return playersArray.every(p => p.hasSpoken === true);
+    }
 }
 
 module.exports = GameService;
