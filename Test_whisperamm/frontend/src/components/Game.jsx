@@ -8,6 +8,7 @@ import { useSocket } from '../context/SocketProvider';
 import PhaseDice from './game/phaseDice';
 import PhaseOrder from './game/phaseOrder';
 import PhaseWord from './game/phaseWord';
+import PhaseDiscussion from './game/phaseDiscussion';
 import '../style/Game.css';
 import '../style/Lobby.css';
 
@@ -146,6 +147,8 @@ const Game = () => {
                     socket={socket}
                 />
             );
+        }else if (phase === 'DISCUSSION' || phase === 'discussione') {
+            return <PhaseDiscussion gameState={gameState} user={user} socket={socket} />;
         } else {
             return <div style={{color: 'white', textAlign: 'center'}}>Fase sconosciuta: {phase}</div>;
         }

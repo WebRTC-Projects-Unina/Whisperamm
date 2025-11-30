@@ -1,13 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import '../../style/phaseWord.css';
 
-const PhaseWord = ({ gameState, user}) => {
+const PhaseWord = ({ gameState, user, socket }) => {
     const [timeLeft, setTimeLeft] = useState(30);
     const [currentTurnIndex, setCurrentTurnIndex] = useState(0);
 
     // Otteniamo il giocatore che deve dire la parola
-    const currentPlayer = gameState.players?.[currentTurnIndex];
+    const sortedPlayers = [...gameState.players].sort((a, b) => a.order - b.order);
+    const currentPlayer = sortedPlayers[currentTurnIndex];
     const isMyTurn = currentPlayer?.username === user.username;
+
+    const handleConfirmWord = () => {
+        if (isMyTurn) {
+            socket.emit('ConfirmWord');
+            console.log("Hai confermato la parola detta.");
+        }
+    };
 
     // Timer countdown
     useEffect(() => {
@@ -16,11 +24,6 @@ const PhaseWord = ({ gameState, user}) => {
             if (currentTurnIndex < gameState.players.length - 1) {
                 setCurrentTurnIndex(prev => prev + 1);
                 setTimeLeft(30);
-            } else {
-                // Fine dei turni
-                console.log("Tutti hanno detto la parola!");
-                //cambio di scena
-                //socket.emit('WordPhaseComplete');
             }
             return;
         }
@@ -32,12 +35,27 @@ const PhaseWord = ({ gameState, user}) => {
         return () => clearInterval(interval);
     }, [timeLeft, currentTurnIndex, gameState.players?.length]);
 
+    //ascolta quando un giocatore conferma la parola
+    useEffect(() => {
+        socket.on('playerSpoken', (data) => {
+            console.log(`Il giocatore ${data.username} ha detto la parola.`);
+            // Passa al prossimo turno
+            if (currentTurnIndex < sortedPlayers.length - 1) {
+                setCurrentTurnIndex(prev => prev + 1);
+                setTimeLeft(30);
+            }
+        });
 
+        return () => {
+            socket.off('playerSpoken');
+        };
+    }, [currentTurnIndex, sortedPlayers.length, socket]);
 
     // Auto-conferma dopo 30 secondi
     useEffect(() => {
         if (timeLeft === 0 && isMyTurn) {
             console.log("⏰ Tempo scaduto! Conferma automatica...");
+            handleConfirmWord();
         }
     }, [timeLeft, isMyTurn]);
 
@@ -80,7 +98,7 @@ const PhaseWord = ({ gameState, user}) => {
                         {isMyTurn && (
                             <button 
                                 className="game-btn-action" 
-                                onClick={handleNextTurn}
+                                onClick={handleConfirmWord}
                             >
                                 Conferma
                             </button>
@@ -92,7 +110,7 @@ const PhaseWord = ({ gameState, user}) => {
                 <div className="word-players-section">
                     <h3 className="list-title">Ordine dei turni</h3>
                     <div className="players-order">
-                        {gameState.players?.map((p, idx) => {
+                        {sortedPlayers?.map((p, idx) => {
                             const isDone = idx < currentTurnIndex;
                             const isCurrent = idx === currentTurnIndex;
                             const isNext = idx === currentTurnIndex + 1;
