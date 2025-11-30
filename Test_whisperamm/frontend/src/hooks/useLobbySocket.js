@@ -34,7 +34,7 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         const handleAllUsersReady = (payload) => {
             console.log("🔔 allUsersReady ricevuto:", payload.allReady, "isAdmin:", isAdmin);
             setAllReady(payload.allReady);
-            if (isAdmin) setCanStartGame(payload.allReady);
+            if (isAdmin) setCanStartGame(payload.allReady); //Qui c'è il problemino mi sa
         };
 
         const handleChatMessage = (msg) => setMessages((prev) => [...prev, msg]);

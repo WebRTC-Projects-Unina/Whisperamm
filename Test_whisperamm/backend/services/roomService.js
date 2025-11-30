@@ -82,6 +82,7 @@ class RoomService {
         if (!room) throw new Error('ROOM_NOT_FOUND');
 
         // Ritorna i player rimanenti
+        await UserService.setUserReady(username,false)
         let players = await Room.removePlayer(roomId, username);
         let playerNumber = players.length;
 
