@@ -27,10 +27,10 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
             }
         };
 
-        const handleGameCanStart = (payload) => {
-            console.log("🔔 gameCanStart ricevuto:", payload.message, "isAdmin:", isAdmin);
-            if (isAdmin && payload.message) setCanStartGame(true);
-            else if (isAdmin && !payload.message) setCanStartGame(false);
+        const handleAllUsersReady = (payload) => {
+            console.log("🔔 allUsersReady ricevuto:", payload.allReady, "isAdmin:", isAdmin);
+            setAllReady(payload.allReady);
+            if (isAdmin) setCanStartGame(payload.allReady);
         };
 
         const handleChatMessage = (msg) => setMessages((prev) => [...prev, msg]);

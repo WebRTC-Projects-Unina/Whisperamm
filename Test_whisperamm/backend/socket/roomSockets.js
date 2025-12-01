@@ -1,4 +1,8 @@
 // roomSocket.js
+
+//Ridondanza allUserReady e gameStart
+//Modifica gli emit con broadcast notification.
+
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');
@@ -41,6 +45,9 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         });
 
 
+        //Sistemare ridondanza
+        
+
     // Inviamo la lista aggiornata a tutti
     const updatedPlayers = await RoomService.getPlayers(roomId);
     const readyStates = await RoomService.getReadyStates(roomId);
@@ -48,6 +55,18 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         players: updatedPlayers,
         readyStates
     });
+     // Controlla se TUTTI sono pronti
+        const { allReady } = await RoomService.checkAllUsersReady(roomId); //True se tutti sono pronti..
+        io.to(roomId).emit('allUsersReady', {allReady }); //Forse non serve mi sa
+    /*
+       // Notifica tutti nella stanza
+    NotificationService.broadcastToRoom(io,roomId,'userReadyUpdate',{ 
+            username,
+            readyStates 
+    });
+
+    */
+
     console.log(`[ChatSocket] ${username} ufficialmente in ${roomId}`);
 }
 
@@ -83,6 +102,9 @@ async function handleDisconnect(io, socket) {
         // 3.3 Nuova lista di players da displayare
 
         // Se arriviamo qui, deletedRoom è false, quindi updatedRoom ESISTE SICURAMENTE.
+        
+        // Notifica che NON tutti sono più pronti e deve ripristinarsi pure inizia partita
+
         if(hostChanged){
             NotificationService.broadcastToRoom(io,roomId,'hostChanged',{newHost: updatedRoom.host});
         }
@@ -96,13 +118,17 @@ async function handleDisconnect(io, socket) {
             timestamp: Date.now()
         });
 
-        updatedRoom.players.forEach(element => {
-            console.log("player: "+element)
+               // Inviamo la lista aggiornata a tutti
+        const updatedPlayers = await RoomService.getPlayers(roomId);
+        const readyStates = await RoomService.getReadyStates(roomId);
+        NotificationService.broadcastToRoom(io,roomId,'lobbyPlayers',{ 
+            players: updatedPlayers,
+            readyStates
         });
        
-        NotificationService.broadcastToRoom(io,roomId,'lobbyPlayers',{
-            players: updatedRoom.players
-        });
+
+        const { allReady } = await RoomService.checkAllUsersReady(roomId); //True se tutti sono pronti..
+        io.to(roomId).emit('allUsersReady', { allReady: allReady });
 
 
         console.log(`[RoomSocket] ${username} offline da ${roomId}.`);
@@ -114,9 +140,6 @@ async function handleDisconnect(io, socket) {
     // A quanto pare qui non c'è la necessità di mettere socket.leave, perchè al socket.disconnect
     // ricevuto dal front-end, qui lo fa automaticamente
 } 
-
-
-
 
 function handleChatMessage(io, socket, { roomId, text }) {
     const { username } = socket.data;
@@ -168,7 +191,8 @@ async function handleUserReady(io, socket, { roomId }) {
     }
 }
 
-// HANDLER: Reset stato ready -- Non è stata implementata in frontend
+
+//Non è implementata in front-end
 async function handleResetReady(io, socket, { roomId }) {
     const { username } = socket.data;
     

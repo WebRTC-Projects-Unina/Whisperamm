@@ -79,6 +79,10 @@ async function handleGameStarted(io, socket, { roomId }) {
     
 }
 
+async function disconnectInGame(io,socket){
+    
+}
+
 async function handleRollDice(io, socket) {
     const username = socket.data.username;
     const roomId = socket.data.roomId;
