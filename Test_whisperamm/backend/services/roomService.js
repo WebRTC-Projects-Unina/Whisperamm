@@ -83,6 +83,7 @@ class RoomService {
 
         // Ritorna i player rimanenti
         await UserService.setUserReady(username,false)
+        
         let players = await Room.removePlayer(roomId, username);
         let playerNumber = players.length;
 

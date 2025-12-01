@@ -1,4 +1,8 @@
 // roomSocket.js
+
+//Ridondanza allUserReady e gameStart
+//Modifica gli emit con broadcast notification.
+
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');
@@ -41,6 +45,9 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         });
 
 
+        //Sistemare ridondanza
+        
+
     // Inviamo la lista aggiornata a tutti
     const updatedPlayers = await RoomService.getPlayers(roomId);
     const readyStates = await RoomService.getReadyStates(roomId);
@@ -48,6 +55,18 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         players: updatedPlayers,
         readyStates
     });
+     // Controlla se TUTTI sono pronti
+        const { allReady } = await RoomService.checkAllUsersReady(roomId); //True se tutti sono pronti..
+        io.to(roomId).emit('allUsersReady', {allReady }); //Forse non serve mi sa
+    /*
+       // Notifica tutti nella stanza
+    NotificationService.broadcastToRoom(io,roomId,'userReadyUpdate',{ 
+            username,
+            readyStates 
+    });
+
+    */
+
     console.log(`[ChatSocket] ${username} ufficialmente in ${roomId}`);
 }
 
@@ -86,10 +105,6 @@ async function handleDisconnect(io, socket) {
         
         // Notifica che NON tutti sono più pronti e deve ripristinarsi pure inizia partita
 
-        const { allReady } = await RoomService.checkAllUsersReady(roomId); //True se tutti sono pronti..
-        io.to(roomId).emit('allUsersReady', { allReady: false });
-
-
         if(hostChanged){
             NotificationService.broadcastToRoom(io,roomId,'hostChanged',{newHost: updatedRoom.host});
         }
@@ -98,10 +113,18 @@ async function handleDisconnect(io, socket) {
             text: `${username} ha lasciato la lobby`,
             timestamp: Date.now()
         });
-       
-        NotificationService.broadcastToRoom(io,roomId,'lobbyPlayers',{
-            players: updatedRoom.players
+
+               // Inviamo la lista aggiornata a tutti
+        const updatedPlayers = await RoomService.getPlayers(roomId);
+        const readyStates = await RoomService.getReadyStates(roomId);
+        NotificationService.broadcastToRoom(io,roomId,'lobbyPlayers',{ 
+            players: updatedPlayers,
+            readyStates
         });
+       
+
+        const { allReady } = await RoomService.checkAllUsersReady(roomId); //True se tutti sono pronti..
+        io.to(roomId).emit('allUsersReady', { allReady: allReady });
 
 
         console.log(`[RoomSocket] ${username} offline da ${roomId}.`);
