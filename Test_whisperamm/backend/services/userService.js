@@ -86,17 +86,12 @@ class UserService {
   }
 
   // Imposta lo stato di più utenti
-  static async setMultipleUsersStatus(usernames, status) {
-    console.log("MultipleUsers Status: "+usernames+" status: "+status)
-    usernames.forEach(async username => {
-      try{
-        await this.setUserStatus(username,status)
-        console.log("MultipleUsers Status: "+username+" status: "+status)
-      }catch (err) {
-        return false
-      }
-    })
-    return true; //Se è andata tutto ok
+ static async setMultipleUsersStatus(usernames, status) {
+        // Possiamo farlo in parallelo o con un loop
+        const promises = usernames.map(username => 
+            User.updateStatus(username, status) // Assumendo che User.updateStatus esista
+        );
+        await Promise.all(promises);
   }
 
   // Imposta lo stato di un utente
