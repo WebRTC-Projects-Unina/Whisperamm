@@ -66,8 +66,8 @@ export const useLobbySocket = (
 
         const handleChatMessage = (msg) => setMessages((prev) => [...prev, msg]);
         
-        const handleGameStarted = () => {
-            console.log("🚀 Partita iniziata!");
+        const handleGameLoading = () => {
+            console.log("handlegameloading")
             setGameLoading(true);            
         };   
 
@@ -79,7 +79,7 @@ export const useLobbySocket = (
         socket.on('lobbyState', handleLobbyState);          // <--- Evento Pesante
         socket.on('playerReadyChange', handlePlayerReadyChange); // <--- Evento Leggero
         socket.on('chatMessage', handleChatMessage); 
-        socket.on('gameStarted', handleGameStarted); 
+        socket.on('gameLoading', handleGameLoading); 
         socket.on('lobbyError', handleLobbySocketError); 
 
         // JOIN LOGIC
@@ -98,7 +98,7 @@ export const useLobbySocket = (
                 socket.off('lobbyState', handleLobbyState);
                 socket.off('playerReadyChange', handlePlayerReadyChange);
                 socket.off('chatMessage', handleChatMessage);
-                socket.off('gameStarted', handleGameStarted);
+                socket.off('gameLoading', handleGameLoading);
                 socket.off('lobbyError', handleLobbySocketError);
                 socket.disconnect();
             }

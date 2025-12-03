@@ -59,25 +59,22 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         if (result.isRejoin) {
             // L'utente aveva una entry nella socket map -> Rejoin
 
-
-
             //Ulteriore check se sta in game..nel caso gli devi girare Start!
-            const gameStarted = RoomService.checkGameStarted(roomId);
+            const gameStarted = await RoomService.checkGameStarted(roomId);
             if(gameStarted){
-                NotificationService.sendPersonalizedToRoom(io,roomId,username,'')
-            }
+                //Triggeriamo il front-end del rejoiner a far caricare game, ma dobbiamo anche mandargli i dati della partita
+                await NotificationService.sendToUser(io,roomId,username,'gameLoading','')
 
-            NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
+            }else{
+                //Se si è ancora in lobby..
+                NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
                 from: 'system',
                 text: `${username} si è riconnesso!`,
                 timestamp: Date.now()
             });
             console.log(`[Socket] ${username} REJOIN in ${roomId}`);
 
-
-
-
-
+            }            
 
         } else {
             // L'utente è totalmente nuovo per questa stanza

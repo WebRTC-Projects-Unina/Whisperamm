@@ -37,7 +37,7 @@ class RoomService {
         if (isAlreadyIn) return { canJoin: true, reason: 'ALREADY_IN_ROOM', isRejoining: true, room };
 
         if (room.currentPlayers >= room.maxPlayers) return { canJoin: false, reason: 'ROOM_FULL', room };
-        if (room.status !== RoomStatus.WAITING) return { canJoin: false, reason: 'GAME_STARTED', room };
+        //if (room.status !== RoomStatus.WAITING) return { canJoin: false, reason: 'GAME_STARTED', room };
 
         return { canJoin: true, reason: 'CAN_JOIN', isRejoining: false, room };
     }
@@ -155,10 +155,9 @@ class RoomService {
     
     static async checkGameStarted(roomId){ 
         const statusRoom = await Room.getRoomStatus(roomId);
-        return RoomStatus.PLAYING===statusRoom
+        console.log("Status Room: "+statusRoom)
+        return statusRoom===RoomStatus.PLAYING
     }
-    static async getRoomStatus(roomId) {return await Room.getRoomStatus(roomId)}
-
 
     static async getReadyStates(roomId) {
         const room = await Room.get(roomId);

@@ -20,7 +20,8 @@ export const useLobbyHandlers = (socket, roomId, disconnectSocket, isReady, setI
     const handleStartGame = (canStartGame) => {
         if (!canStartGame || !socket) return;
         console.log("Admin preme Start...");
-        socket.emit('gameStarted', { roomId });
+        socket.emit('startGame', { roomId }); 
+        //Trigger per avviare la procedura di creazione della room
     };
 
     // FIX CHAT: Rimosso 'setNewMessage' dai parametri della funzione

@@ -6,17 +6,15 @@ const NotificationService = require('../services/notificationService'); // Nota 
 const PayloadUtils = require('../utils/gamePayloadUtils');
 const { Game, GamePhase } = require('../models/Game');
 
-async function handleGameStarted(io, socket, { roomId }) {
+async function handleStartGame(io, socket, { roomId }) {
     const { username } = socket.data;
-
-    gamePayload = {roomId}
-    
     NotificationService.broadcastToRoom(
         io,             // 1. io
         roomId,         // 2. roomId 
-        'gameStarted',  // 3. eventName 
-        gamePayload     // 4. payload 
+        'gameLoading',  // 3. eventName 
+        ''     // 4. payload che secondo me può essere pure vuoto al momento
     );
+    //Questo serve solo per triggerare al Front-end di caricare Game..
 
     try {
         // 1. VALIDAZIONE, boh nun serv pens
@@ -82,9 +80,6 @@ async function handleGameStarted(io, socket, { roomId }) {
     
 }
 
-async function disconnectInGame(io,socket){
-    
-}
 
 /**
  * Funzione helper per passare alla fase TURN_ASSIGNMENT.
@@ -373,7 +368,7 @@ async function handleDiscussionPhaseComplete(io, socket) {
 }
 
 function attach(socket, io) {
-    socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
+    socket.on('startGame', (payload) => handleStartGame(io, socket, payload));
     socket.on('DiceRoll', () => handleRollDice(io, socket));
     socket.on('ConfirmWord', () => handleConfirmWord(io, socket));
     socket.on('DiscussionPhaseComplete', () => handleDiscussionPhaseComplete(io, socket));
