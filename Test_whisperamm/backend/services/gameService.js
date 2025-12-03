@@ -83,6 +83,11 @@ class GameService {
         return fullGame;
     }
 
+    static async updateMetaField(gameId, field, value) {
+        // Chiama il model
+        await Game.updateMetaField(gameId, field, value);
+    }
+    
     static _buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors = null) {
         const map = {};
         
@@ -130,11 +135,14 @@ class GameService {
                 meta.secrets = null; 
             }
         }
-
         // Parsing del tempo (da stringa a numero)
         if (meta.phaseEndTime) {
             meta.phaseEndTime = parseInt(meta.phaseEndTime, 10);
         }   
+
+        if (meta.currentTurnIndex !== undefined) {
+            meta.currentTurnIndex = parseInt(meta.currentTurnIndex, 10);
+        }
 
         // Manteniamo l'oggetto/mappa
         const players = []; 
@@ -208,6 +216,7 @@ class GameService {
         // Controlla che ogni giocatore abbia hasSpoken === true
         return playersArray.every(p => p.hasSpoken === true);
     }
+
 }
 
 module.exports = GameService;

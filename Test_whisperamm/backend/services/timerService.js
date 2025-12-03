@@ -10,7 +10,7 @@ const activeTimers = new Map();
 
 class TimerService {
     // 
-    static async startTimedPhase(io, roomId, gameId, nextPhase, durationSeconds, onTimeoutCallback) {
+    static async startTimedPhase(io, roomId, gameId, nextPhase, durationSeconds, onTimeoutCallback, extraPayload = {}) {
         // Pulisco il timer precedente per questa stanza se esistono
         this.clearTimer(roomId);
 
@@ -24,10 +24,19 @@ class TimerService {
         // (Nota: Assumiamo che la fase sia già settata o la settiamo qui)
         const updatedGame = await GameService.advancePhase(gameId, nextPhase);
 
-        // Costruisci payload per notificare gli user
-        const payload = PayloadUtils.buildPublicGameData(updatedGame);
-        payload.endTime = endTime; // Aggiungiamo il tempo
-        payload.duration = durationSeconds; // Utile per progress bar (frontend)
+        /// Aggiorniamo ANCHE il tempo di fine su Redis (per chi fa refresh della pagina)
+        // Assumiamo che il model Game abbia questo metodo (lo avevamo aggiunto prima)
+        await Game.updateMetaField(gameId, 'phaseEndTime', endTime);
+
+        // Costruzione Payload
+        // Uniamo i dati base del gioco con i dati del timer E i dati extra
+        const payload = {
+            ...PayloadUtils.buildPublicGameData(updatedGame), // Dati base (players, round, etc)
+            phase: nextPhase,       // Sovrascrittura esplicita per sicurezza
+            endTime: endTime,       // Fondamentale per il timer frontend
+            duration: durationSeconds,
+            ...extraPayload         // <--- MODIFICA FONDAMENTALE: Inseriamo currentTurnIndex qui!
+        };
 
         NotificationService.broadcastToRoom(io, roomId, 'phaseChanged', payload);
 
