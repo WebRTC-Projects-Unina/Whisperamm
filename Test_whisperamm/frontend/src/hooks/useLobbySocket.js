@@ -1,23 +1,26 @@
 import { useEffect, useRef } from 'react';
 
-export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, setIsAdmin, setPlayers, setReadyStates, setIsReady, setAllReady, setCanStartGame, setLobbyError, setAdminPlayer, setMessages, setGameLoading, isValidating, lobbyError, allReady) => {
-    // NOTA: Ho aggiunto 'allReady' tra i parametri in ingresso per usarlo nelle dipendenze dell'effetto di logica
+export const useLobbySocket = (
+    socket, 
+    connectSocket, 
+    roomId, 
+    user, 
+    setPlayers, 
+    setReadyStates, 
+    setAllReady, 
+    setAdminPlayer, 
+    setIsReady, 
+    setMessages, 
+    setGameLoading, 
+    setLobbyError, 
+    isValidating, 
+    lobbyError
+) => {
     
     const joinedRef = useRef(false);
 
-    // --- EFFETTO 1: LOGICA DI STATO DERIVATO (Sincrono) ---
-    // Questo risolve il problema del "HostChanged". Ogni volta che cambia isAdmin o allReady, ricalcoliamo.
     useEffect(() => {
-        if (isAdmin && allReady) {
-            setCanStartGame(true);
-        } else {
-            setCanStartGame(false);
-        }
-    }, [isAdmin, allReady, setCanStartGame]);
-
-
-    // --- EFFETTO 2: GESTIONE SOCKET (Asincrono) ---
-    useEffect(() => {
+        // Non connetterti se stiamo ancora validando o c'è errore
         if (isValidating || lobbyError || !user) return;
 
         if (!socket) {
@@ -25,61 +28,59 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
             return;
         }
 
-        // START HANDLERS
-        // Nota: Rimuoviamo la logica condizionale complessa da qui dentro.
-        // I listener devono solo "settare i dati grezzi".
-        
-        const handleLobbyPlayers = (payload) => {
+        // --- A. GESTORE STATO COMPLETO (Join, Leave, HostChange) ---
+        // Riceve tutto: players, readyStates, host, allReady
+        const handleLobbyState = (payload) => {
+            console.log("📦 Full Lobby State:", payload);
+            
             setPlayers(payload.players || []);
             setReadyStates(payload.readyStates || {});
-        };
+            setAllReady(payload.allReady);
+            setAdminPlayer(payload.host);
 
-        const handleUserReadyUpdate = (payload) => {
-            setReadyStates(payload.readyStates);
-            if (payload.username === user.username) {
+            // Sincronizza il mio stato locale 'isReady' con quello del server
+            if (payload.readyStates && user.username) {
                 setIsReady(payload.readyStates[user.username] || false);
             }
         };
 
-        // Unifichiamo la logica: il server ci dice solo se tutti sono pronti.
-        // La UI si aggiorna9B0805 grazie all'useEffect 1 qui sopra.
-        const handleAllUsersReady = (payload) => {
-            console.log("🔔 [Socket] Stato AllReady:", payload.allReady);
-            setAllReady(payload.allReady); 
+        // --- B. GESTORE AGGIORNAMENTO PARZIALE (User Ready/Unready) ---
+        // Riceve solo: username, isReady, allReady. Leggerissimo.
+        const handlePlayerReadyChange = ({ username, isReady, allReady }) => {
+            console.log(`⚡ Update: ${username} è ${isReady ? 'Pronto' : 'Non pronto'}`);
+
+            // 1. Aggiorna solo la voce specifica nella mappa
+            setReadyStates(prev => ({
+                ...prev,
+                [username]: isReady
+            }));
+
+            // 2. Aggiorna il flag globale (calcolato dal server)
+            setAllReady(allReady);
+
+            // 3. Se l'aggiornamento riguarda ME, aggiorno il mio stato locale UI
+            if (username === user.username) {
+                setIsReady(isReady);
+            }
         };
 
         const handleChatMessage = (msg) => setMessages((prev) => [...prev, msg]);
         
-        const handleLobbySocketError = (error) => {
-            setLobbyError(error.message || "Errore socket");
-        };
-        
-        const handleHostChanged = (payload) => {
-            console.log(`👑 Nuovo Host: ${payload.newHost}`);
-            setAdminPlayer(payload.newHost);
-            // Qui controlliamo solo se siamo noi il nuovo host
-            if (user.username === payload.newHost) {
-                setIsAdmin(true);
-            } else {
-                setIsAdmin(false);
-            }
-        };
-
         const handleGameStarted = () => {
             console.log("🚀 Partita iniziata!");
             setGameLoading(true);            
-        };    
+        };   
 
-        // EVENT LISTENER
-        socket.on('lobbyError', handleLobbySocketError); 
-        socket.on('lobbyPlayers', handleLobbyPlayers); 
+        const handleLobbySocketError = (error) => {
+            setLobbyError(error.message || "Errore socket");
+        };
+
+        // SETUP LISTENERS
+        socket.on('lobbyState', handleLobbyState);          // <--- Evento Pesante
+        socket.on('playerReadyChange', handlePlayerReadyChange); // <--- Evento Leggero
         socket.on('chatMessage', handleChatMessage); 
-        socket.on('hostChanged', handleHostChanged); 
-        socket.on('userReadyUpdate', handleUserReadyUpdate); 
-        socket.on('allUsersReady', handleAllUsersReady); 
         socket.on('gameStarted', handleGameStarted); 
-
-        // Rimosso 'gameCanStart' perché ridondante con 'allUsersReady' + logica lato client
+        socket.on('lobbyError', handleLobbySocketError); 
 
         // JOIN LOGIC
         const performJoin = () => {
@@ -93,18 +94,15 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         
         return () => {
             if (socket) {
-                console.log("🧹 Cleanup Socket Listeners");
-                socket.off('lobbyError', handleLobbySocketError);
-                socket.off('lobbyPlayers', handleLobbyPlayers);
+                console.log("Cleanup Socket Listeners");
+                socket.off('lobbyState', handleLobbyState);
+                socket.off('playerReadyChange', handlePlayerReadyChange);
                 socket.off('chatMessage', handleChatMessage);
-                socket.off('hostChanged', handleHostChanged);
-                socket.off('userReadyUpdate', handleUserReadyUpdate);
-                socket.off('allUsersReady', handleAllUsersReady);
                 socket.off('gameStarted', handleGameStarted);
-                socket.disconnect(); // Lascia gestire la disconnessione al livello superiore o all'unmount della pagina
+                socket.off('lobbyError', handleLobbySocketError);
+                socket.disconnect();
             }
         };
         
     }, [roomId, user, lobbyError, isValidating, connectSocket]); 
-    
 };
