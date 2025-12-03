@@ -65,7 +65,8 @@ const Lobby = () => {
         setMessages, 
         setGameLoading, 
         isValidating, 
-        lobbyError
+        lobbyError,
+        allReady
     );
 
 const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLobbyHandlers(

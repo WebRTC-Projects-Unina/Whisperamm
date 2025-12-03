@@ -120,6 +120,7 @@ class RoomService {
 
     static async isUserHost(roomId, username) {
         const room = await Room.get(roomId);
+        console.log("Check isUserHost: "+username + "host: "+room.host)
         return room && room.host === username;
     }
 
