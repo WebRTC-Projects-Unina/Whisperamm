@@ -1,14 +1,13 @@
+// lobbySockets.js
 const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');
 const NotificationService = require('../services/notificationService');
+const { Room } = require('../models/Room');
 
-
-// --- HELPER: BROADCAST STATO COMPLETO ---
+// --- HELPER ---
 async function broadcastFullState(io, roomId) {
     try {
-        // Eseguiamo le chiamate in parallelo.
-        // NOTA: Usiamo RoomService.getHost(roomId) che ora è ottimizzato (HGET)
         const [players, readyStates, checkReady, host] = await Promise.all([
             RoomService.getPlayers(roomId),
             RoomService.getReadyStates(roomId),
@@ -16,7 +15,6 @@ async function broadcastFullState(io, roomId) {
             RoomService.getHost(roomId) 
         ]);
 
-        // Se host è null, la stanza probabilmente non esiste più
         if (!host) return;
 
         NotificationService.broadcastToRoom(io, roomId, 'lobbyState', {
@@ -40,25 +38,58 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
     const username = user.username;
 
     try {
+        //Connessione effettiva alla room identificata da roomID
         socket.data.roomId = roomId;
         socket.data.username = username;
         socket.join(roomId);
         
-        await SocketService.registerConnection(roomId, username, socket.id); 
+        // 1. Check
+        const access = await RoomService.checkRoomAccess(roomId, username); 
+        //Forse lo fa 2 volte considerando il check in control room
+        if (!access.canJoin) {
+            socket.emit('lobbyError', { message: access.reason });
+            socket.disconnect();
+            return;
+        }
 
-        // Notifica chat
-        NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
-            from: 'system',
-            text: `${username} è entrato nella lobby`,
-            timestamp: Date.now()
-        });
+        // 2. Transazione (ritorna { added, isRejoin, room })
+        const result = await RoomService.addPlayerToRoom(roomId, username, socket.id); 
 
-        // Broadcast stato completo
+        // 3. Messaggio Personalizzato in chat
+        if (result.isRejoin) {
+            // L'utente aveva una entry nella socket map -> Rejoin
+
+            //Ulteriore check se sta in game..nel caso gli devi girare Start!
+            const gameStarted = await RoomService.checkGameStarted(roomId);
+            if(gameStarted){
+                //Triggeriamo il front-end del rejoiner a far caricare game, ma dobbiamo anche mandargli i dati della partita
+                await NotificationService.sendToUser(io,roomId,username,'gameLoading','')
+
+            }else{
+                //Se si è ancora in lobby..
+                NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
+                from: 'system',
+                text: `${username} si è riconnesso!`,
+                timestamp: Date.now()
+            });
+            console.log(`[Socket] ${username} REJOIN in ${roomId}`);
+
+            }            
+
+        } else {
+            // L'utente è totalmente nuovo per questa stanza
+            NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
+                from: 'system',
+                text: `${username} è entrato nella lobby`,
+                timestamp: Date.now()
+            });
+            console.log(`[Socket] ${username} NEW JOIN in ${roomId}`);
+        }
+
         await broadcastFullState(io, roomId);
 
-        console.log(`[Socket] ${username} entrato in ${roomId}`);
-
     } catch (error) {
+        console.error(`[JoinError] ${username}:`, error);
         socket.emit('lobbyError', { message: error.message });
         socket.disconnect(); 
     }
@@ -69,9 +100,16 @@ async function handleDisconnect(io, socket) {
     if (!roomId || !username) return;
 
     try {
-        const isCurrentSocket = await SocketService.unregisterConnection(roomId, username, socket.id);
-        if (!isCurrentSocket) return; 
-        
+
+        //  Perchè serve questa cosa?
+        //Safeguard: se il socket salvato è diverso (e non vuoto) da quello attuale, ignora
+        //Fondamentale nel caso in cui la disconnect arrivi dopo la join a seguito di una F5
+        const currentStoredSocket = await SocketService.getSocketId(roomId, username);
+        if (currentStoredSocket && currentStoredSocket !== socket.id) {
+            return; 
+        }
+
+        // Rimuove player visibile, setta socket a ""
         const { deletedRoom } = await RoomService.removePlayerFromRoom(roomId, username);
 
         if (deletedRoom) {
@@ -85,64 +123,37 @@ async function handleDisconnect(io, socket) {
             timestamp: Date.now()
         });
 
-        // Broadcast stato completo (gestisce rimozioni e cambio host)
         await broadcastFullState(io, roomId);
-
-        console.log(`[Socket] ${username} offline da ${roomId}.`);
+        console.log(`[Socket] ${username} offline da ${roomId} (Socket cleared).`);
 
     } catch (err) {
-        console.error(`[Errore Disconnect] ${username}:`, err);
+        console.error(`[DisconnectError] ${username}:`, err);
     }
 }
 
 async function handleUserReady(io, socket, { roomId }) {
     const { username } = socket.data;
     if (!roomId) return;
-
     try {
         await UserService.setUserReady(username, true);
         const { allReady } = await RoomService.checkAllUsersReady(roomId);
-        
-        // Broadcast leggero per il Pronto, non avrebbe senso mandargli anche l'host di nuovo..
-        NotificationService.broadcastToRoom(io, roomId, 'playerReadyChange', { 
-            username,
-            isReady: true,
-            allReady 
-        });
-
-    } catch (err) {
-        console.error(`[Errore Ready] ${username}`, err);
-    }
+        NotificationService.broadcastToRoom(io, roomId, 'playerReadyChange', { username, isReady: true, allReady });
+    } catch (err) { console.error(`[ReadyError]`, err); }
 }
 
 async function handleResetReady(io, socket, { roomId }) {
     const { username } = socket.data;
     if (!roomId) return;
-
     try {
         await UserService.setUserReady(username, false);
-        
-        // Broadcast leggero (Delta Update)
-        NotificationService.broadcastToRoom(io, roomId, 'playerReadyChange', { 
-            username,
-            isReady: false,
-            allReady: false 
-        });
-        
-    } catch (err) {
-        console.error(`[Errore Reset]`, err);
-    }
+        NotificationService.broadcastToRoom(io, roomId, 'playerReadyChange', { username, isReady: false, allReady: false });
+    } catch (err) { console.error(`[ResetError]`, err); }
 }
 
 async function handleChatMessage(io, socket, { roomId, text }) {
     const { username } = socket.data;
     if (!roomId || !text) return;
-
-    NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
-        from: username,
-        text,
-        timestamp: Date.now(),
-    });
+    NotificationService.broadcastToRoom(io, roomId, 'chatMessage', { from: username, text, timestamp: Date.now() });
 }
 
 function attach(socket, io) {

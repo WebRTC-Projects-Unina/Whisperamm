@@ -52,11 +52,11 @@ class GameService {
             };
         });
 
-        // Ordiniamo i valori dei dadi in ordine decrescente
-        // e assegniamo l'ordine di turno a ciascun giocatore
-        diceValues.sort((a, b) => (b.value1 + b.value2) - (a.value1 + a.value2));
-        diceValues.forEach((data, index) => {
-        data.order = index + 1; 
+            // Ordiniamo i valori dei dadi in ordine decrescente
+            // e assegniamo l'ordine di turno a ciascun giocatore
+            diceValues.sort((a, b) => (b.value1 + b.value2) - (a.value1 + a.value2));
+            diceValues.forEach((data, index) => {
+            data.order = index + 1; 
         });
 
         // Costruisci mappa giocatori (che verrà serializzato)

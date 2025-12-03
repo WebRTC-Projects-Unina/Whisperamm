@@ -41,6 +41,38 @@ class NotificationService {
         });
         
     }
+
+    /**
+     * NUOVO METODO: Invia un evento a un singolo utente specifico.
+     * Molto più semplice per gestire Rejoin o messaggi privati.
+     */
+    static async sendToUser(io, roomId, username, eventName, payload) {
+        try {
+            // 1. Validazione base
+            if (!username) {
+                console.error("[NotificationService] Username mancante per sendToUser");
+                return false;
+            }
+
+            // 2. Recuperiamo il socket ID da Redis
+            const socketId = await SocketService.getSocketId(roomId, username);
+
+            if (socketId) {
+                // 3. Invio diretto
+                io.to(socketId).emit(eventName, payload);
+                return true; // Inviato con successo
+            } else {
+                console.warn(`[Notification] Socket non trovato per ${username} (Room: ${roomId})`);
+                return false; // Utente disconnesso o socket non trovato
+            }
+        } catch (error) {
+            console.error(`[NotificationError] Errore invio a ${username}:`, error);
+            return false;
+        }
+    }
+    
+
+
 }
 
 module.exports = NotificationService;
