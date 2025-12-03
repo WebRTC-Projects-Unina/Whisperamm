@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
 import { useLobbyValidation } from '../hooks/useLobbyValidation';
@@ -15,72 +15,53 @@ const Lobby = () => {
     const { socket, connectSocket, disconnectSocket } = useSocket();
     const { roomId } = useParams();
     
-    //hook
+    // 1. Validation Hook (Fetch iniziale HTTP)
     const { 
         isValidating, 
-        setIsValidating,
         lobbyError, 
         setLobbyError,
         roomName, 
-        setRoomName,
         maxPlayers, 
-        setMaxPlayers,
-        adminPlayer, 
-        setAdminPlayer,
-        isAdmin, 
-        setIsAdmin 
+        // adminPlayer e isAdmin iniziali li ignoriamo qui, 
+        // ci affideremo ai dati freschi del socket
     } = useLobbyValidation(roomId, user);
 
-    // Stati UI
+    // 2. Stati UI Dati
     const [messages, setMessages] = useState([]);
     const [newMessage, setNewMessage] = useState('');
     const [players, setPlayers] = useState([]);
-    const [usernameInput, setUsernameInput] = useState('');
-    const [error, setError] = useState(null);
     const [roomFull, setRoomFull] = useState("In attesa di altri giocatori...");
     
+    // 3. Stati Logica Gioco
     const [isReady, setIsReady] = useState(false);
-    const [canStartGame, setCanStartGame] = useState(false);
-    const [allReady, setAllReady] = useState(false);
+    const [allReady, setAllReady] = useState(false); // Arriva dal socket
     const [readyStates, setReadyStates] = useState({});
     const [gameLoading, setGameLoading] = useState(false);
+    
+    // 4. Stati Ruoli
+    const [adminPlayer, setAdminPlayer] = useState(null); // Nome dell'host
+    const [isAdmin, setIsAdmin] = useState(false); // Booleano derivato
+    const [canStartGame, setCanStartGame] = useState(false); // Booleano derivato
 
-    const navigate = useNavigate();
+    // --- LOGICA DERIVATA (Sostituisce la logica "sporca" dentro i socket) ---
+    
+    // A. Calcolo se sono Admin
+    useEffect(() => {
+        if (user && adminPlayer) {
+            setIsAdmin(user.username === adminPlayer);
+        }
+    }, [user, adminPlayer]);
 
-    //hook
-    useLobbySocket(
-        socket, 
-        connectSocket, 
-        roomId, 
-        user, 
-        isAdmin,
-        setIsAdmin, 
-        setPlayers, 
-        setReadyStates, 
-        setIsReady, 
-        setAllReady, 
-        setCanStartGame, 
-        setLobbyError, 
-        setAdminPlayer, 
-        setMessages, 
-        setGameLoading, 
-        isValidating, 
-        lobbyError
-    );
+    // B. Calcolo se posso startare (Host + Tutti Pronti)
+    useEffect(() => {
+        if (isAdmin && allReady) {
+            setCanStartGame(true);
+        } else {
+            setCanStartGame(false);
+        }
+    }, [isAdmin, allReady]);
 
-const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLobbyHandlers(
-    socket, 
-    roomId, 
-    disconnectSocket, 
-    isReady, 
-    setIsReady, 
-    newMessage, 
-    setNewMessage, 
-    user
-);
-   
-    // --- 5. RENDER LOGIC ---
-
+    // C. Testo stanza piena
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
             setRoomFull("Stanza piena!");
@@ -89,23 +70,43 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLob
         }
     }, [players, maxPlayers]);
 
-    useEffect(() => {
-        // Quando cambia isAdmin, resetta isReady se diventa admin
-        if (isAdmin && isReady) {
-            setIsReady(false);
-        }
-    }, [isAdmin]);
 
+    // 5. Socket Hook
+    useLobbySocket(
+        socket, 
+        connectSocket, 
+        roomId, 
+        user, 
+        setPlayers, 
+        setReadyStates, 
+        setAllReady, 
+        setAdminPlayer, 
+        setIsReady, 
+        setMessages, 
+        setGameLoading, 
+        setLobbyError, 
+        isValidating, 
+        lobbyError
+    );
+
+    // 6. Handlers Hook
+    const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLobbyHandlers(
+        socket, 
+        roomId, 
+        disconnectSocket, 
+        isReady, 
+        setIsReady, 
+        newMessage, 
+        setNewMessage, 
+        user
+    );
+   
+    // --- RENDER ---
 
     if (gameLoading) return <Game />; 
-
     if (isValidating) return <div className="lobby-page mini-form-page"><div className="lobby-card"><h1>Verifica...</h1></div></div>;
-
     if (lobbyError) return <div className="lobby-page"><div className="lobby-card"><h1 style={{color:'red'}}>Errore</h1><p>{lobbyError}</p></div></div>;
-
-    if (!user) {
-        return <MiniForm roomId={roomId} onUserCreated={setUser} error={error} />;
-    }
+    if (!user) return <MiniForm roomId={roomId} onUserCreated={setUser} />;
 
     return (
         <div className="lobby-page">
@@ -114,76 +115,52 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLob
                 <div className="lobby-chat-column">
                     <div className="chat-container">
                         <h2 className="chat-title">Chat lobby</h2>
-                        
                         <div className="chat-messages">
-                            {messages.length === 0 && (
-                                <p className="chat-empty">Nessun messaggio. Scrivi qualcosa!</p>
-                            )}
-
+                            {messages.length === 0 && <p className="chat-empty">Nessun messaggio.</p>}
                             {messages.map((m, idx) => (
-                                <div
-                                    key={idx}
-                                    className={
-                                        m.from === 'system'
-                                            ? 'chat-message chat-message-system'
-                                            : 'chat-message'
-                                    }
-                                >
-                                    <span className="chat-from">
-                                        {m.from === 'system' ? '[SYSTEM]' : m.from}:
-                                    </span>
+                                <div key={idx} className={`chat-message ${m.from === 'system' ? 'chat-message-system' : ''}`}>
+                                    <span className="chat-from">{m.from === 'system' ? '[SYSTEM]' : m.from}:</span>
                                     <span className="chat-text">{m.text}</span>
                                 </div>
                             ))}
                         </div>
-
                         <form className="chat-input-form" onSubmit={handleSubmitChat}>
                             <input
                                 type="text"
                                 className="chat-input"
-                                placeholder="Scrivi un messaggio..."
+                                placeholder="Scrivi..."
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
                             />
-                            <button type="submit" className="chat-send-btn">
-                                Invia
-                            </button>
+                            <button type="submit" className="chat-send-btn">Invia</button>
                         </form>
                     </div>
                 </div>
 
-                {/* COLONNA CENTRALE: INFO + BOTTONI */}
+                {/* COLONNA CENTRALE */}
                 <div className="lobby-card">
                     <h1 className="lobby-title">Lobby partita</h1>
-
                     <div className="lobby-info">
-                        <p className="lobby-label">Nome stanza</p>
-                        <p className="lobby-room-name">{roomName || 'Sconosciuto'}</p>
-                        <p className="lobby-label">Codice stanza</p>
+                        <p className="lobby-label">Stanza: {roomName}</p>
                         <p className="lobby-room-code">{roomId}</p>
                     </div>
-
-                    <p className="lobby-subtitle">
-                        {roomFull}
-                    </p>
-
+                    <p className="lobby-subtitle">{roomFull}</p>
+                    
                     <div>
-                        <p>
-                            In questa stanza sei {''}
-                            <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
-                                {isAdmin ? 'Admin' : 'Player'}
-                            </span>
-                        </p>
+                        Ruolo: <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
+                            {isAdmin ? 'Admin' : 'Player'}
+                        </span>
                     </div>
                     
                     <div className="lobby-buttons">
                         {isAdmin ? (
                             <button 
                                 className="lobby-main-btn admin-btn" 
-                                onClick={handleStartGame}
+                                onClick={() => handleStartGame(canStartGame)}
                                 disabled={!canStartGame}
+                                style={{ opacity: canStartGame ? 1 : 0.5, cursor: canStartGame ? 'pointer' : 'not-allowed' }}
                             >
-                                {canStartGame ? '✅ Inizia Partita' : '⏳ In Attesa'}
+                                {canStartGame ? '✅ Inizia Partita' : '⏳ Attesa Giocatori'}
                             </button>
                         ) : (
                             <button 
@@ -193,43 +170,21 @@ const { handleReady, handleStartGame, handleSubmitChat, handleBackHome} = useLob
                                 {isReady ? '✅ Pronto' : 'Pronto'}
                             </button>
                         )}
-                        <button className="lobby-main-btn" onClick={(handleBackHome)} >
-                            Torna alla Home
-                        </button>
+                        <button className="lobby-main-btn" onClick={handleBackHome}>Esci</button>
                     </div>
                 </div>
 
-                {/* COLONNA DESTRA: LISTA GIOCATORI */}
+                {/* COLONNA DESTRA: PLAYERS */}
                 <aside className="lobby-sidebar">
-                    <h2 className="sidebar-title">Giocatori nella stanza</h2>
-                    <p className="sidebar-room-code">{players.length + ' / ' + maxPlayers}</p>
-
+                    <h2 className="sidebar-title">Giocatori ({players.length}/{maxPlayers})</h2>
                     <div className="sidebar-players">
-                        {players.length === 0 && (
-                            <p className="sidebar-empty">In attesa di giocatori...</p>
-                        )}
-
                         {players.map((p, idx) => (
-                            <div
-                                key={idx}
-                                className={
-                                    p === user.username
-                                        ? 'sidebar-player sidebar-player-me'
-                                        : 'sidebar-player'
-                                }
-                            >
-                                <span className="sidebar-player-avatar">
-                                    {p?.[0]?.toUpperCase() || '?'}
-                                </span>
-                                <span className={
-                                    p === adminPlayer
-                                        ? 'sidebar-player-name sidebar-player-admin'
-                                        : 'sidebar-player-name'
-                                }>
-                                    {p}
-                                    {p === user.username && ' (tu)'}
-                                    {p === adminPlayer && '👑'}
-                                    {readyStates[p] && p !== adminPlayer && <span className="ready-check">✅</span>}    
+                            <div key={idx} className={`sidebar-player ${p === user.username ? 'sidebar-player-me' : ''}`}>
+                                <span className="sidebar-player-avatar">{p?.[0]?.toUpperCase()}</span>
+                                <span className="sidebar-player-name">
+                                    {p} {p === user.username && '(tu)'} {p === adminPlayer && '👑'}
+                                    {/* Mostra spunta verde se pronto (host escluso visualmente o incluso) */}
+                                    {readyStates[p] && p !== adminPlayer && <span className="ready-check"> ✅</span>}    
                                 </span>
                             </div>
                         ))}

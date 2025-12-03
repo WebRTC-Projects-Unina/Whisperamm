@@ -1,4 +1,4 @@
-const chatSocket = require('./roomSockets');
+const lobbySocket = require('./lobbySockets');
 const gameSocket = require('./gameSockets');
 
 //Central socket controller
@@ -8,8 +8,8 @@ module.exports = function registerSocketController(io) {
         // Possiamo aggiungere un middleware per ogni socket.
 
         // Attacca gli handler dei moduli
-        if (chatSocket && typeof chatSocket.attach === 'function') {
-            chatSocket.attach(socket, io);
+        if (lobbySocket && typeof lobbySocket.attach === 'function') {
+            lobbySocket.attach(socket, io);
         }
 
         if (gameSocket && typeof gameSocket.attach === 'function') {

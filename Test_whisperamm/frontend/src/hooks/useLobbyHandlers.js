@@ -6,12 +6,14 @@ export const useLobbyHandlers = (socket, roomId, disconnectSocket, isReady, setI
     const handleReady = () => {
         if (!socket) return;
         
+        // Optimistic Update: Aggiorno subito la UI prima che il server risponda.
+        // Rende il click immediato. Se il server fallisce, il socket event resetterà lo stato corretto.
+        setIsReady(!isReady); 
+
         if (isReady) {
             socket.emit('resetReady', { roomId });
-            setIsReady(false);
         } else {
             socket.emit('userReady', { roomId });
-            setIsReady(true);
         }
     };
 
@@ -21,14 +23,20 @@ export const useLobbyHandlers = (socket, roomId, disconnectSocket, isReady, setI
         socket.emit('gameStarted', { roomId });
     };
 
-    const handleSubmitChat = (e, setNewMessage) => {
+    // FIX CHAT: Rimosso 'setNewMessage' dai parametri della funzione
+    const handleSubmitChat = (e) => {
         e.preventDefault();
+        
+        // Controllo validità
         if (!newMessage.trim() || !socket || !user) return;
+
         socket.emit('chatMessage', {
             roomId,
             from: user.username,
             text: newMessage.trim(),
         });
+
+        // Usa la funzione setNewMessage passata negli argomenti del hook (riga 3)
         setNewMessage('');
     };
 
@@ -41,5 +49,3 @@ export const useLobbyHandlers = (socket, roomId, disconnectSocket, isReady, setI
     
     return { handleReady, handleStartGame, handleSubmitChat, handleBackHome };
 };
-
-  
