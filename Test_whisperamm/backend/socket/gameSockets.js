@@ -12,9 +12,9 @@ async function handleGameStarted(io, socket, { roomId }) {
     
     NotificationService.broadcastToRoom(
         io,             // 1. io
-        roomId,         // 2. roomId (Corretto: prima la stanza)
-        'gameStarted',  // 3. eventName (Corretto: poi il nome evento)
-        gamePayload     // 4. payload (Serve al frontend per il navigate!)
+        roomId,         // 2. roomId 
+        'gameStarted',  // 3. eventName 
+        gamePayload     // 4. payload 
     );
 
     try {

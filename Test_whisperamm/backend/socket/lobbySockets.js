@@ -3,6 +3,7 @@ const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');
 const NotificationService = require('../services/notificationService');
+const { Room } = require('../models/Room');
 
 // --- HELPER ---
 async function broadcastFullState(io, roomId) {
@@ -57,12 +58,27 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         // 3. Messaggio Personalizzato in chat
         if (result.isRejoin) {
             // L'utente aveva una entry nella socket map -> Rejoin
+
+
+
+            //Ulteriore check se sta in game..nel caso gli devi girare Start!
+            const gameStarted = RoomService.checkGameStarted(roomId);
+            if(gameStarted){
+                NotificationService.sendPersonalizedToRoom(io,roomId,username,'')
+            }
+
             NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
                 from: 'system',
                 text: `${username} si è riconnesso!`,
                 timestamp: Date.now()
             });
             console.log(`[Socket] ${username} REJOIN in ${roomId}`);
+
+
+
+
+
+
         } else {
             // L'utente è totalmente nuovo per questa stanza
             NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {

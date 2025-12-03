@@ -44,6 +44,12 @@ class Room {
         const client = getRedisClient();
         return await client.hGet(`room:${roomId}`, 'host');
     }
+  
+
+    static async getRoomStatus(roomId){
+        const client = getRedisClient()
+        return await client.hget(`room:${roomId}`, 'status')
+    }
 
     // Metodo fondamentale per checkRoom
     static async isPlayerInRoom(roomId, username) {

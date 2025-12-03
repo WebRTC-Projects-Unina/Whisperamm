@@ -3,6 +3,7 @@ const { Room, RoomStatus } = require('../models/Room');
 const UserService = require('./userService');
 const { getRedisClient } = require('../models/redis'); // Importato SOLO per removePlayer
 const crypto = require('crypto');
+const { stat } = require('fs');
 
 class RoomService {
     
@@ -47,7 +48,7 @@ class RoomService {
 
         // Check history (Lettura)
         const alreadyHasHistory = await Room.hasSocketHistory(roomId, username);
-
+        
         // Transazione interna al Model (Semplice: Add Player + Set Socket)
         const [sAddResult, hSetResult] = await Room.joinTransaction(roomId, username, socketId);
 
@@ -151,6 +152,13 @@ class RoomService {
     static async getPlayers(roomId) { return await Room.getPlayers(roomId); }
     static async getRoom(roomId) { return await Room.get(roomId); }
     static async getHost(roomId) { return await Room.getHost(roomId); }
+    
+    static async checkGameStarted(roomId){ 
+        const statusRoom = await Room.getRoomStatus(roomId);
+        return RoomStatus.PLAYING===statusRoom
+    }
+    static async getRoomStatus(roomId) {return await Room.getRoomStatus(roomId)}
+
 
     static async getReadyStates(roomId) {
         const room = await Room.get(roomId);
