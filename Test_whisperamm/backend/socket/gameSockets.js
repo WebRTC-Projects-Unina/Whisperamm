@@ -1,6 +1,7 @@
 // src/socket/gameSocket.js
-const GameService = require('../services/gameService');
 const RoomService = require('../services/roomService');
+const GameService = require('../services/gameService');
+const TimerService = require('../services/timerService');
 const NotificationService = require('../services/notificationService'); // Nota la maiuscola se il file è maiuscolo
 const PayloadUtils = require('../utils/gamePayloadUtils');
 const { Game, GamePhase } = require('../models/Game');
@@ -42,7 +43,6 @@ async function handleGameStarted(io, socket, { roomId }) {
             publicPayload
         );
 
-        // 4. STEP B: TARGETED (Dati Privati)
         // Diciamo a ciascuno: "Ecco chi sei tu segretamente".
         // Il Frontend userà questo per mostrare la parola segreta.
         NotificationService.sendPersonalizedToRoom(
@@ -56,16 +56,19 @@ async function handleGameStarted(io, socket, { roomId }) {
             }
         );
 
-        // Mandiamo a ciascun giocatore il suo ruolo segreto e cambio fase a DICE
-        GameService.advancePhase(game.id, GamePhase.DICE);
-        // Notifichiamo tutti del cambio fase
-        NotificationService.broadcastToRoom(
-            io,
-            roomId,
-            'phaseChanged',
-            {   phase: GamePhase.DICE,
-                startTimer: true  // Indica al frontend di avviare il timer
-             }
+        // GG: Inizia la sincronizzazione centralizzata, quindi i player hanno 15 secondi
+        // per lanciare i dadi in autonomia altrimenti è automatico
+        await TimerService.startTimedPhase(
+            io, 
+            roomId, 
+            game.gameId, 
+            GamePhase.DICE, 
+            30, // 30 Secondi
+            async () => {
+                // CALLBACK TIMEOUT: Se nessuno clicca, il server forza i lanci
+                console.log(`[Timer] Scaduto fase DICE in ${roomId}.`);
+                await forceRollsAndProceed(io, roomId, game.gameId);
+            }
         );
 
 
@@ -83,6 +86,51 @@ async function disconnectInGame(io,socket){
     
 }
 
+/**
+ * Funzione helper per passare alla fase TURN_ASSIGNMENT.
+ * Viene chiamata o dal Timer (se scade) o da handleRollDice (se finiscono prima).
+ */
+async function startTurnAssignmentPhase(io, roomId, gameId) {
+    // Faccio attendere 4 secondi per l'animazione dei dadi e poi aggiorno lo stato
+    setTimeout(async () => {
+        try {
+            // Per passare alla fase di TurnAssignment conviene passare qui l'ordinamento dei players
+            // in questo modo lo facciamo una volta sola per tutti
+            let game = await GameService.getGameSnapshot(gameId);
+            const sortedPlayers = GameService.sortPlayersByDice(game.players, game.round);
+            
+            const updatePromises = sortedPlayers.map((p) => 
+                GameService.updatePlayerState(
+                    gameId, 
+                    p.username, 
+                    { order: p.order} 
+                )
+            );
+            await Promise.all(updatePromises);
+
+            // AVVIA TIMER DI FASE
+            await TimerService.startTimedPhase(
+                io,
+                roomId,
+                gameId,
+                GamePhase.TURN_ASSIGNMENT, // Fase
+                15, // Durata visualizzazione classifica
+                async () => {
+                    // Chiama la funzione che gestisce la prossima fase
+                    await handleOrderPhaseComplete(io, { data: { roomId } });
+                }
+            );
+        } catch (err) {
+            console.error("Errore nel passaggio a TURN_ASSIGNMENT:", err);
+        }
+    }, 4000);
+}
+
+/**
+ * 
+ * Funzione chiamata dalla socket alla ricezione di un emit su rollDice
+ * gestisce il cambio di fase attendendo che tutti lancino i dadi
+ */
 async function handleRollDice(io, socket) {
     const username = socket.data.username;
     const roomId = socket.data.roomId;
@@ -119,17 +167,9 @@ async function handleRollDice(io, socket) {
 
         // Controlliamo se TUTTI hanno lanciato
         if (GameService.checkAllPlayersRolled(game.players)) {
-            // Cambia fase nel DB
-            const updatedGame = await GameService.advancePhase(gameId, GamePhase.TURN_ASSIGNMENT); // o TURN_ASSIGNMENT
-
-            // Notifica tutti che il gioco inizia
-            // Usiamo buildPublicGameData per mandare lo stato aggiornato (con la nuova fase)
-            const payload = PayloadUtils.buildPublicGameData(updatedGame);
-            
-            // Aspettiamo magari 2-3 secondi per far vedere l'animazione dell'ultimo dado
-            setTimeout(() => {
-                NotificationService.broadcastToRoom(io, roomId, 'phaseChanged', payload);
-            }, 4000);
+            // Fondamentale altrimenti tra X secondi scatta il timeout e prova a cambiare fase di nuovo.
+            TimerService.clearTimer(roomId);
+            await startTurnAssignmentPhase(io, roomId, gameId);
         }
 
     } catch (err) {
@@ -137,34 +177,40 @@ async function handleRollDice(io, socket) {
     }
 }
 
-async function handleOrderPlayers(io, socket){
-    const roomId = socket.data.roomId;
-
+/**
+ * Funzione chiamata quando scade il timer della fase Dadi.
+ * Forza il lancio per chi si è coccato e poi cambia fase.
+ */
+async function forceRollsAndProceed(io, roomId, gameId) {
     try {
-        const gameId = await Game.findGameIdByRoomId(roomId);
-        if (!gameId) {
-            console.log("❌ Game non trovato per room:", roomId);
-            return;
-        }
-        console.log(`[Socket] OrderPlayers ricevuto in room ${roomId}`);
         let game = await GameService.getGameSnapshot(gameId);
-        const sortedPlayers = GameService.sortPlayersByDice(game.players, game.round);
+        // Cerco chi ancora deve lanciare il dado 
+        const idlePlayers = game.players.filter(p => !p.hasRolled);
+        // Per ognuno simuliamo il lancio
+        // Usiamo un loop map per fare le update in parallelo (o for..of)
+        const promises = idlePlayers.map(async (player) => {
+            // Aggiorna su Redis (hasRolled: true)
+            const updatedPlayer = await GameService.updatePlayerState(gameId, player.username, { hasRolled: true });
+            
+            // Emettiamo lo stesso evento di quando uno clicca.
+            // Il frontend riceverà questo e farà partire l'animazione 3D.
+            NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
+                username: player.username,
+                dice1: updatedPlayer.dice1,
+                dice2: updatedPlayer.dice2,
+                color: updatedPlayer.color
+            });
+        });
 
-        // TBD Aggiorna l'ordine dei giocatori nel DB 
-        for (const player of sortedPlayers) {
-            await GameService.updatePlayerState(gameId, player.username, { order: player.order });
-        }
-
-        // Ritorna l'ordine al frontend
-        NotificationService.broadcastToRoom(io, roomId, 'playersOrdered', { players: sortedPlayers.sort((a, b) => a.order - b.order) });
+        await Promise.all(promises);
         
-        console.log("Giocatori ordinati inviati al frontend.");
-    }catch (err) {
-        console.error(`[Errore] handleOrderPlayers:`, err);
-        socket.emit('lobbyError', { message: 'Errore ordinamento giocatori' });
+        //Passiamo alla fase successiva, il delay per l'animazione lo gestiamo in startTurnAssignmentPhase
+        await startTurnAssignmentPhase(io, roomId, gameId);
+        
+    } catch (err) {
+        console.error("Errore in forceRollsAndProceed:", err);
     }
 }
-
 
 async function handleOrderPhaseComplete(io, socket) {
     const roomId = socket.data.roomId;
@@ -239,10 +285,8 @@ async function handleDiscussionPhaseComplete(io, socket) {
         // 1. Recupera il Game ID
         const gameId = await Game.findGameIdByRoomId(roomId);  
         if (!gameId) {
-            console.log("❌ Game non trovato per room:", roomId);
             return;
         }
-        console.log(`[Socket] DiscussionPhaseComplete ricevuto in room ${roomId}`);
         // 2. Cambia fase a VOTING (votazione)
         const updatedGame = await GameService.advancePhase(gameId, GamePhase.VOTING);
         // 3. Costruisci il payload pubblico
@@ -262,8 +306,6 @@ async function handleDiscussionPhaseComplete(io, socket) {
 function attach(socket, io) {
     socket.on('gameStarted', (payload) => handleGameStarted(io, socket, payload));
     socket.on('DiceRoll', () => handleRollDice(io, socket));
-    socket.on('OrderPlayers', () => handleOrderPlayers(io, socket));
-    socket.on('OrderPhaseComplete', () => handleOrderPhaseComplete(io, socket));
     socket.on('ConfirmWord', () => handleConfirmWord(io, socket));
     socket.on('DiscussionPhaseComplete', () => handleDiscussionPhaseComplete(io, socket));
 }

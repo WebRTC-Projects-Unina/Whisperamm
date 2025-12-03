@@ -23,14 +23,18 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
             setReadyStates(payload.readyStates);
             if (payload.username === user.username) {
                 setIsReady(payload.readyStates[user.username] || false);
-                
             }
+        };
+
+        const handleGameCanStart = () => {
+            setAllReady(true);
+            if (isAdmin) setCanStartGame(true);
         };
 
         const handleAllUsersReady = (payload) => {
             console.log("🔔 allUsersReady ricevuto:", payload.allReady, "isAdmin:", isAdmin);
             setAllReady(payload.allReady);
-            if (isAdmin) setCanStartGame(payload.allReady);
+            if (isAdmin) setCanStartGame(payload.allReady); //Qui c'è il problemino mi sa
         };
 
         const handleChatMessage = (msg) => setMessages((prev) => [...prev, msg]);
@@ -57,6 +61,7 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
         socket.on('hostChanged', handleHostChanged); 
         socket.on('userReadyUpdate', handleUserReadyUpdate); 
         socket.on('gameCanStart', handleGameCanStart); 
+        socket.on('allUsersReady', handleAllUsersReady); 
         socket.on('gameStarted', handleGameStarted); 
 
         // Inizio JOIN robusto
@@ -82,6 +87,7 @@ export const useLobbySocket = (socket, connectSocket, roomId, user, isAdmin, set
                 socket.off('hostChanged', handleHostChanged);
                 socket.off('userReadyUpdate', handleUserReadyUpdate);
                 socket.off('gameCanStart', handleGameCanStart);
+                socket.off('allUsersReady', handleAllUsersReady);
                 socket.off('gameStarted', handleGameStarted);
                 socket.disconnect();
             }

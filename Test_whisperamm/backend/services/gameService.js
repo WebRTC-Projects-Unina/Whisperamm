@@ -68,7 +68,9 @@ class GameService {
             roomId,
             phase: GamePhase.DICE, 
             round: 1,
-            secrets: gameSecrets //Stringa JSON arriva dall'utilities
+            secrets: gameSecrets, //Stringa JSON arriva dall'utilities
+            // GG: devo aggiungere un altro campo per gestire il timer in maniera centralizzata
+            phaseEndTime: 0
         };
 
         // 4. Chiama il Model (CRUD pura)
@@ -128,6 +130,11 @@ class GameService {
                 meta.secrets = null; 
             }
         }
+
+        // Parsing del tempo (da stringa a numero)
+        if (meta.phaseEndTime) {
+            meta.phaseEndTime = parseInt(meta.phaseEndTime, 10);
+        }   
 
         // Manteniamo l'oggetto/mappa
         const players = []; 

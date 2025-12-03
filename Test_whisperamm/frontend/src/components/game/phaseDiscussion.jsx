@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import '../../style/phaseDiscussion.css';
 
 const PhaseDiscussion = ({ gameState, user, socket }) => {
-    const [timeLeft, setTimeLeft] = useState(60);
+    const [timeLeft, setTimeLeft] = useState(10);
     const players = gameState.players || [];
 
     
