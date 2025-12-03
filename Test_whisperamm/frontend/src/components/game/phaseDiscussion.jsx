@@ -1,37 +1,52 @@
 import React, { useState, useEffect } from 'react';
 import '../../style/phaseDiscussion.css';
 
-const PhaseDiscussion = ({ gameState, user, socket }) => {
-    const [timeLeft, setTimeLeft] = useState(10);
+const PhaseDiscussion = ({ gameState, user }) => {
+    
+    // 1. Calcolo tempo rimanente basato sul Server
+    // Non usiamo un valore fisso, ma la differenza tra ORA e la FINE stabilita dal server
+    const calculateTimeLeft = () => {
+        if (!gameState.endTime) return 0;
+        const now = Date.now();
+        const diff = gameState.endTime - now;
+        return Math.max(0, Math.ceil(diff / 1000));
+    };
+
+    const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
     const players = gameState.players || [];
 
-    
-    // Timer
+    // 2. Timer Sync
     useEffect(() => {
-        if (timeLeft === 0) {
-            console.log("⏰ Timer finito! Passaggio a PhaseVoting...");
-            if (socket) {
-                socket.emit('DiscussionPhaseComplete');
-            }
-            return;
-        }
-
         const interval = setInterval(() => {
-            setTimeLeft((prev) => prev - 1);
-        }, 1000);
+            const seconds = calculateTimeLeft();
+            setTimeLeft(seconds);
+
+            // Se il tempo finisce, non facciamo nulla di attivo.
+            // Il server cambierà la fase automaticamente e questo componente verrà smontato.
+            if (seconds <= 0) {
+                clearInterval(interval);
+            }
+        }, 500); // Aggiornamento fluido
 
         return () => clearInterval(interval);
-    }, [timeLeft, socket]);
+    }, [gameState.endTime]);
 
     return (
         <div className="phase-discussion-container">
-            <h2 className="phase-title">Discussione in corso... Cercate di trovare l'impostore</h2>
+            <div className="discussion-header">
+                <h2 className="phase-title">Discussione in corso</h2>
+                <p className="phase-subtitle">Cercate di trovare l'impostore!</p>
+            </div>
 
-            <p>Tempo rimanente</p>
-            <div className={`timer-display ${timeLeft <= 5 ? 'urgent' : ''}`}>
-                {timeLeft}s
+            {/* Timer Centrale */}
+            <div className="discussion-timer-wrapper">
+                <p>Tempo rimanente</p>
+                <div className={`timer-display ${timeLeft <= 10 ? 'urgent' : ''}`}>
+                    {timeLeft}s
+                </div>
             </div>
             
+            {/* Griglia Giocatori (Visualizzazione passiva) */}
             <div className="players-container">
                 {players.map((player) => {
                     const isMe = player.username === user.username;

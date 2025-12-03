@@ -1,55 +1,75 @@
 /* src/style/phaseVoting.css */
 
 .phase-voting-container {
+    width: 100%;
+    height: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100%;
-    height: 100%;
-    padding: 10px;
-    box-sizing: border-box;
+    /* Padding gestito dal contenitore padre Game-Card */
+    animation: fadeIn 0.5s ease-out;
+    position: relative;
 }
 
+/* HEADER */
 .voting-header {
     text-align: center;
     margin-bottom: 20px;
+    flex-shrink: 0;
 }
 
 .phase-title {
-    font-size: 1.8rem;
-    color: #fff;
+    font-size: 2rem;
+    color: #ff4444; /* Rosso per indicare pericolo/eliminazione */
     text-transform: uppercase;
-    text-shadow: 0 0 10px rgba(255, 0, 0, 0.5); /* Rosso tensione */
-    margin-bottom: 10px;
+    margin: 0;
+    text-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
 }
 
-.dead-banner {
-    background-color: rgba(100, 0, 0, 0.6);
-    color: #ffaaaa;
-    padding: 10px 20px;
-    border-radius: 8px;
-    margin-bottom: 20px;
-    font-weight: bold;
-    border: 1px solid #ff4444;
+.phase-subtitle {
+    color: #aaa;
+    margin: 5px 0 15px 0;
+    font-style: italic;
 }
 
-/* Griglia Giocatori */
+.voting-timer {
+    background: rgba(255, 68, 68, 0.1);
+    border: 2px solid #ff4444;
+    color: #ff4444;
+    padding: 5px 20px;
+    border-radius: 30px;
+    font-weight: 900;
+    font-size: 1.5rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 0 10px rgba(255, 68, 68, 0.2);
+    font-variant-numeric: tabular-nums;
+}
+
+.voting-timer.urgent {
+    animation: pulse-red 0.5s infinite alternate;
+    background: rgba(255, 68, 68, 0.3);
+}
+
+/* GRIGLIA VOTAZIONE */
 .voting-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-    gap: 15px;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 20px;
     width: 100%;
-    max-width: 800px;
-    margin-bottom: 80px; /* Spazio per il footer fisso */
-    overflow-y: auto;
+    max-width: 1000px;
+    overflow-y: auto; /* Scroll se troppi giocatori */
+    padding: 10px;
+    flex-grow: 1; /* Occupa spazio centrale */
 }
 
-/* Card Giocatore */
+/* CARTA GIOCATORE */
 .voting-card {
     background: rgba(255, 255, 255, 0.05);
-    border: 3px solid #444;
-    border-radius: 15px;
-    padding: 15px;
+    border: 3px solid #444; /* Default */
+    border-radius: 16px;
+    padding: 20px;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -59,114 +79,122 @@
 }
 
 .voting-card:hover {
+    transform: translateY(-5px);
     background: rgba(255, 255, 255, 0.1);
-    transform: translateY(-3px);
+    border-color: #aaa;
 }
 
-/* Stato Selezionato */
+/* STATO SELEZIONATO */
 .voting-card.selected {
-    background: rgba(255, 255, 255, 0.15);
+    background: rgba(255, 68, 68, 0.15); /* Sfondo rossiccio */
     transform: scale(1.05);
-    border-width: 4px;
+    box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+    border-color: #ff4444 !important; /* Forza bordo rosso */
 }
 
-/* Stato Disabilitato (dopo aver votato) */
-.voting-card.disabled {
+/* STATO BLOCCATO (Dopo voto o morto) */
+.voting-card.locked {
     opacity: 0.5;
     cursor: default;
-    pointer-events: none;
+    pointer-events: none; /* Disabilita click */
+    filter: grayscale(0.8);
 }
 
+/* STATO ME STESSO */
 .voting-card.me {
-    /* Opzionale: stile per se stessi */
+    border-style: dashed;
+    opacity: 0.7;
 }
 
-.player-name-voting {
-    margin-top: 10px;
-    font-weight: bold;
-    color: white;
-    font-size: 1rem;
+.voting-name {
+    margin-top: 15px;
+    font-weight: 700;
+    color: #fff;
+    font-size: 1.1rem;
     text-align: center;
     word-break: break-word;
 }
 
-.vote-target-icon {
+.target-icon {
     position: absolute;
-    top: 5px;
-    right: 5px;
+    top: 10px;
+    right: 10px;
     font-size: 1.5rem;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Footer Azioni Fisso in basso */
-.voting-actions {
-    position: absolute;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
+.voted-badge {
+    margin-top: 10px;
+    font-size: 0.75rem;
+    background: #444;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: #aaa;
+}
+
+/* FOOTER AZIONI */
+.voting-footer {
     display: flex;
-    gap: 20px;
-    width: 90%;
-    max-width: 500px;
     justify-content: center;
-    z-index: 10;
+    gap: 20px;
+    width: 100%;
+    margin-top: 20px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+}
+
+.btn-abstain {
+    background: transparent;
+    border: 2px solid #aaa;
+    color: #aaa;
+    padding: 15px 30px;
+    border-radius: 50px;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-abstain:hover {
+    border-color: #fff;
+    color: #fff;
+    background: rgba(255,255,255,0.1);
 }
 
 .btn-confirm-vote {
     background: linear-gradient(to bottom, #ff4444, #cc0000);
-    color: white;
-    font-size: 1.2rem;
-    font-weight: bold;
-    padding: 15px 30px;
-    border: none;
-    border-radius: 50px;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(255, 0, 0, 0.4);
-    flex: 2;
-    text-transform: uppercase;
-    transition: transform 0.1s;
+    box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
+    min-width: 250px;
+    flex-grow: 1; /* Prende più spazio */
+    max-width: 400px;
 }
 
-.btn-confirm-vote:active {
-    transform: scale(0.95);
+.btn-confirm-vote:hover:not(:disabled) {
+    box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
+    transform: translateY(-2px);
 }
 
-.btn-confirm-vote:disabled {
-    background: #555;
-    box-shadow: none;
-    cursor: not-allowed;
-    color: #aaa;
-}
-
-.btn-skip {
-    background: transparent;
-    border: 2px solid #888;
+/* MESSAGGIO DI ATTESA */
+.waiting-others-msg {
+    margin-top: 20px;
+    font-style: italic;
     color: #ccc;
-    padding: 10px 20px;
-    border-radius: 50px;
-    cursor: pointer;
-    font-weight: 600;
-    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: rgba(0,0,0,0.3);
+    padding: 10px 30px;
+    border-radius: 30px;
 }
 
-.btn-skip:hover {
-    background: rgba(255,255,255,0.1);
-    border-color: #fff;
-    color: #fff;
+/* ANIMAZIONI */
+@keyframes pulse-red {
+    from { transform: scale(1); box-shadow: 0 0 10px rgba(255, 68, 68, 0.2); }
+    to { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 68, 68, 0.6); }
 }
 
-/* Mobile adjustment */
-@media (max-width: 600px) {
-    .voting-grid {
-        grid-template-columns: repeat(2, 1fr);
-    }
-    .voting-actions {
-        flex-direction: column-reverse;
-        bottom: 10px;
-    }
-    .btn-confirm-vote {
-        width: 100%;
-    }
-    .btn-skip {
-        width: 100%;
-    }
+@keyframes popIn {
+    0% { transform: scale(0); } 
+    80% { transform: scale(1.2); } 
+    100% { transform: scale(1); }
 }

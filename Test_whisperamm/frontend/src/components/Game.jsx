@@ -10,6 +10,8 @@ import PhaseOrder from './game/phaseOrder';
 import PhaseWord from './game/phaseWord';
 import PhaseDiscussion from './game/phaseDiscussion';
 import PhaseVoting from '../components/game/PhaseVoting';
+import PhaseResults from './game/phaseResults';
+import PhaseFinish from './game/phaseFinish';
 import '../style/Game.css';
 import '../style/Lobby.css';
 
@@ -158,10 +160,27 @@ const Game = () => {
                     socket={socket}
                 />
             );
-        } else {
-            return <div style={{color: 'white', textAlign: 'center'}}>Fase sconosciuta: {phase}</div>;
+        } else if (phase === 'RESULTS' || phase === 'risultati') {
+            return (
+                <PhaseResults 
+                    gameState={gameState} 
+                    user={user} 
+                />
+            );
         }
-    };
+        else if (phase === 'FINISH' || phase === 'finita') {
+            return (
+                <PhaseFinish 
+                    gameState={gameState} 
+                    user={user}
+                    onLeave={handleLeaveGame} // Riutilizziamo la funzione di uscita
+                />
+            );
+        }
+        else {
+                    return <div style={{color: 'white', textAlign: 'center'}}>Fase sconosciuta: {phase}</div>;
+                }
+            };
 
     console.log("Render Game con stato:", userIdentity, gameState);
     return (

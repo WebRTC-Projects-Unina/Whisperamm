@@ -1,0 +1,145 @@
+/* src/style/phaseResults.css */
+
+.phase-results-container {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    animation: fadeIn 1s ease-out;
+    justify-content: center;
+}
+
+.results-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.timer-bar {
+    background: rgba(255,255,255,0.1);
+    padding: 5px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    color: #aaa;
+    margin-top: 10px;
+}
+
+/* --- CARD ELIMINAZIONE --- */
+.elimination-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    border: 2px solid #444;
+    border-radius: 20px;
+    padding: 40px;
+    width: 100%;
+    max-width: 500px;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5);
+}
+
+.elimination-text {
+    font-size: 1.2rem;
+    color: #ccc;
+    margin-bottom: 20px;
+}
+
+.victim-avatar {
+    width: 120px;
+    height: 120px;
+    border-radius: 50%;
+    background: #555;
+    color: white;
+    font-size: 4rem;
+    font-weight: 900;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+    border: 4px solid #fff;
+    margin-bottom: 15px;
+    animation: dropIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.victim-name {
+    font-size: 2.5rem;
+    color: white;
+    margin: 0 0 30px 0;
+    text-transform: uppercase;
+}
+
+/* --- REVEAL ANIMATION --- */
+.reveal-box {
+    width: 100%;
+    height: 80px;
+    position: relative;
+    perspective: 1000px;
+}
+
+.reveal-cover, .reveal-content {
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0; left: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    border-radius: 10px;
+    font-weight: 900;
+    font-size: 1.5rem;
+    text-transform: uppercase;
+    backface-visibility: hidden;
+    transition: transform 0.8s;
+}
+
+/* Copertina (Grigia con ???) */
+.reveal-cover {
+    background: #333;
+    color: #777;
+    border: 2px dashed #555;
+    transform: rotateX(0deg);
+}
+
+/* Contenuto (Il Ruolo) */
+.reveal-content {
+    transform: rotateX(180deg); /* Parte girato */
+    color: white;
+    box-shadow: 0 0 30px currentColor; /* Glow del colore del testo */
+}
+
+/* Quando aggiungiamo la classe .open */
+.reveal-box.open .reveal-cover {
+    transform: rotateX(180deg);
+}
+.reveal-box.open .reveal-content {
+    transform: rotateX(360deg);
+}
+
+/* Varianti Ruolo */
+.result-impostor {
+    background: #800;
+    border: 2px solid #f00;
+    color: #ff4444; /* Per il glow */
+    text-shadow: 0 0 10px black;
+}
+
+.result-civilian {
+    background: #005500;
+    border: 2px solid #0f0;
+    color: #44ff44;
+    text-shadow: 0 0 10px black;
+}
+
+/* --- CARD NO ELIMINATION --- */
+.no-elimination-card {
+    text-align: center;
+    padding: 40px;
+    background: rgba(255,255,255,0.05);
+    border-radius: 20px;
+}
+.peace-icon { font-size: 4rem; margin-bottom: 20px; }
+
+@keyframes dropIn {
+    from { transform: translateY(-50px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}

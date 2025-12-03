@@ -2,126 +2,152 @@ import React, { useState, useEffect } from 'react';
 import '../../style/phaseVoting.css';
 
 const PhaseVoting = ({ gameState, user, socket }) => {
-    const [timeLeft, setTimeLeft] = useState(30); // 30 secondi per votare
-    const [selectedPlayer, setSelectedPlayer] = useState(null); // Chi ho cliccato
-    const [hasVoted, setHasVoted] = useState(false); // Ho già confermato?
     
-    // Filtriamo solo i giocatori vivi (gli unici che possono essere votati)
+    // --- 1. LOGICA TIMER SINCRONIZZATA ---
+    const calculateTimeLeft = () => {
+        const endTime = gameState.endTime;
+        if (!endTime) return 0;
+        const now = Date.now();
+        return Math.max(0, Math.ceil((endTime - now) / 1000));
+    };
+
+    const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
+    const [selectedPlayer, setSelectedPlayer] = useState(null); // Username del target
+    const [hasConfirmed, setHasConfirmed] = useState(false);    // UI Lock dopo invio
+
+    // Recuperiamo info utili
     const alivePlayers = gameState.players?.filter(p => p.isAlive) || [];
     const myPlayer = gameState.players?.find(p => p.username === user.username);
     const amIAlive = myPlayer?.isAlive;
+    // Se nel gameState c'è traccia che ho già votato (recupero crash/refresh)
+    const serverSaysIVoted = myPlayer?.hasVoted;
 
-    // Timer Locale
     useEffect(() => {
-        if (timeLeft === 0) {
-            // Se il tempo scade e non ho votato, mando uno skip automatico o nulla
-            if (!hasVoted && amIAlive && socket) {
-                handleConfirmVote(null); // Null = Skip o astenuto
-            }
-            return;
-        }
-        const interval = setInterval(() => setTimeLeft((t) => t - 1), 1000);
+        const interval = setInterval(() => {
+            const seconds = calculateTimeLeft();
+            setTimeLeft(seconds);
+            if (seconds <= 0) clearInterval(interval);
+        }, 500);
         return () => clearInterval(interval);
-    }, [timeLeft, hasVoted, amIAlive, socket]);
+    }, [gameState.endTime]);
 
-    // Gestione Click su un giocatore
-    const handleSelect = (username) => {
-        if (hasVoted || !amIAlive) return;
-        // Se clicco quello già selezionato, deseleziono (modalità skip implicita)
-        if (selectedPlayer === username) {
+    // --- HANDLERS ---
+
+    const handleSelect = (targetUsername) => {
+        // Non puoi selezionare se: sei morto, hai già votato, o il tempo è finito
+        if (!amIAlive || hasConfirmed || serverSaysIVoted || timeLeft <= 0) return;
+        
+        // Toggle selezione
+        if (selectedPlayer === targetUsername) {
             setSelectedPlayer(null);
         } else {
-            setSelectedPlayer(username);
+            setSelectedPlayer(targetUsername);
         }
     };
 
-    // Invio del voto al server
-    const handleConfirmVote = (targetUsername) => {
-        if (hasVoted) return;
+    const submitVote = (target) => {
+        if (!socket) return;
         
-        console.log(`🗳️ Voto inviato per: ${targetUsername || "SKIP"}`);
+        console.log(`📤 Invio voto per: ${target || "ASTENSIONE"}`);
         
-        if (socket) {
-            // Emetti l'evento al server
-            socket.emit('submitVote', { 
-                roomId: gameState.roomId, 
-                voteFor: targetUsername // Se null è skip
-            });
-        }
-        setHasVoted(true);
+        // Emit al server
+        socket.emit('Vote', { voteFor: target }); // target è null per astensione
+        
+        // Blocco UI locale istantaneo
+        setHasConfirmed(true);
+        setSelectedPlayer(null);
     };
+
+    // Blocco totale se ho già votato (visivamente)
+    const isInteractionLocked = !amIAlive || hasConfirmed || serverSaysIVoted || timeLeft <= 0;
 
     return (
         <div className="phase-voting-container">
-            <header className="voting-header">
+            
+            {/* HEADER */}
+            <div className="voting-header">
                 <h2 className="phase-title">
-                    {hasVoted ? "Voto Registrato" : "Chi è l'Impostore?"}
+                    {isInteractionLocked && amIAlive ? "Voto Inviato" : "Chi vuoi eliminare?"}
                 </h2>
-                <div className={`timer-display ${timeLeft <= 10 ? 'urgent' : ''}`}>
+                <p className="phase-subtitle">
+                    {!amIAlive ? "Sei uno spettatore..." : "Scegli un sospettato o astieniti."}
+                </p>
+                
+                <div className={`voting-timer ${timeLeft <= 10 ? 'urgent' : ''}`}>
+                    <span className="timer-icon">⏱️</span>
                     {timeLeft}s
                 </div>
-            </header>
+            </div>
 
-            {!amIAlive && (
-                <div className="dead-banner">
-                    👻 Sei morto. Non puoi votare, ma goditi lo spettacolo.
-                </div>
-            )}
-
+            {/* GRIGLIA GIOCATORI VIVI */}
             <div className="voting-grid">
                 {alivePlayers.map((p) => {
-                    const isSelected = selectedPlayer === p.username;
                     const isMe = p.username === user.username;
+                    const isSelected = selectedPlayer === p.username;
+                    // Se il server ci dice che questo player ha votato, mostriamo un'icona (opzionale)
+                    const hasVotedBadge = p.hasVoted; 
 
                     return (
                         <div 
                             key={p.username}
-                            onClick={() => handleSelect(p.username)}
                             className={`voting-card 
                                 ${isSelected ? 'selected' : ''} 
-                                ${hasVoted ? 'disabled' : ''}
+                                ${isInteractionLocked ? 'locked' : ''}
                                 ${isMe ? 'me' : ''}
                             `}
-                            style={{ 
-                                borderColor: isSelected ? '#fff' : (p.color || '#444'),
-                                boxShadow: isSelected ? `0 0 20px ${p.color}` : 'none'
-                            }}
+                            onClick={() => handleSelect(p.username)}
+                            style={{ borderColor: isSelected ? '#ff4444' : (p.color || '#444') }}
                         >
+                            {/* Avatar */}
                             <div className="player-avatar-large" style={{ backgroundColor: p.color || '#777' }}>
                                 {p.username.charAt(0).toUpperCase()}
                             </div>
-                            <div className="player-name-voting">
+                            
+                            {/* Nome */}
+                            <div className="voting-name">
                                 {p.username} {isMe && "(Tu)"}
                             </div>
-                            {/* Se vuoi mostrare che l'hai selezionato visivamente con un'icona */}
-                            {isSelected && <div className="vote-target-icon">🎯</div>}
+
+                            {/* Indicatori Stato */}
+                            {isSelected && <div className="target-icon">🎯</div>}
+                            {hasVotedBadge && !isMe && <div className="voted-badge">Ha votato</div>}
                         </div>
                     );
                 })}
             </div>
 
-            {/* FOOTER AZIONI (Visibile solo se sono vivo e non ho votato) */}
-            {amIAlive && !hasVoted && (
-                <div className="voting-actions">
+            {/* FOOTER AZIONI (Solo per vivi che devono ancora votare) */}
+            {!isInteractionLocked && (
+                <div className="voting-footer">
+                    {/* Tasto Astensione (Sempre attivo) */}
                     <button 
-                        className="btn-skip"
-                        onClick={() => handleConfirmVote(null)}
+                        className="btn-abstain"
+                        onClick={() => submitVote(null)}
                     >
-                        Saltare il voto 🤷
+                        🤷 ASTIENITI
                     </button>
 
+                    {/* Tasto Vota (Attivo solo se selezionato) */}
                     <button 
-                        className="btn-confirm-vote"
-                        onClick={() => handleConfirmVote(selectedPlayer)}
-                        disabled={!selectedPlayer} // Disabilita se non ho selezionato nessuno
+                        className="game-btn-action btn-confirm-vote"
+                        disabled={!selectedPlayer}
+                        onClick={() => submitVote(selectedPlayer)}
+                        style={{ 
+                            opacity: selectedPlayer ? 1 : 0.5,
+                            cursor: selectedPlayer ? 'pointer' : 'not-allowed'
+                        }}
                     >
-                        Vota {selectedPlayer || ""} 🔪
+                        {selectedPlayer ? `VOTA ${selectedPlayer.toUpperCase()} 🔪` : "SELEZIONA UN GIOCATORE"}
                     </button>
                 </div>
             )}
 
-            {hasVoted && (
-                <p className="status-text">In attesa degli altri giocatori...</p>
+            {/* Messaggio di attesa post-voto */}
+            {(hasConfirmed || serverSaysIVoted) && (
+                <div className="waiting-others-msg">
+                    <div className="loader-dots"></div>
+                    In attesa degli altri voti...
+                </div>
             )}
         </div>
     );
