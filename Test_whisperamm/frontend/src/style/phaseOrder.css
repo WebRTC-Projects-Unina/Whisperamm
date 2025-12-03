@@ -5,12 +5,71 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 20px;
+    /* padding: 20px; Rimosso padding eccessivo */
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
     animation: fadeIn 0.5s ease-out;
+    overflow-y: auto; /* Permette scroll se la lista è lunga */
+}
+
+/* --- STILE TIMER --- */
+.phase-timer-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 20px;
+    margin-top: 10px;
+}
+
+.timer-label {
+    color: #aaa;
+    margin: 0 0 8px 0;
+    text-transform: uppercase;
+    font-size: 0.85rem;
+    letter-spacing: 2px;
+    font-weight: 600;
+}
+
+.timer-display-large {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    border: 3px solid #d249ff; /* Bordo viola neon */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 20px rgba(210, 73, 255, 0.3);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Effetto rimbalzo */
+}
+
+/* Effetto Urgenza (Ultimi 5 secondi) */
+.timer-display-large.urgent {
+    border-color: #ff4444;
+    color: #ff4444;
+    background: rgba(255, 68, 68, 0.1);
+    box-shadow: 0 0 30px rgba(255, 68, 68, 0.6);
+    animation: pulse-urgent 0.8s infinite alternate;
+    transform: scale(1.1);
+}
+
+@keyframes pulse-urgent {
+    from { transform: scale(1); opacity: 0.8; }
+    to { transform: scale(1.15); opacity: 1; }
+}
+
+/* --- TITOLI --- */
+.phase-title {
+    font-size: 1.5rem; /* Ridotto leggermente per stare meglio */
+    color: #fff;
+    text-transform: uppercase;
+    margin: 0 0 20px 0;
+    text-shadow: 0 0 10px rgba(210, 73, 255, 0.5);
+    text-align: center;
 }
 
 .phase-title {

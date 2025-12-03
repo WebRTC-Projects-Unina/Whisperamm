@@ -1,7 +1,7 @@
 // src/components/game/PhaseDice.jsx
 import React, { useState, useEffect } from 'react'; 
-import DiceArena from '../DiceArena';
-import RollingDiceIcon from '../RollingDiceIcon';
+import DiceArena from './subgame/DiceArena'; // Assicurati che il path sia corretto rispetto alla tua struttura
+import RollingDiceIcon from './subgame/RollingDiceIcon'; // Idem
 
 const PhaseDice = ({ 
     gameState, 
@@ -12,34 +12,49 @@ const PhaseDice = ({
     isWaiting
 }) => {
     
-    // Calcoliamo qui se l'utente ha già lanciato
     const myPlayer = gameState.players?.find(p => p.username === user.username);
     const amIReady = myPlayer?.hasRolled;
+    const endTime = gameState.endTime;
 
-    // --- LOGICA TIMER E AUTO-LANCIO ---
-    const [timeLeft, setTimeLeft] = useState(15); 
+    // Calcolo iniziale
+    const calculateTimeLeft = () => {
+        // Se non c'è ancora endTime, ritorniamo NULL (non 0) per indicare "non pronto"
+        if (!endTime) return null; 
+        const now = Date.now();
+        const diff = endTime - now;
+        return Math.max(0, Math.floor(diff / 1000));
+    };
+
+    const [timeLeft, setTimeLeft] = useState(calculateTimeLeft()); 
 
     useEffect(() => {
-        // 1. Se il tempo è scaduto...
-        if (timeLeft === 0) {
-            // ...e non ho ancora lanciato e non sto già aspettando...
-            if (!amIReady && !isWaiting) {
-                console.log("⏰ Tempo scaduto! Auto-lancio in corso...");
-                onDiceRoll(); // <--- SIMULA IL CLICK DEL BOTTONE
-            }
+        // Se non c'è endTime, aspettiamo che arrivi
+        if (!endTime) {
+            setTimeLeft(null);
             return;
         }
 
-        // 2. Se ho già lanciato, fermiamo il countdown (opzionale, ma pulito)
+        // Se ho già lanciato, non serve aggiornare
         if (amIReady) return;
 
-        // 3. Countdown normale
         const interval = setInterval(() => {
-            setTimeLeft((prev) => prev - 1);
-        }, 1000);
+            const seconds = calculateTimeLeft();
+            setTimeLeft(seconds);
+
+            if (seconds !== null && seconds <= 0) {
+                clearInterval(interval);
+                if (!amIReady && !isWaiting) {
+                    console.log("⏰ Tempo scaduto! Auto-lancio...");
+                    onDiceRoll(); 
+                }
+            }
+        }, 500);
+
+        // Primo aggiornamento immediato per evitare lag visivo
+        setTimeLeft(calculateTimeLeft());
 
         return () => clearInterval(interval);
-    }, [timeLeft, amIReady, isWaiting, onDiceRoll]);
+    }, [endTime, amIReady, isWaiting, onDiceRoll]);
 
     return (
         <>
@@ -47,8 +62,9 @@ const PhaseDice = ({
             {!amIReady && (
                 <div className="dice-phase-timer">
                     <p>Tempo Rimanente</p>
-                    <div className={`timer-display ${timeLeft <= 5 ? 'urgent' : ''}`}>
-                        {timeLeft}s
+                    {/* Se timeLeft è null (loading), mostriamo un placeholder o nulla */}
+                    <div className={`timer-display ${(timeLeft !== null && timeLeft <= 5) ? 'urgent' : ''}`}>
+                        {timeLeft !== null ? `${timeLeft}s` : <span style={{fontSize:'1rem'}}>...</span>}
                     </div>
                 </div>
             )}
@@ -109,7 +125,7 @@ const PhaseDice = ({
                         <button 
                             className="game-btn-action" 
                             onClick={onDiceRoll}
-                            disabled={isWaiting} // Non disabilitiamo più con timeLeft === 0
+                            disabled={isWaiting}
                             style={{ opacity: isWaiting ? 0.6 : 1, cursor: isWaiting ? 'not-allowed' : 'pointer' }}
                         >
                             {isWaiting ? "Lancio in corso..." : "🎲 LANCIA I DADI"}

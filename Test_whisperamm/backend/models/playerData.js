@@ -20,9 +20,11 @@ class PlayerData {
         order,          // Ordine di turno
         hasRolled: false,
         hasSpoken: false,
+        hasVoted: false,
         isAlive: true,
         canTalk: true, // Di base true in quanto appena accedo a Game posso parlare
         votesReceived: 0, 
+        
     };
   }
 
