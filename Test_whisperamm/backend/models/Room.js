@@ -10,13 +10,8 @@ const RoomStatus = {
 class Room {
 
     // ==========================================
-    // METODI DI LETTURA
+    // 1. METODI DI LETTURA
     // ==========================================
-
-    static async getHost(roomId) {
-        const client = getRedisClient();
-        return await client.hGet(`room:${roomId}`, 'host');
-    }
 
     static async get(roomId) {
         const client = getRedisClient();
@@ -34,7 +29,7 @@ class Room {
             maxPlayers: parseInt(roomData.maxPlayers),
             rounds: parseInt(roomData.rounds),
             status: roomData.status,
-            gameId: roomData.gameId, // Importante restituirlo se c'è
+            gameId: roomData.gameId,
             players,
             currentPlayers: players.length,
         };
@@ -45,77 +40,44 @@ class Room {
         return await client.sMembers(`room:${roomId}:players`);
     }
 
+    static async getHost(roomId) {
+        const client = getRedisClient();
+        return await client.hGet(`room:${roomId}`, 'host');
+    }
+
+    // Metodo fondamentale per checkRoom
     static async isPlayerInRoom(roomId, username) {
         const client = getRedisClient();
         return await client.sIsMember(`room:${roomId}:players`, username);
     }
 
-    static async getSocket(roomId, username) {
-        const client = getRedisClient();
-        return await client.hGet(`room:${roomId}:sockets`, username);
-    }
-
-    /**
-     * Controlla se l'utente ha una voce nella mappa socket (anche vuota).
-     * Serve per capire se è un Rejoin.
-     */
+    // Metodo fondamentale per Rejoin Check
     static async hasSocketHistory(roomId, username) {
         const client = getRedisClient();
         return await client.hExists(`room:${roomId}:sockets`, username);
     }
-
-    // ==========================================
-    // TRANSAZIONI E OPERAZIONI SU CHAIN
-    // ==========================================
-
-    /**
-     * Usato da Game.create per linkare Room e Game atomicamente.
-     */
-    static linkToGame(chain, roomId, gameId) {
-        chain.hSet(`room:${roomId}`, {
-            gameId: gameId,
-            status: RoomStatus.PLAYING
-        });
-    }
-
-    /**
-     * Esegue la transazione di ingresso completa
-     */
-    static async joinTransaction(roomId, username, socketId) {
+    
+    // Serve per l'helper nel socket service
+    static async getSocket(roomId, username) {
         const client = getRedisClient();
-        const multi = client.multi();
-
-        // 1. Aggiungi a Players
-        multi.sAdd(`room:${roomId}:players`, username);
-        // 2. Salva/Aggiorna Socket
-        multi.hSet(`room:${roomId}:sockets`, username, socketId);
-
-        return await multi.exec();
+        return await client.hGet(`room:${roomId}:sockets`, username);
     }
+    
+    static async deleteAllSockets(roomId) {
+        const client = getRedisClient();
+        return await client.del(`room:${roomId}:sockets`);
+    }
+
+    // ==========================================
+    // 2. METODI ATOMICI AUTONOMI (Il Service li chiama direttamente)
+    // ==========================================
 
     /**
-     * Esegue la transazione di uscita (Soft Delete per Rejoin)
+     * Crea la stanza. Transazione interna.
      */
-    static async leaveTransaction(roomId, username) {
-        const client = getRedisClient();
-        const multi = client.multi();
-
-        // 1. Rimuovi da Players (così sAdd ritornerà 1 se rientra)
-        multi.sRem(`room:${roomId}:players`, username);
-        // 2. Setta Socket a vuoto (ma mantieni la chiave per history)
-        multi.hSet(`room:${roomId}:sockets`, username, ''); 
-        // 3. Leggi chi resta
-        multi.sMembers(`room:${roomId}:players`);
-
-        return await multi.exec();
-    }
-
-    // ==========================================
-    // METODI DI SCRITTURA STANDARD
-    // ==========================================
-
     static async create(roomId, roomName, hostUsername, maxPlayers, rounds) {
         const client = getRedisClient();
+        
         const hostExists = await client.exists(`user:${hostUsername}`);
         if (!hostExists) return null;
         
@@ -130,18 +92,32 @@ class Room {
         });
         multi.sAdd(`room:${roomId}:players`, hostUsername);
         multi.sAdd('rooms:active', roomId);
+        
         await multi.exec();
         return roomId;
     }
 
-    static async updateHost(roomId, newHostUsername) {
+    /**
+     * Aggiunge utente e socket. Transazione interna semplice.
+     */
+    static async joinTransaction(roomId, username, socketId) {
         const client = getRedisClient();
-        return await client.hSet(`room:${roomId}`, 'host', newHostUsername);
-    }
+        const multi = client.multi();
 
-    static async updateStatus(roomId, newStatus) {
+        multi.sAdd(`room:${roomId}:players`, username);
+        multi.hSet(`room:${roomId}:sockets`, username, socketId);
+
+        return await multi.exec();
+    }
+    
+    static async updateStatus(roomId, status) {
         const client = getRedisClient();
-        return await client.hSet(`room:${roomId}`, 'status', newStatus);
+        return await client.hSet(`room:${roomId}`, 'status', status);
+    }
+    
+    static async updateHost(roomId, newHost) {
+        const client = getRedisClient();
+        return await client.hSet(`room:${roomId}`, 'host', newHost);
     }
 
     static async delete(roomId) {
@@ -156,9 +132,40 @@ class Room {
         return results.some(r => r > 0);
     }
 
-    static async deleteAllSockets(roomId) {
-        const client = getRedisClient();
-        return await client.del(`room:${roomId}:sockets`);
+    // ==========================================
+    // 3. METODI "CHAINABLE" (Per Orchestrazione Service & Game Model)
+    // ==========================================
+    // Questi metodi ACCETTANO 'chain' (multi) e NON fanno exec.
+
+    static chainRemovePlayer(chain, roomId, username) {
+        chain.sRem(`room:${roomId}:players`, username);
+    }
+
+    static chainClearSocket(chain, roomId, username) {
+        chain.hSet(`room:${roomId}:sockets`, username, '');
+    }
+
+    static chainUpdateHost(chain, roomId, newHostUsername) {
+        chain.hSet(`room:${roomId}`, 'host', newHostUsername);
+    }
+
+    static chainDeleteRoom(chain, roomId) {
+        chain.del(`room:${roomId}`);
+        chain.del(`room:${roomId}:players`);
+        chain.del(`room:${roomId}:sockets`);
+        chain.del(`room:${roomId}:leaved`);
+        chain.sRem('rooms:active', roomId);
+    }
+
+    /**
+     * IMPORTANTE: Nome ripristinato a 'linkToGame' perché Game.js lo chiama così.
+     * Accetta una chain/multi da Game.create.
+     */
+    static linkToGame(chain, roomId, gameId) {
+        chain.hSet(`room:${roomId}`, {
+            gameId: gameId,
+            status: RoomStatus.PLAYING
+        });
     }
 }
 

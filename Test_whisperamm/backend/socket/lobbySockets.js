@@ -54,7 +54,7 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
         // 2. Transazione (ritorna { added, isRejoin, room })
         const result = await RoomService.addPlayerToRoom(roomId, username, socket.id); 
 
-        // 3. Messaggio Personalizzato
+        // 3. Messaggio Personalizzato in chat
         if (result.isRejoin) {
             // L'utente aveva una entry nella socket map -> Rejoin
             NotificationService.broadcastToRoom(io, roomId, 'chatMessage', {
@@ -87,7 +87,10 @@ async function handleDisconnect(io, socket) {
     if (!roomId || !username) return;
 
     try {
-        // Safeguard: se il socket salvato è diverso (e non vuoto), ignora
+
+        //  Perchè serve questa cosa?
+        //Safeguard: se il socket salvato è diverso (e non vuoto) da quello attuale, ignora
+        //Fondamentale nel caso in cui la disconnect arrivi dopo la join a seguito di una F5
         const currentStoredSocket = await SocketService.getSocketId(roomId, username);
         if (currentStoredSocket && currentStoredSocket !== socket.id) {
             return; 

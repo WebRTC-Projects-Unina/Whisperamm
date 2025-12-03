@@ -1,12 +1,13 @@
-// services/roomService.js
+// services/RoomService.js
 const { Room, RoomStatus } = require('../models/Room');
 const UserService = require('./userService');
+const { getRedisClient } = require('../models/redis'); // Importato SOLO per removePlayer
 const crypto = require('crypto');
 
 class RoomService {
     
     // ==========================================
-    // CREAZIONE E VALIDAZIONE
+    // CASO SEMPLICE: Delega al Model
     // ==========================================
 
     static async createRoom(roomName, hostUsername, maxPlayers, rounds) {
@@ -19,6 +20,8 @@ class RoomService {
         if (!hostExists) throw new Error('HOST_NOT_FOUND');
 
         const roomId = crypto.randomUUID().slice(0, 6).toUpperCase();
+        
+        // Il Model gestisce la transazione internamente
         const createdId = await Room.create(roomId, trimmedName, hostUsername, maxPlayers, rounds);
         
         if (!createdId) throw new Error('ROOM_CREATION_FAILED');
@@ -27,42 +30,27 @@ class RoomService {
 
     static async checkRoomAccess(roomId, username) {
         const room = await Room.get(roomId);
-        
-        if (!room) {
-            return { canJoin: false, reason: 'ROOM_NOT_FOUND', room: null };
-        }
+        if (!room) return { canJoin: false, reason: 'ROOM_NOT_FOUND', room: null };
 
         const isAlreadyIn = await Room.isPlayerInRoom(roomId, username);
-        if (isAlreadyIn) {
-            return { canJoin: true, reason: 'ALREADY_IN_ROOM', isRejoining: true, room };
-        }
+        if (isAlreadyIn) return { canJoin: true, reason: 'ALREADY_IN_ROOM', isRejoining: true, room };
 
-        if (room.currentPlayers >= room.maxPlayers) {
-            return { canJoin: false, reason: 'ROOM_FULL', room };
-        }
-
-        if (room.status !== RoomStatus.WAITING) {
-            return { canJoin: false, reason: 'GAME_STARTED', room };
-        }
+        if (room.currentPlayers >= room.maxPlayers) return { canJoin: false, reason: 'ROOM_FULL', room };
+        if (room.status !== RoomStatus.WAITING) return { canJoin: false, reason: 'GAME_STARTED', room };
 
         return { canJoin: true, reason: 'CAN_JOIN', isRejoining: false, room };
     }
-
-    // ==========================================
-    // GESTIONE ACCESSO TRANSAZIONALE (Socket)
-    // ==========================================
 
     static async addPlayerToRoom(roomId, username, socketId) {
         const userExists = await UserService.userExists(username);
         if (!userExists) throw new Error('USER_NOT_FOUND');
 
-        // 1. CHECK REJOIN: Deleghiamo al Model il controllo della history
+        // Check history (Lettura)
         const alreadyHasHistory = await Room.hasSocketHistory(roomId, username);
 
-        // 2. TRANSAZIONE: Deleghiamo al Model l'esecuzione atomica
+        // Transazione interna al Model (Semplice: Add Player + Set Socket)
         const [sAddResult, hSetResult] = await Room.joinTransaction(roomId, username, socketId);
 
-        // sAddResult è 1 se l'elemento è nuovo, 0 se esisteva già
         return { 
             added: sAddResult === 1, 
             isRejoin: alreadyHasHistory, 
@@ -70,39 +58,91 @@ class RoomService {
         };
     }
 
+    // ==========================================
+    // CASO COMPLESSO: Orchestrazione nel Service
+    // ==========================================
+
     static async removePlayerFromRoom(roomId, username) {
         const room = await Room.get(roomId);
         if (!room) return { deletedRoom: true };
 
         await UserService.setUserReady(username, false);
 
-        // TRANSAZIONE: Deleghiamo al Model la rimozione sicura
-        // Ritorna: [risultatoRimozionePlayer, risultatoResetSocket, arrayPlayerRimanenti]
-        const [remPlayer, remSocket, remainingPlayers] = await Room.leaveTransaction(roomId, username);
+        const client = getRedisClient();
+        const playersKey = `room:${roomId}:players`;
+        const roomKey = `room:${roomId}`;
 
-        const activePlayers = remainingPlayers || [];
-        let deletedRoom = false;
-        let hostChanged = false;
-        let updatedRoom = null;
+        // Loop Optimistic Locking (WATCH)
+        while (true) {
+            try {
+                // 1. WATCH
+                await client.watch([playersKey, roomKey]);
 
-        if (activePlayers.length === 0) {
-            await Room.delete(roomId);
-            deletedRoom = true;
-        } else {
-            if (room.host === username) {
-                const newHost = activePlayers[0];
-                await Room.updateHost(roomId, newHost);
-                hostChanged = true;
+                // 2. READ
+                const [players, currentHost] = await Promise.all([
+                    client.sMembers(playersKey),
+                    client.hGet(roomKey, 'host')
+                ]);
+
+                const remainingPlayers = players.filter(p => p !== username);
+                
+                // 3. START MULTI
+                const multi = client.multi();
+
+                // Operazioni Base (usiamo i metodi chainable del Model)
+                Room.chainRemovePlayer(multi, roomId, username);
+                Room.chainClearSocket(multi, roomId, username);
+
+                let deletedRoom = false;
+                let hostChanged = false;
+
+                // 4. LOGICA CONDIZIONALE
+                if (remainingPlayers.length === 0) {
+                    Room.chainDeleteRoom(multi, roomId);
+                    deletedRoom = true;
+                } else {
+                    if (currentHost === username) {
+                        const newHost = remainingPlayers[0];
+                        Room.chainUpdateHost(multi, roomId, newHost);
+                        hostChanged = true;
+                    }
+                }
+
+                // 5. EXEC
+                const results = await multi.exec();
+
+                // Se results è valido, usciamo dal loop
+                if (results) {
+                    let updatedRoom = null;
+                    if (!deletedRoom) {
+                        updatedRoom = await Room.get(roomId);
+                    }
+                    return { updatedRoom, hostChanged, deletedRoom };
+                }
+                // Se results è null, loopa e riprova (concorrenza rilevata)
+
+            } catch (error) {
+                console.error("Transazione removePlayer fallita:", error);
+                throw error;
             }
-            updatedRoom = await Room.get(roomId);
         }
-        
-        return { updatedRoom, hostChanged, deletedRoom };
     }
 
     // ==========================================
     // UTILITIES
     // ==========================================
+
+    static async setAllPlayersInGame(roomId) {
+        const players = await Room.getPlayers(roomId);
+        if (!players || players.length === 0) return;
+
+        // Update User Statuses
+        await UserService.setMultipleUsersStatus(players, UserService.UserStatus.INGAME);
+        
+        // Update Room Status
+        await Room.updateStatus(roomId, RoomStatus.PLAYING);
+    }
+
     static async isUserHost(roomId, username) {
         const host = await Room.getHost(roomId);
         return host === username;
@@ -127,16 +167,6 @@ class RoomService {
         const readyStates = await this.getReadyStates(roomId);
         const allReady = room.players.every(u => readyStates[u] === true);
         return { allReady, readyStates };
-    }
-
-    static async setAllPlayersInGame(roomId) {
-        // Recuperiamo la lista dei giocatori
-        const players = await Room.getPlayers(roomId);
-        if (!players || players.length === 0) return;
-
-        // Usiamo UserService per settare lo stato (UserStatus.INGAME)
-        // Assicurati che UserService abbia un metodo adatto, altrimenti lo facciamo qui
-        return await UserService.setMultipleUsersStatus(players, UserService.UserStatus.INGAME);
     }
 }
 
