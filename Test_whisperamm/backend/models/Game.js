@@ -39,7 +39,7 @@ class Game {
         // di Room, stiamo usando MVC.. dunque deleghiamo Room 
         // dato che comunque deve essere terminata la transazione, passandogli l'oggetto multi!
         if (metaData.roomId) {
-            Room.linkToGame(multi,metaData.roomId,gameId)
+            await Room.linkToGame(multi,metaData.roomId,gameId)
         }
 
         await multi.exec();
@@ -48,7 +48,7 @@ class Game {
     }
 
     // READ: Recupera i dati grezzi, intesi nel json che torna, che non ce ne fotte dato che lo sistema il service.
-    static async findByIdRaw(gameId) {
+    static async getGame(gameId) {
         const client = getRedisClient();
         
         const [meta, playersHash] = await Promise.all([
@@ -59,7 +59,7 @@ class Game {
         // Se non c'è meta, la partita non esiste
         if (!meta || Object.keys(meta).length === 0) return null;
 
-        return { meta, playersHash };
+        return { meta, playersHash }; //Ciò che ci interessa di game.
     }
 
     static async findGameIdByRoomId(roomId) {

@@ -6,80 +6,70 @@ const NotificationService = require('../services/notificationService'); // Nota 
 const PayloadUtils = require('../utils/gamePayloadUtils');
 const { Game, GamePhase } = require('../models/Game');
 
+
 async function handleStartGame(io, socket, { roomId }) {
     const { username } = socket.data;
-    NotificationService.broadcastToRoom(
-        io,             // 1. io
-        roomId,         // 2. roomId 
-        'gameLoading',  // 3. eventName 
-        ''     // 4. payload che secondo me può essere pure vuoto al momento
-    );
-    //Questo serve solo per triggerare al Front-end di caricare Game..
 
     try {
-        // 1. VALIDAZIONE, boh nun serv pens
+        // 1. VALIDAZIONE
+        // Controllo permessi Host
         const isHost = await RoomService.isUserHost(roomId, username);
         if (!isHost) {
-            socket.emit('lobbyError', { message: 'Solo l\'admin può avviare la partita.' });
-            return;
+            return socket.emit('error', { message: 'Solo l\'admin può avviare la partita.' });
+        }
+
+        // (Opzionale) Controllo se partita esiste già per evitare doppi click
+        const existingGame = await GameService.getGameSnapshotByRoomId(roomId);
+        if (existingGame) {
+            return socket.emit('error', { message: 'La partita è già iniziata!' });
         }
 
         console.log(`[Socket] Admin ${username} avvia gioco in ${roomId}`);
 
-        // 2. BUSINESS LOGIC (Creazione)
+        // 2. TRIGGER LOADING (UX)
+        // Utile per far apparire uno spinner mentre il server macina
+        NotificationService.broadcastToRoom(io, roomId, 'gameLoading', {});
+
+        // 3. CREAZIONE PARTITA (Business Logic pura)
         const game = await GameService.createGame(roomId);
 
-        // 3. STEP A: BROADCAST (Dati Pubblici, round e phase)
-        const publicPayload = PayloadUtils.buildPublicGameData(game);
+        // 4. INVIO DATI AL FRONTEND
         
+        // A. Dati Pubblici (Fase, Round, Ordine turni, Chi è vivo)
+        // Cambiato evento da 'parametri' a 'gameStarted'
+        const publicPayload = PayloadUtils.buildPublicGameData(game);
+        NotificationService.broadcastToRoom(io, roomId, 'gameStarted', publicPayload);
 
-
-        NotificationService.broadcastToRoom(
-            io, 
-            roomId, 
-            'parametri', //Sennò front-end non sa quando passare a component..  
-            publicPayload
-        );
-
-        // Diciamo a ciascuno: "Ecco chi sei tu segretamente".
-        // Il Frontend userà questo per mostrare la parola segreta.
+        // B. Dati Privati (Identità e Parola segreta)
+        // Usa la tua funzione sendPersonalizedToRoom
         NotificationService.sendPersonalizedToRoom(
             io,
-            roomId, 
-            game.players, 
-            'identityAssigned', // <--- Evento B (Privato)
-            (player) => {
-                // Callback che costruisce il dato privato
-                return PayloadUtils.buildPrivateIdentity(player, game.secrets);
-            }
+            roomId,
+            game.players,
+            'identityAssigned',
+            (player) => PayloadUtils.buildPrivateIdentity(player, game.secrets) //Ho letteralmente passato una funzione.
         );
 
-        // GG: Inizia la sincronizzazione centralizzata, quindi i player hanno 15 secondi
-        // per lanciare i dadi in autonomia altrimenti è automatico
+        // 5. AVVIO TIMER FASE DADI
+        // Logica: Avvia timer -> Se scade, chiama la funzione di timeout
         await TimerService.startTimedPhase(
             io, 
             roomId, 
             game.gameId, 
             GamePhase.DICE, 
-            30, // 30 Secondi
+            30, // 30 Secondi - da parametrizzare
             async () => {
-                // CALLBACK TIMEOUT: Se nessuno clicca, il server forza i lanci
-                console.log(`[Timer] Scaduto fase DICE in ${roomId}.`);
-                await forceRollsAndProceed(io, roomId, game.gameId);
+                await forceRollsAndProceed(io,roomId,game.gameId)
             }
         );
 
-
-
     } catch (err) {
-        console.error(`[Errore] handleGameStarted:`, err);
-        socket.emit('lobbyError', { 
-            message: err.message || 'Errore avvio partita' 
+        console.error(`[Errore] handleStartGame:`, err);
+        socket.emit('error', { 
+            message: err.message || 'Errore critico avvio partita' 
         });
     }
-    
 }
-
 
 /**
  * Funzione helper per passare alla fase TURN_ASSIGNMENT.
@@ -130,7 +120,7 @@ async function handleRollDice(io, socket) {
     try {
 
         // Recupera Game ID
-        const gameId = await Game.findGameIdByRoomId(roomId);
+        const gameId = await Game.findGameIdByRoomId(roomId); //Dio porco
         if (!gameId) return;
 
         // RECUPERIAMO IL GIOCO AGGIORNATO (che ora include il hasRolled: true appena messo)

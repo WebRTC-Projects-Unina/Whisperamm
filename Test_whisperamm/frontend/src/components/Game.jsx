@@ -71,7 +71,7 @@ const Game = () => {
             });
         };
 
-        socket.on('parametri', handleGameParams);
+        socket.on('gameStarted', handleGameParams);
         socket.on('identityAssigned', handleIdentity);
         socket.on('playerRolledDice', handlePrintDiceRoll);
         socket.on('phaseChanged', handlePhaseChange);
