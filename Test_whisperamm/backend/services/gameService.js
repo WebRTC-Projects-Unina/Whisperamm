@@ -10,8 +10,9 @@ class GameService {
     static async createGame(roomId) {       
         const gameId = crypto.randomUUID();
         await RoomService.setAllPlayersInGame(roomId) //Novità peppiniana
-        
-        const playersList = await RoomService.getPlayers(roomId); 
+        const room = await RoomService.getRoom(roomId);
+        const playersList = room.players;
+        const maxRound = room.rounds;
 
 
         // Genera le parole per Civili e Impostori, in più l'impostore
@@ -52,13 +53,6 @@ class GameService {
             };
         });
 
-            // Ordiniamo i valori dei dadi in ordine decrescente
-            // e assegniamo l'ordine di turno a ciascun giocatore
-            diceValues.sort((a, b) => (b.value1 + b.value2) - (a.value1 + a.value2));
-            diceValues.forEach((data, index) => {
-            data.order = index + 1; 
-        });
-
         // Costruisci mappa giocatori (che verrà serializzato)
         const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors);
 
@@ -67,7 +61,8 @@ class GameService {
             gameId,
             roomId,
             phase: GamePhase.DICE, 
-            round: 1,
+            maxRound,
+            currentRound: 1,
             secrets: gameSecrets, //Stringa JSON arriva dall'utilities
             // GG: devo aggiungere un altro campo per gestire il timer in maniera centralizzata
             phaseEndTime: 0
@@ -105,7 +100,6 @@ class GameService {
                 userDiceData.value1, 
                 userDiceData.value2, 
                 userColor, // color 
-                userDiceData.order
             );
 
             // Serializziamo per Redis
@@ -134,6 +128,9 @@ class GameService {
                 console.error("Errore parsing secrets service:", e);
                 meta.secrets = null; 
             }
+        }
+        if(meta.currentRound) {
+            meta.currentRound = parseInt(meta.currentRound, 10);
         }
         // Parsing del tempo (da stringa a numero)
         if (meta.phaseEndTime) {
@@ -191,8 +188,9 @@ class GameService {
         return await this.getGameSnapshot(gameId);
     }
 
-    static sortPlayersByDice(playersArray, round) {
-        if (round === 1) {
+    static sortPlayersByDice(playersArray, currentRound) {
+        // Primo round
+        if (currentRound === 1) {
             // Clona l'array per non modificare l'originale
             const sorted = [...playersArray].sort((a, b) => {
                 return (b.dice1 + b.dice2) - (a.dice1 + a.dice2);
@@ -293,11 +291,11 @@ class GameService {
     static async startNewRound(gameId) {
         const game = await this.getGameSnapshot(gameId);
         
-        // 1. Incrementa il numero del Round
-        const nextRound = (game.round || 1) + 1;
-        await this.updateMetaField(gameId, 'round', nextRound);
+        // Incrementa il numero del currentRound
+        const nextRound = (game.currentRound || 1) + 1;
+        await this.updateMetaField(gameId, 'currentRound', nextRound);
 
-        // 2. Resetta i dati di TUTTI i giocatori (vivi e morti, per pulizia)
+        // Resetta i dati di TUTTI i giocatori (vivi e morti, per pulizia)
         const resetPromises = game.players.map(p => {
             // Manteniamo solo i dati persistenti (ruolo, vita, colore, username)
             // Resettiamo quelli di fase
@@ -311,7 +309,6 @@ class GameService {
                 votesReceived: 0
             });
         });
-
         await Promise.all(resetPromises);
         
         console.log(`[Game] Round ${nextRound} preparato. Dati resettati.`);
@@ -332,13 +329,16 @@ class GameService {
         console.log(`[GameCheck] Impostori: ${aliveImpostors}, Civili: ${aliveCivilians}`);
 
         if (aliveImpostors === 0) {
-            return { isGameOver: true, winner: 'CIVILIANS' };
+            return { isGameOver: true, winner: 'CIVILIANS', cause: 'guessedImpostors'};
         }
         
         if (aliveImpostors >= aliveCivilians) {
-            return { isGameOver: true, winner: 'IMPOSTORS' };
+            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'killAllCivilians'};
         }
 
+        if (game.currentRound >= game.maxRound) {
+            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
+        }
         return { isGameOver: false, winner: null };
     }
 

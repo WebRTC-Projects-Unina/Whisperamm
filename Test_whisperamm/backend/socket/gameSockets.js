@@ -93,8 +93,7 @@ async function startTurnAssignmentPhase(io, roomId, gameId) {
         let game = await GameService.getGameSnapshot(gameId);
         
         // Calcola ordine (Round Robin o Dadi)
-        const sortedPlayers = GameService.sortPlayersByDice(game.players, game.round);
-        
+        const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound);
         // Salva ordine su Redis
         const updatePromises = sortedPlayers.map((p, index) => 
             GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
@@ -111,7 +110,8 @@ async function startTurnAssignmentPhase(io, roomId, gameId) {
             async () => {
                 console.log(`[Timer] Fine visione classifica in ${roomId}.`);
                 await handleOrderPhaseComplete(io, { data: { roomId } });
-            }
+            },
+            { players: sortedPlayers }
         );
     } catch (err) {
         console.error("Errore nel passaggio a TURN_ASSIGNMENT:", err);
@@ -283,7 +283,7 @@ async function startNextTurn(io, roomId, gameId) {
             await TimerService.startTimedPhase(
                 io, roomId, gameId, 
                 GamePhase.DISCUSSION, 
-                60, 
+                1, 
                 async () => {
                     console.log(`[Timer] Discussione finita in ${roomId}.`);
                     await startVotingPhase(io, roomId, gameId);
@@ -395,8 +395,9 @@ async function proceedToResults(io, roomId, gameId) {
         const resultsPayload = {
             lastRoundResult: resultData,
             gameOver: winStatus.isGameOver,
-            winner: winStatus.winner
-        };
+            winner: winStatus.winner,
+            cause: winStatus.cause
+        }
 
         // Avvia fase RISULTATI (15 secondi per vedere chi è morto)
         await TimerService.startTimedPhase(
@@ -412,6 +413,7 @@ async function proceedToResults(io, roomId, gameId) {
                     NotificationService.broadcastToRoom(io, roomId, 'phaseChanged', {
                         phase: 'FINISH',
                         winner: winStatus.winner,
+                        cause: winStatus.cause,
                         players: (await GameService.getGameSnapshot(gameId)).players // Manda stato finale
                     });
 
