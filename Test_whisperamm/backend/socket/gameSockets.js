@@ -61,7 +61,7 @@ async function handleStartGame(io, socket, { roomId }) {
             roomId, 
             game.gameId, 
             GamePhase.DICE, 
-            30, // 30 Secondi
+            5, // 30 Secondi
             async () => {
                 // CALLBACK TIMEOUT: Se nessuno clicca, il server forza i lanci
                 console.log(`[Timer] Scaduto fase DICE in ${roomId}.`);
@@ -106,7 +106,7 @@ async function startTurnAssignmentPhase(io, roomId, gameId) {
             roomId,
             gameId,
             GamePhase.TURN_ASSIGNMENT, 
-            15, 
+            5, 
             async () => {
                 console.log(`[Timer] Fine visione classifica in ${roomId}.`);
                 await handleOrderPhaseComplete(io, { data: { roomId } });
@@ -261,58 +261,58 @@ async function handleConfirmWord(io, socket){
 
 /**
  * Gestisce il flusso dei turni nella fase PAROLA (GAME).
- * Controlla l'indice corrente: se c'è un giocatore, avvia il suo timer.
+ * Controlla l'indice corrente: se c'è un giocatore vivo, avvia il suo timer.
  * Se sono finiti, passa alla Discussione.
  */
 async function startNextTurn(io, roomId, gameId) {
     try {
         let game = await GameService.getGameSnapshot(gameId);
-        // Recuperiamo l'indice corrente 
         let currentIndex = game.currentTurnIndex || 0;
         
-        // Ordiniamo i giocatori (come nel frontend) per sapere a chi tocca
+        // Ordiniamo i giocatori
         const sortedPlayers = game.players.sort((a, b) => a.order - b.order);
 
-        // --- CASO A: FASE FINITA (Tutti hanno parlato) ---
+        // --- CHECK FINE FASE ---
         if (currentIndex >= sortedPlayers.length) {
-            
-            // Pulisci timer vecchi per sicurezza
+            console.log(`[Game] Turni finiti in ${roomId}. Passaggio a DISCUSSION.`);
             TimerService.clearTimer(roomId);
-
-            // Avvia fase DISCUSSIONE (60 secondi)
             await TimerService.startTimedPhase(
                 io, roomId, gameId, 
                 GamePhase.DISCUSSION, 
-                1, 
+                60, 
                 async () => {
-                    console.log(`[Timer] Discussione finita in ${roomId}.`);
-                    await startVotingPhase(io, roomId, gameId);
+                    console.log(`[Timer] Discussione finita.`);
+                    await handleDiscussionPhaseComplete(io, { data: { roomId } });
                 }
             );
             return;
         }
 
-        // --- CASO B: TOCCA A UN GIOCATORE ---
         const currentPlayer = sortedPlayers[currentIndex];
 
-        // Avviamo il timer per QUESTO turno specifico (es. 30 secondi)
-        // Nota: Usiamo ancora 'phaseChanged' o un evento specifico 'turnUpdate'
-        // Per semplicità usiamo startTimedPhase che aggiorna il tempo per tutti
+        // --- NUOVA LOGICA: SALTA I MORTI ---
+        if (currentPlayer.isAlive === false) {
+            console.log(`[Game] Il giocatore ${currentPlayer.username} è morto. Salto il turno.`);
+            // Passiamo subito al prossimo senza aspettare e senza timer
+            // Nota: Non serve 'hasSpoken: true' per i morti, ma incrementiamo solo l'indice
+            await advanceTurnLogic(io, roomId, gameId, currentPlayer.username, true); // true = skip logica parlato
+            return;
+        }
+
+        // --- GIOCATORE VIVO ---
+        console.log(`[Game] Turno parola per: ${currentPlayer.username} (Index: ${currentIndex})`);
+
         await TimerService.startTimedPhase(
             io,
             roomId,
             gameId,
-            GamePhase.GAME, // Rimaniamo in fase GAME
-            30, // 30 secondi per dire la parola
+            GamePhase.GAME, 
+            30, 
             async () => {
-                // TIMEOUT: Se il giocatore non conferma, il server lo fa per lui
-                console.log(`[Timer] Tempo parola scaduto per ${currentPlayer.username}. Auto-skip.`);
-                
-                // Forziamo l'avanzamento chiamando handleConfirmWord "finto"
-                // o chiamando direttamente la logica di avanzamento
+                console.log(`[Timer] Timeout parola per ${currentPlayer.username}.`);
                 await advanceTurnLogic(io, roomId, gameId, currentPlayer.username); 
             },
-            { currentTurnIndex: currentIndex }
+            { currentTurnIndex: currentIndex } 
         );
 
     } catch (err) {
@@ -320,27 +320,20 @@ async function startNextTurn(io, roomId, gameId) {
     }
 }
 
-/**
- * Logica atomica per segnare che un player ha parlato e incrementare l'indice.
- * Usata sia dal click manuale che dal timeout.
- */
-async function advanceTurnLogic(io, roomId, gameId, username) {
-    // 1. Segna che ha parlato
-    await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
+// Modifica anche advanceTurnLogic per gestire il parametro "isSkip" se vuoi pulizia,
+// ma va bene anche così com'era, l'importante è che incrementi l'indice.
+async function advanceTurnLogic(io, roomId, gameId, username, isSkip = false) {
+    // Se è uno skip per morte, magari non settiamo 'hasSpoken' o lo settiamo comunque per coerenza
+    if (!isSkip) {
+        await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
+    }
     
-    // 2. Incrementa l'indice del turno su Redis
-    // Dobbiamo recuperare l'indice attuale e fare +1
+    // Incrementa indice
     const game = await GameService.getGameSnapshot(gameId);
     const nextIndex = (game.currentTurnIndex || 0) + 1;
     await GameService.updateMetaField(gameId, 'currentTurnIndex', nextIndex);
 
-    // 3. Notifica visiva (opzionale, per far vedere la spunta verde istantanea)
-    NotificationService.broadcastToRoom(io, roomId, 'playerSpoken', { 
-        username, 
-        nextIndex // Utile al frontend per sapere chi tocca
-    });
-
-    // 4. Passa al prossimo (ricorsione logica)
+    // Ricorsione
     await startNextTurn(io, roomId, gameId);
 }
 
@@ -403,7 +396,7 @@ async function proceedToResults(io, roomId, gameId) {
         await TimerService.startTimedPhase(
             io, roomId, gameId,
             'RESULTS', 
-            15, 
+            5, 
             async () => {
                 if (winStatus.isGameOver) {
                     // --- CASO A: PARTITA FINITA ---

@@ -191,6 +191,21 @@
     opacity: 0;
 }
 
+.ranked-card.dead {
+    background: rgba(0, 0, 0, 0.3);
+    border-color: #333 !important;
+    filter: grayscale(1); /* Toglie tutti i colori */
+}
+
+.ranked-card.dead:hover {
+    transform: none; /* Non si muove all'hover */
+    background: rgba(0, 0, 0, 0.3);
+}
+
+.ranked-card.dead .player-name-large {
+    color: #777;
+}
+
 /* Ritardi progressivi per effetto cascata */
 .ranked-card:nth-child(1) { animation-delay: 0.1s; }
 .ranked-card:nth-child(2) { animation-delay: 0.2s; }

@@ -188,26 +188,42 @@ class GameService {
         return await this.getGameSnapshot(gameId);
     }
 
-    static sortPlayersByDice(playersArray, currentRound) {
-        // Primo round
-        if (currentRound === 1) {
-            // Clona l'array per non modificare l'originale
-            const sorted = [...playersArray].sort((a, b) => {
-                return (b.dice1 + b.dice2) - (a.dice1 + a.dice2);
-            });
+    // GG: Funzione per aggiornamento del parametro order
+    // currentRound === 1 -> ordine scandito dai dadi
+    // currentRound > 1 -> ordine stabilito applicando il Round Robin sui giocatori vivi
+    static sortPlayersByDice(playersArray, round) {
+        // Separiamo i vivi dai morti
+        const alivePlayers = playersArray.filter(p => p.isAlive !== false); // !== false gestisce anche undefined all'inizio
+        const deadPlayers = playersArray.filter(p => p.isAlive === false);
 
-            // Assegna l'ordine (1, 2, 3, ...) basato sulla posizione ordinata
-            sorted.forEach((player, index) => {
-                player.order = index + 1;
+        if (round === 1) {
+            // Ordina i vivi per somma dadi DECRESCENTE
+            alivePlayers.sort((a, b) => {
+                const sumA = (a.dice1 || 0) + (a.dice2 || 0);
+                const sumB = (b.dice1 || 0) + (b.dice2 || 0);
+                return sumB - sumA; 
             });
-            return sorted;
-        } else {
-            //round robin sull'ordine esistente
-            const sorted = [...playersArray].sort((a, b) => a.order - b.order);
-            const firstPlayer = sorted.shift();
-            sorted.push(firstPlayer);
-            return sorted;
+        } else { // round > 1
+            // Ordiniamo i vivi in base al loro ordine precedente
+            alivePlayers.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            // Rotazione: Il primo della lista passa in fondo
+            if (alivePlayers.length > 0) {
+                const firstPlayer = alivePlayers.shift();
+                alivePlayers.push(firstPlayer);
+            }
         }
+        alivePlayers.forEach((player, index) => {
+            player.order = index + 1;
+        });
+
+        // Ai morti assegniamo ordine 0 (o un numero alto tipo 99) per spingerli in fondo
+        deadPlayers.forEach(player => {
+            player.order = 0; 
+        });
+
+        // 4. Ritorniamo l'array completo aggiornato
+        return [...alivePlayers, ...deadPlayers];
     }
     
     static checkAllPlayersSpoken(playersArray) {
@@ -301,9 +317,6 @@ class GameService {
             // Resettiamo quelli di fase
             return this.updatePlayerState(gameId, p.username, {
                 hasRolled: false,
-                dice1: 0,
-                dice2: 0,
-                // order: 0, // L'ordine verrà ricalcolato nella fase dadi/ordine
                 hasSpoken: false,
                 hasVoted: false,
                 votesReceived: 0

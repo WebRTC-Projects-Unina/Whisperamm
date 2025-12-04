@@ -557,6 +557,60 @@
     to { transform: scale(1.1); }
 }
 
+/* --- MODALITÀ SPETTATORE (MORTO) --- */
+
+/* 1. Feedback Visivo Globale */
+.is-dead-mode .game-card {
+    border: 4px solid #444; /* Bordo grigio morto */
+}
+
+.is-dead-mode .game-page {
+    /* Sfondo leggermente desaturato o rosso scuro */
+    background: linear-gradient(135deg, #1a0505 0%, #222 100%); 
+}
+
+/* 2. Badge "SEI ELIMINATO" nell'header */
+.dead-status-badge {
+    background-color: #ff4444;
+    color: white;
+    font-weight: 900;
+    padding: 5px 15px;
+    border-radius: 5px;
+    margin-right: 10px;
+    animation: pulse 2s infinite;
+    box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+}
+
+/* 3. DISABILITAZIONE AZIONI (Il cuore della logica) */
+
+/* Nascondi o disabilita TUTTI i bottoni di azione principali */
+.is-dead-mode .game-btn-action,
+.is-dead-mode .btn-confirm-word,
+.is-dead-mode .btn-vote,
+.is-dead-mode .btn-abstain {
+    opacity: 0.3;
+    pointer-events: none; /* IMPOSSIBILE CLICCARE */
+    filter: grayscale(100%);
+    cursor: not-allowed;
+    display: none; /* O li nascondiamo del tutto se preferisci */
+}
+
+/* 4. Alterazione del contenuto */
+.is-dead-mode .phase-content-wrapper {
+    opacity: 0.8; /* Contenuto un po' più spento */
+}
+
+/* Eccezione: Il bottone "Esci" e "Identità" devono funzionare */
+.game-btn-danger, .secret-toggle {
+    pointer-events: auto !important;
+    opacity: 1 !important;
+}
+
+/* Sidebar: Tu appari morto anche a te stesso */
+.is-dead-mode .sidebar-player.me {
+    background: rgba(50, 0, 0, 0.3);
+    border-color: #555;
+}
 
 /* =========================================
    7. MEDIA QUERIES (MOBILE)
