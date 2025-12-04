@@ -251,58 +251,58 @@ async function handleConfirmWord(io, socket){
 
 /**
  * Gestisce il flusso dei turni nella fase PAROLA (GAME).
- * Controlla l'indice corrente: se c'è un giocatore vivo, avvia il suo timer.
+ * Controlla l'indice corrente: se c'è un giocatore, avvia il suo timer.
  * Se sono finiti, passa alla Discussione.
  */
 async function startNextTurn(io, roomId, gameId) {
     try {
         let game = await GameService.getGameSnapshot(gameId);
+        // Recuperiamo l'indice corrente 
         let currentIndex = game.currentTurnIndex || 0;
         
-        // Ordiniamo i giocatori
+        // Ordiniamo i giocatori (come nel frontend) per sapere a chi tocca
         const sortedPlayers = game.players.sort((a, b) => a.order - b.order);
 
-        // --- CHECK FINE FASE ---
+        // --- CASO A: FASE FINITA (Tutti hanno parlato) ---
         if (currentIndex >= sortedPlayers.length) {
-            console.log(`[Game] Turni finiti in ${roomId}. Passaggio a DISCUSSION.`);
+            
+            // Pulisci timer vecchi per sicurezza
             TimerService.clearTimer(roomId);
+
+            // Avvia fase DISCUSSIONE (60 secondi)
             await TimerService.startTimedPhase(
                 io, roomId, gameId, 
                 GamePhase.DISCUSSION, 
                 5, //Metti 30 secondi 
                 async () => {
-                    console.log(`[Timer] Discussione finita.`);
-                    await handleDiscussionPhaseComplete(io, { data: { roomId } });
+                    console.log(`[Timer] Discussione finita in ${roomId}.`);
+                    await startVotingPhase(io, roomId, gameId);
                 }
             );
             return;
         }
 
+        // --- CASO B: TOCCA A UN GIOCATORE ---
         const currentPlayer = sortedPlayers[currentIndex];
 
-        // --- NUOVA LOGICA: SALTA I MORTI ---
-        if (currentPlayer.isAlive === false) {
-            console.log(`[Game] Il giocatore ${currentPlayer.username} è morto. Salto il turno.`);
-            // Passiamo subito al prossimo senza aspettare e senza timer
-            // Nota: Non serve 'hasSpoken: true' per i morti, ma incrementiamo solo l'indice
-            await advanceTurnLogic(io, roomId, gameId, currentPlayer.username, true); // true = skip logica parlato
-            return;
-        }
-
-        // --- GIOCATORE VIVO ---
-        console.log(`[Game] Turno parola per: ${currentPlayer.username} (Index: ${currentIndex})`);
-
+        // Avviamo il timer per QUESTO turno specifico (es. 30 secondi)
+        // Nota: Usiamo ancora 'phaseChanged' o un evento specifico 'turnUpdate'
+        // Per semplicità usiamo startTimedPhase che aggiorna il tempo per tutti
         await TimerService.startTimedPhase(
             io,
             roomId,
             gameId,
-            GamePhase.GAME, 
-            30, 
+            GamePhase.GAME, // Rimaniamo in fase GAME
+            5, // 30 secondi per dire la parola
             async () => {
-                console.log(`[Timer] Timeout parola per ${currentPlayer.username}.`);
+                // TIMEOUT: Se il giocatore non conferma, il server lo fa per lui
+                console.log(`[Timer] Tempo parola scaduto per ${currentPlayer.username}. Auto-skip.`);
+                
+                // Forziamo l'avanzamento chiamando handleConfirmWord "finto"
+                // o chiamando direttamente la logica di avanzamento
                 await advanceTurnLogic(io, roomId, gameId, currentPlayer.username); 
             },
-            { currentTurnIndex: currentIndex } 
+            { currentTurnIndex: currentIndex }
         );
 
     } catch (err) {
@@ -310,20 +310,27 @@ async function startNextTurn(io, roomId, gameId) {
     }
 }
 
-// Modifica anche advanceTurnLogic per gestire il parametro "isSkip" se vuoi pulizia,
-// ma va bene anche così com'era, l'importante è che incrementi l'indice.
-async function advanceTurnLogic(io, roomId, gameId, username, isSkip = false) {
-    // Se è uno skip per morte, magari non settiamo 'hasSpoken' o lo settiamo comunque per coerenza
-    if (!isSkip) {
-        await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
-    }
+/**
+ * Logica atomica per segnare che un player ha parlato e incrementare l'indice.
+ * Usata sia dal click manuale che dal timeout.
+ */
+async function advanceTurnLogic(io, roomId, gameId, username) {
+    // 1. Segna che ha parlato
+    await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
     
-    // Incrementa indice
+    // 2. Incrementa l'indice del turno su Redis
+    // Dobbiamo recuperare l'indice attuale e fare +1
     const game = await GameService.getGameSnapshot(gameId);
     const nextIndex = (game.currentTurnIndex || 0) + 1;
     await GameService.updateMetaField(gameId, 'currentTurnIndex', nextIndex);
 
-    // Ricorsione
+    // 3. Notifica visiva (opzionale, per far vedere la spunta verde istantanea)
+    NotificationService.broadcastToRoom(io, roomId, 'playerSpoken', { 
+        username, 
+        nextIndex // Utile al frontend per sapere chi tocca
+    });
+
+    // 4. Passa al prossimo (ricorsione logica)
     await startNextTurn(io, roomId, gameId);
 }
 
