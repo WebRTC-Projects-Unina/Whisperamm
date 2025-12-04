@@ -48,27 +48,157 @@ class GameService {
         return await this.getGameSnapshot(gameId);
     }
 
-    static async startNewRound(gameId) {
-        const game = await this.getGameSnapshot(gameId);
-        const nextRound = (game.round || 1) + 1;
+    static async updateMetaField(gameId, field, value) {
+        // Chiama il model
+        await Game.updateMetaField(gameId, field, value);
+    }
+
+    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors = null) {
+        const map = {};
         
-        await this.updateMetaField(gameId, 'round', nextRound);
+        playersList.forEach(username => {
+            const isImpostor = (username === imposterUsername);
+            const userDiceData = diceValues.find(d => d.username === username);
+            const userColor = colors ? colors[username] : null;
+            const role = isImpostor ? 'IMPOSTOR' : 'CIVILIAN';
 
-        // Reset massivo degli stati temporanei
-        const resetPromises = game.players.map(p => 
-            this.updatePlayerState(gameId, p.username, {
-                hasRolled: false,
-                dice1: 0,
-                dice2: 0,
-                hasSpoken: false,
-                hasVoted: false,
-                votesReceived: 0
-            })
-        );
+            // Usiamo 
+            // Non costruiamo l'oggetto a mano qui.
+            const playerObj = PlayerData.createPlayerData(
+                username, 
+                role, 
+                userDiceData.value1, 
+                userDiceData.value2, 
+                userColor, // color 
+            );
 
-        await Promise.all(resetPromises);
-        console.log(`[Game] Round ${nextRound} iniziato.`);
+            // Serializziamo per Redis
+            map[username] = JSON.stringify(playerObj); 
+        });
+
+        return map;
+    }
+
+    // --- LOGICA DI LETTURA ---
+
+    static async getGameSnapshot(gameId) {
+        // 1. Chiede i dati grezzi al Model
+        const rawData = await Game.findByIdRaw(gameId);
+        if (!rawData) return null;
+
+        const { meta, playersHash } = rawData;
+
+        // 2. DESERIALIZZAZIONE (Logica spostata qui)
+        
+        // Parsing dei segreti
+        if (meta.secrets) {
+            try {
+                meta.secrets = JSON.parse(meta.secrets);
+            } catch (e) {
+                console.error("Errore parsing secrets service:", e);
+                meta.secrets = null; 
+            }
+        }
+        if(meta.currentRound) {
+            meta.currentRound = parseInt(meta.currentRound, 10);
+        }
+        // Parsing del tempo (da stringa a numero)
+        if (meta.phaseEndTime) {
+            meta.phaseEndTime = parseInt(meta.phaseEndTime, 10);
+        }   
+
+        if (meta.currentTurnIndex !== undefined) {
+            meta.currentTurnIndex = parseInt(meta.currentTurnIndex, 10);
+        }
+
+        // Manteniamo l'oggetto/mappa
+        const players = []; 
+
+        if (playersHash) {
+            Object.values(playersHash).forEach(jsonStr => {
+                try {
+                    players.push(JSON.parse(jsonStr));
+                } catch (e) {
+                    console.error("Errore parsing player service:", e);
+                }
+            });
+        
+        } 
+        if (players.length > 0 && players[0].order) {
+            players.sort((a, b) => a.order - b.order);
+        }   
+        // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
+        return { ...meta, players };
+    }
+
+    static async getGameSnapshotByRoomId(roomId) {
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) return null;
+        return this.getGameSnapshot(gameId);
+    }
+
+    // --- LOGICA DI AGGIORNAMENTO ---
+
+    static async updatePlayerState(gameId, username, partialData) {
+        return await PlayerData.update(gameId, username, partialData);
+    }
+
+    
+    static checkAllPlayersRolled(playersArray) {
+        // Controlla che ogni giocatore abbia hasRolled === true
+        return playersArray.every(p => p.hasRolled === true);
+    }
+
+    /**
+     * NUOVO: Cambia la fase del gioco (es. da DICE a GAME)
+     */
+    static async advancePhase(gameId, newPhase) {
+        await Game.updateMetaField(gameId, 'phase', newPhase);
+        // Ritorniamo lo snapshot aggiornato
         return await this.getGameSnapshot(gameId);
+    }
+
+    // GG: Funzione per aggiornamento del parametro order
+    // currentRound === 1 -> ordine scandito dai dadi
+    // currentRound > 1 -> ordine stabilito applicando il Round Robin sui giocatori vivi
+    static sortPlayersByDice(playersArray, round) {
+        // Separiamo i vivi dai morti
+        const alivePlayers = playersArray.filter(p => p.isAlive !== false); // !== false gestisce anche undefined all'inizio
+        const deadPlayers = playersArray.filter(p => p.isAlive === false);
+
+        if (round === 1) {
+            // Ordina i vivi per somma dadi DECRESCENTE
+            alivePlayers.sort((a, b) => {
+                const sumA = (a.dice1 || 0) + (a.dice2 || 0);
+                const sumB = (b.dice1 || 0) + (b.dice2 || 0);
+                return sumB - sumA; 
+            });
+        } else { // round > 1
+            // Ordiniamo i vivi in base al loro ordine precedente
+            alivePlayers.sort((a, b) => (a.order || 0) - (b.order || 0));
+
+            // Rotazione: Il primo della lista passa in fondo
+            if (alivePlayers.length > 0) {
+                const firstPlayer = alivePlayers.shift();
+                alivePlayers.push(firstPlayer);
+            }
+        }
+        alivePlayers.forEach((player, index) => {
+            player.order = index + 1;
+        });
+
+        // Ai morti assegniamo ordine 0 (o un numero alto tipo 99) per spingerli in fondo
+        deadPlayers.forEach(player => {
+            player.order = 0; 
+        });
+
+        // 4. Ritorniamo l'array completo aggiornato
+        return [...alivePlayers, ...deadPlayers];
+    }
+    
+    static checkAllPlayersSpoken(playersArray) {
+        // Controlla che ogni giocatore abbia hasSpoken === true
+        return playersArray.every(p => p.hasSpoken === true);
     }
 
     static async advancePhase(gameId, newPhase) {
@@ -120,14 +250,58 @@ class GameService {
 
     // --- CHECKERS & HELPERS ---
 
+    /**
+     * Prepara il gioco per il round successivo.
+     * Resetta: dadi, voti, stati (hasRolled, hasSpoken, hasVoted).
+     * Incrementa: round.
+     */
+    static async startNewRound(gameId) {
+        const game = await this.getGameSnapshot(gameId);
+        
+        // Incrementa il numero del currentRound
+        const nextRound = (game.currentRound || 1) + 1;
+        await this.updateMetaField(gameId, 'currentRound', nextRound);
+
+        // Resetta i dati di TUTTI i giocatori (vivi e morti, per pulizia)
+        const resetPromises = game.players.map(p => {
+            // Manteniamo solo i dati persistenti (ruolo, vita, colore, username)
+            // Resettiamo quelli di fase
+            return this.updatePlayerState(gameId, p.username, {
+                hasRolled: false,
+                hasSpoken: false,
+                hasVoted: false,
+                votesReceived: 0
+            });
+        });
+        await Promise.all(resetPromises);
+        
+        console.log(`[Game] Round ${nextRound} preparato. Dati resettati.`);
+        
+        return await this.getGameSnapshot(gameId);
+    }
+
+    /**
+     * Controlla le condizioni di vittoria.
+     * Ritorna: { isGameOver: boolean, winner: 'CIVILIANS' | 'IMPOSTORS' | null }
+     */
     static async checkWinCondition(gameId) {
         const game = await this.getGameSnapshot(gameId);
         const aliveImpostors = game.players.filter(p => p.isAlive && p.role === 'IMPOSTOR').length;
         const aliveCivilians = game.players.filter(p => p.isAlive && p.role === 'CIVILIAN').length;
 
-        if (aliveImpostors === 0) return { isGameOver: true, winner: 'CIVILIANS' };
-        if (aliveImpostors >= aliveCivilians) return { isGameOver: true, winner: 'IMPOSTORS' };
+        console.log(`[GameCheck] Impostori: ${aliveImpostors}, Civili: ${aliveCivilians}`);
 
+        if (aliveImpostors === 0) {
+            return { isGameOver: true, winner: 'CIVILIANS', cause: 'guessedImpostors'};
+        }
+        
+        if (aliveImpostors >= aliveCivilians) {
+            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'killAllCivilians'};
+        }
+
+        if (game.currentRound >= game.maxRound) {
+            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
+        }
         return { isGameOver: false, winner: null };
     }
 

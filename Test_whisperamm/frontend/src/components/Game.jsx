@@ -1,15 +1,13 @@
-// src/pages/Game.jsx
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
 
-// Importiamo le Viste (Phases)
 import PhaseDice from './game/phaseDice';
 import PhaseOrder from './game/phaseOrder';
 import PhaseWord from './game/phaseWord';
 import PhaseDiscussion from './game/phaseDiscussion';
-import PhaseVoting from '../components/game/PhaseVoting';
+import PhaseVoting from './game/phaseVoting';
 import PhaseResults from './game/phaseResults';
 import PhaseFinish from './game/phaseFinish';
 import '../style/Game.css';
@@ -25,16 +23,19 @@ const Game = () => {
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
     
-    // Stati specifici per la fase Dadi (mantenuti qui perché gestiti dai socket globali)
     const [activeRolls, setActiveRolls] = useState([]); 
     const [isWaiting, setIsWaiting] = useState(false); 
 
     const gameStateRef = useRef(gameState);
     useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
-    // Pulizia tavolo dadi al cambio fase
+    // Calcolo Stato Morte
+    const myPlayer = gameState?.players?.find(p => p.username === user.username);
+    // Se isAlive è undefined (inizio), consideralo vivo. Se è false, è morto.
+    const amIAlive = myPlayer?.isAlive !== false; 
+
     useEffect(() => {
-        if (gameState?.phase && gameState.phase !== 'DICE' && gameState.phase !== 'lancio_dadi') {
+        if (gameState?.phase && gameState.phase !== 'DICE') {
             setActiveRolls([]); 
         }
     }, [gameState?.phase]);
@@ -42,29 +43,24 @@ const Game = () => {
     useEffect(() => {
         if (!socket) { navigate('/'); return; }
 
-        const handleGameParams = (payload) => {
-            console.log("Dati pubblici:", payload);
-            setGameState(payload);
-        };
-
+        const handleGameParams = (payload) => setGameState(payload);
         const handleIdentity = (payload) => setUserIdentity(payload);
+        console.log(userIdentity)
 
         const handlePrintDiceRoll = (payload) => {
             const playerInState = gameStateRef.current?.players?.find(p => p.username === payload.username);
             const playerColor = payload.color || playerInState?.color || '#ffffff';
-
-            const newRoll = {
+            setActiveRolls(prev => [...prev, {
                 id: Date.now() + Math.random(),
                 username: payload.username,
                 dice1: payload.dice1,
                 dice2: payload.dice2,
                 color: playerColor
-            };
-            setActiveRolls(prev => [...prev, newRoll]);
+            }]);
         };
 
         const handlePhaseChange = (payload) => {
-            console.log("⚡ Cambio fase:", payload);
+            console.log("⚡ Cambio fase:", payload.phase);
             setGameState(prevState => {
                 if (!prevState) return payload;
                 return { ...prevState, ...payload };
@@ -79,10 +75,8 @@ const Game = () => {
 
         return () => {
             if (socket) {
-                socket.off('parametri');
-                socket.off('identityAssigned');
-                socket.off('playerRolledDice');
-                socket.off('phaseChanged');
+                socket.off('parametri'); socket.off('identityAssigned');
+                socket.off('playerRolledDice'); socket.off('phaseChanged');
                 socket.off('lobbyError');
             }
         };
@@ -93,6 +87,8 @@ const Game = () => {
     };
 
     const handleDiceRoll = () => { 
+        // Blocco di sicurezza aggiuntivo: i morti non lanciano
+        if (!amIAlive) return; 
         if(isWaiting) return; 
         setIsWaiting(true);
         if(socket) socket.emit('DiceRoll'); 
@@ -115,117 +111,67 @@ const Game = () => {
 
     if (!socket || !gameState) return <div className="game-loader">Caricamento...</div>;
 
-    // --- LOGICA DI SELEZIONE FASE ---
     const renderPhaseContent = () => {
         const phase = gameState.phase;
+        const startTimer = gameState.startTimer || false;
 
-        const startTimer = gameState.startTimer || false
-        // Gestiamo sia i nomi vecchi che nuovi se necessario
-        if (phase === 'DICE' || phase === 'lancio_dadi') {
-            return (
-                <PhaseDice 
-                    gameState={gameState}
-                    user={user}
-                    activeRolls={activeRolls}
-                    onRollComplete={handleRollComplete}
-                    onDiceRoll={handleDiceRoll}
-                    isWaiting={isWaiting}
-                    startTimer={startTimer}
-                />
-            );
-        } 
-        else if (phase === 'TURN_ASSIGNMENT' || phase === 'ordine_gioco') {
-            return (
-                <PhaseOrder 
-                    gameState={gameState}
-                    user={user}
-                    socket={socket}
-                />
-            );
-        }else if (phase === 'GAME' || phase === 'inizio_gioco') {
-            return (
-                <PhaseWord
-                    gameState={gameState}
-                    user={user}
-                    socket={socket}
-                />
-            );
-        }else if (phase === 'DISCUSSION' || phase === 'discussione') {
-            return <PhaseDiscussion gameState={gameState} user={user} socket={socket} />;
-        }else if (phase === 'VOTING' || phase === 'votazione') {
-            return (
-                <PhaseVoting 
-                    gameState={gameState}
-                    user={user}
-                    socket={socket}
-                />
-            );
-        } else if (phase === 'RESULTS' || phase === 'risultati') {
-            return (
-                <PhaseResults 
-                    gameState={gameState} 
-                    user={user} 
-                />
-            );
+        // Mappa delle fasi
+        switch (phase) {
+            case 'DICE': case 'lancio_dadi':
+                return <PhaseDice gameState={gameState} user={user} activeRolls={activeRolls} onRollComplete={handleRollComplete} onDiceRoll={handleDiceRoll} isWaiting={isWaiting} startTimer={startTimer} />;
+            case 'TURN_ASSIGNMENT': case 'ordine_gioco':
+                return <PhaseOrder gameState={gameState} user={user} />;
+            case 'GAME': case 'inizio_gioco':
+                return <PhaseWord gameState={gameState} user={user} socket={socket} />;
+            case 'DISCUSSION': case 'discussione':
+                return <PhaseDiscussion gameState={gameState} user={user} socket={socket} />;
+            case 'VOTING': case 'votazione':
+                return <PhaseVoting gameState={gameState} user={user} socket={socket} />;
+            case 'RESULTS': case 'risultati':
+                return <PhaseResults gameState={gameState} user={user} />;
+            case 'FINISH': case 'finita':
+                return <PhaseFinish gameState={gameState} user={user} onLeave={handleLeaveGame} />;
+            default:
+                return <div style={{color:'white'}}>Fase: {phase}</div>;
         }
-        else if (phase === 'FINISH' || phase === 'finita') {
-            return (
-                <PhaseFinish 
-                    gameState={gameState} 
-                    user={user}
-                    onLeave={handleLeaveGame} // Riutilizziamo la funzione di uscita
-                />
-            );
-        }
-        else {
-                    return <div style={{color: 'white', textAlign: 'center'}}>Fase sconosciuta: {phase}</div>;
-                }
-            };
+    };
 
-    console.log("Render Game con stato:", userIdentity, gameState);
     return (
-        <div className="game-page">
+        <div className={`game-page ${!amIAlive ? 'is-dead-mode' : ''}`}>
             <div className="game-card">
                 
-                {/* HEADER COMUNE */}
                 <header className="game-header">
                     <div className="game-header-left">
                         <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
-                        <p className="game-subtitle">
-                            Fase: <span style={{color: '#ff9800', textTransform:'uppercase'}}>{gameState.phase}</span>
-                        </p>
+                        <p className="game-subtitle">Fase: <span style={{color: '#ff9800'}}>{gameState.phase}</span></p>
                     </div>
-                        <div className="game-header-center">
-                        {/* Qui potrai aggiungere elementi nelle fasi successive */}
-                    </div>
-                    {/* MODIFICA: Aggiunta classe 'game-header-right' invece dello style inline */}
                     <div className="game-header-right">
-                        <div className="game-room-badge">Stanza: {roomId}</div>
+                        {/* SE SEI MORTO APPARE QUESTO */}
+                        {!amIAlive && <div className="dead-status-badge">💀 SEI ELIMINATO</div>}
+                        <div className="game-room-badge">{roomId}</div>
                         <button className="game-btn-danger btn-small" onClick={handleLeaveGame}>Esci</button>
                     </div>
                 </header>
-                <br/>
-                {/* SEZIONE SEGRETA COMUNE (Nascosta nella fase di isDicePhase*/}
-                {(gameState.phase !== 'DICE' && gameState.phase !== 'lancio_dadi') && (
+                
+                {/* IDENTITA' (Se sei morto potresti volerla vedere sempre o mai, qui la lasciamo) */}
+                {gameState.phase !== 'DICE' && (
                     <div className="game-secret-section">
                         <div className="secret-toggle" onClick={() => setRevealSecret(!revealSecret)}>
-                            {revealSecret ? "Nascondi Identità 🔒" : "Mostra Identità 👁️"}
+                            {revealSecret ? "Nascondi Identità" : "Mostra Identità"}
                         </div>
                         {revealSecret && userIdentity && (
                             <div className="secret-content revealed">
-                                <p><strong>Ruolo: </strong> 
-                                    <span className={userIdentity.role === 'IMPOSTOR' ? 'role-impostor' : 'role-civilian'}>
-                                        {userIdentity.role}
-                                    </span>
-                                </p>
-                                <p className="secret-word">Parola: <span>{userIdentity.secretWord}</span></p>
+                                <p>Ruolo: <span className={userIdentity.role === 'Impostor' ? 'role-impostor' : 'role-civilian'}>{userIdentity.role}</span></p>
+                                <p>Parola: <span>{userIdentity.secretWord}</span></p>
                             </div>
                         )}
                     </div>
                 )}
 
-                {/* --- CONTENUTO DINAMICO DELLA FASE --- */}
-                {renderPhaseContent()}
+                {/* WRAPPER CONTENUTO: Se è morto, il CSS blocca le interazioni qui dentro */}
+                <div className="phase-content-wrapper">
+                    {renderPhaseContent()}
+                </div>
 
             </div>
         </div>
