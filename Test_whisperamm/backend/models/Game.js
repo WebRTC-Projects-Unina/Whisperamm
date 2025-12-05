@@ -76,6 +76,12 @@ class Game {
         const client = getRedisClient();
         await client.hSet(`game:${gameId}`, field, value);
     }
+
+    // Get solo della chiave dei giocatori
+    static async getPlayers(gameId) {
+        const client = getRedisClient();
+        return await client.hGetAll(`game:${gameId}:players`);
+    }
     
 
 }

@@ -22,7 +22,6 @@ class GameController {
 
             const game = await GameService.createGame(roomId);
             
-            // Invio Dati
             const publicPayload = PayloadUtils.buildPublicGameData(game);
             NotificationService.broadcastToRoom(io, roomId, 'gameStarted', publicPayload);
 
@@ -40,89 +39,90 @@ class GameController {
         }
     }
 
+    // --- FASE DADI (OTTIMIZZATA) ---
+
     static async handleRollDice(io, socket) {
         const { username, roomId } = socket.data;
         try {
-            // MODIFICA: Usa getGameIdByRoom del Service
             const gameId = await GameService.getGameIdByRoom(roomId); 
             if (!gameId) return;
 
-            // Recupera solo il player necessario se possibile, ma per ora teniamo snapshot
-            // (Nota: in futuro puoi ottimizzare facendo PlayerData.get)
-            let game = await GameService.getGameSnapshot(gameId);
-            const myData = game.players.find(p => p.username === username);
+            // 1. Controllo Idempotenza (Veloce)
+            const player = await GameService.getPlayer(gameId, username);
+            if (!player || player.hasRolled) return;
 
-            if (myData.hasRolled) return;
+            // 2. Esegui il lancio atomico (Helper)
+            await this._performSingleRoll(io, roomId, gameId, username);
 
-            // Aggiorna player
-            await GameService.updatePlayerState(gameId, username, { hasRolled: true });
-            
-            // Broadcast evento animazione
-            NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
-                username: username,
-                dice1: myData.dice1,
-                dice2: myData.dice2,
-                color: myData.color
-            });
-            
-            // Ricontrolla stato globale
-            game = await GameService.getGameSnapshot(gameId);
-            if (GameService.checkAllPlayersRolled(game.players)) {
-                TimerService.clearTimer(roomId);
-                setTimeout(async () => {
-                    await this.startTurnAssignmentPhase(io, roomId, gameId);
-                }, 4000);
+            // 3. Controlla se hanno finito tutti (Leggendo solo i players)
+            const allPlayers = await GameService.getPlayers(gameId);
+            if (GameService.checkAllPlayersRolled(allPlayers)) {
+                await this._finalizeDicePhase(io, roomId, gameId);
             }
 
         } catch (err) {
             console.error(`[Errore] handleRollDice:`, err);
         }
-    }
+    }   
 
     static async forceRollsAndProceed(io, roomId, gameId) {
         try {
-            let game = await GameService.getGameSnapshot(gameId);
-            const idlePlayers = game.players.filter(p => !p.hasRolled);
+            // Recupera solo la lista giocatori
+            let players = await GameService.getPlayers(gameId);
+            const idlePlayers = players.filter(p => !p.hasRolled);
             
-            const promises = idlePlayers.map(async (player) => {
-                const updatedPlayer = await GameService.updatePlayerState(gameId, player.username, { hasRolled: true });
-                NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
-                    username: player.username,
-                    dice1: updatedPlayer.dice1,
-                    dice2: updatedPlayer.dice2,
-                    color: updatedPlayer.color
-                });
-            });
+            // Esegue i lanci mancanti in parallelo
+            const promises = idlePlayers.map(p => 
+                this._performSingleRoll(io, roomId, gameId, p.username)
+            );
 
             await Promise.all(promises);
-            setTimeout(async () => {
-                await this.startTurnAssignmentPhase(io, roomId, gameId);
-            }, 4000);
+            
+            // Qui non serve ricontrollare, abbiamo forzato la fine.
+            await this._finalizeDicePhase(io, roomId, gameId);
+
         } catch (err) {
             console.error("Errore in forceRollsAndProceed:", err);
         }
     }
+
+    // --- PRIVATE HELPERS (DRY Pattern) ---
+
+    // Aggiorna DB e invia notifica Socket
+    static async _performSingleRoll(io, roomId, gameId, username) {
+        const updatedPlayer = await GameService.updatePlayerState(gameId, username, { hasRolled: true });
+        
+        NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
+            username: username,
+            dice1: updatedPlayer.dice1,
+            dice2: updatedPlayer.dice2,
+            color: updatedPlayer.color
+        });
+    }
+
+    // Ferma timer e transiziona alla prossima fase dopo animazione
+    static async _finalizeDicePhase(io, roomId, gameId) {
+        TimerService.clearTimer(roomId);
+        setTimeout(async () => {
+            await this.startTurnAssignmentPhase(io, roomId, gameId);
+        }, 4000);
+    }
+
+    // --- FINE FASE DADI ---
 
     static async startTurnAssignmentPhase(io, roomId, gameId) {
         try {
             console.log(`[Game] Cambio fase TURN_ASSIGNMENT per ${roomId}`);
             let game = await GameService.getGameSnapshot(gameId);
             
-            // Calcola NUOVO ordine (logica)
             const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound);
             
-            // Salva ordine su Redis
             const updatePromises = sortedPlayers.map((p, index) => 
                 GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
             );
             await Promise.all(updatePromises);
-
-            // IMPORTANTE: Ora sortedPlayers è già ordinato, ma se ri-fetchassimo con getGameSnapshot
-            // otterremmo comunque l'array ordinato grazie alla modifica nel Service.
             
             await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.TURN_ASSIGNMENT, 5, async () => {
-                console.log(`[Timer] Fine visione classifica in ${roomId}.`);
-                // Qui chiamiamo direttamente la logica successiva
                 await this.handleOrderPhaseComplete(io, roomId);
             }, { players: sortedPlayers });
 
@@ -147,14 +147,11 @@ class GameController {
 
     static async startNextTurn(io, roomId, gameId) {
         try {
+            // Nota: getGameSnapshot restituisce players già ordinati dal Service
             let game = await GameService.getGameSnapshot(gameId);
             let currentIndex = game.currentTurnIndex || 0;
-            
-            // MODIFICA: Niente .sort() manuale! getGameSnapshot restituisce players già ordinati.
-            // L'ordinamento è garantito dal service.
             const sortedPlayers = game.players; 
 
-            // CASO A: FASE FINITA
             if (currentIndex >= sortedPlayers.length) {
                 TimerService.clearTimer(roomId);
                 await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.DISCUSSION, 5, async () => {
@@ -163,10 +160,8 @@ class GameController {
                 return;
             }
 
-            // CASO B: TOCCA AL GIOCATORE
             const currentPlayer = sortedPlayers[currentIndex];
             await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.GAME, 5, async () => {
-                console.log(`[Timer] Timeout parola per ${currentPlayer.username}.`);
                 await this.advanceTurnLogic(io, roomId, gameId, currentPlayer.username); 
             }, { currentTurnIndex: currentIndex });
 
@@ -183,7 +178,7 @@ class GameController {
             
             let game = await GameService.getGameSnapshot(gameId);
             const currentIndex = game.currentTurnIndex || 0;
-            // Anche qui, players è già ordinato
+            
             if (game.players[currentIndex].username !== username) {
                 console.warn(`[Cheat] ${username} fuori turno!`);
                 return; 
@@ -226,6 +221,7 @@ class GameController {
 
             NotificationService.broadcastToRoom(io, roomId, 'playerVoted', { username, hasVoted: true });
             
+            // Controllo "alive" veloce? Per ora usiamo snapshot per sicurezza sui morti
             const game = await GameService.getGameSnapshot(gameId);
             if (GameService.checkAllAlivePlayersVoted(game.players)) {
                 TimerService.clearTimer(roomId);

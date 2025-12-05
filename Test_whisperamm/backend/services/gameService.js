@@ -4,14 +4,14 @@ const { Game, GamePhase } = require('../models/Game');
 const { PlayerData } = require('../models/playerData');
 const { GameSecretsUtil } = require('../utils/GameSecretsUtil'); 
 const RoomService = require('./roomService');
-
-// Moduli estratti
 const DiceUtils = require('../utils/DiceUtils');
 const VotingService = require('./VotingService');
 
 class GameService {
 
-    // --- CREAZIONE E GESTIONE FLUSSO ---
+    // ==========================================
+    // 1. CREAZIONE E AVVIO
+    // ==========================================
 
     static async createGame(roomId) {       
         const gameId = crypto.randomUUID();
@@ -25,10 +25,10 @@ class GameService {
         const imposterUsername = playersList[imposterIndex];
 
         // 2. Setup Colori
-        const colors = this._generateRandomColors(playersList); //Mappa
+        const colors = this._generateRandomColors(playersList);
 
         // 3. Setup Dadi (Logica delegata a DiceUtils)
-        const diceValues = DiceUtils.generateInitialDiceValues(playersList); //mappa
+        const diceValues = DiceUtils.generateInitialDiceValues(playersList);
 
         // 4. Costruisci mappa finale giocatori per Redis
         const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors);
@@ -39,185 +39,146 @@ class GameService {
             roomId,
             phase: GamePhase.DICE, 
             round: 1,
-            secrets: gameSecrets,  //JSON
+            secrets: gameSecrets, // Redis serializza autom. se supportato, altrimenti stringify
             phaseEndTime: 0
         };
 
         // 6. Salva e Ritorna
         await Game.create(gameId, metaData, playersMap); 
-        //A questo punto mi sa che potremmo anche mettere la creazione dei metadati di game qui
-        //Mentre la parte che riguarda playerdata in playerDataModel
+        
         return await this.getGameSnapshot(gameId);
     }
 
-    static async updateMetaField(gameId, field, value) {
-        // Chiama il model
-        await Game.updateMetaField(gameId, field, value);
+    // ==========================================
+    // 2. LOGICA DI LETTURA (Data Retrieval)
+    // ==========================================
+
+    /**
+     * Ritorna solo ID gioco (Wrapper al model)
+     */
+    static async getGameIdByRoom(roomId) {
+        return await Game.findGameIdByRoomId(roomId);
     }
 
-    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors = null) {
-        const map = {};
+    /**
+     * Ritorna UN singolo giocatore (Lettura O(1) Redis)
+     * Utile per check veloci (es. hasRolled, hasVoted)
+     */
+    static async getPlayer(gameId, username) {
+        return await PlayerData.get(gameId, username);
+    }
+
+    /**
+     * Ritorna TUTTI i giocatori (lista ordinata) SENZA metadata/secrets.
+     * Molto più leggero di getGameSnapshot.
+     */
+    static async getPlayers(gameId) {
+        // Usa il metodo esistente nel model Game.js che ritorna l'hash
+        const playersHash = await Game.getPlayers(gameId); 
         
-        playersList.forEach(username => {
-            const isImpostor = (username === imposterUsername);
-            const userDiceData = diceValues.find(d => d.username === username);
-            const userColor = colors ? colors[username] : null;
-            const role = isImpostor ? 'IMPOSTOR' : 'CIVILIAN';
-
-            // Usiamo 
-            // Non costruiamo l'oggetto a mano qui.
-            const playerObj = PlayerData.createPlayerData(
-                username, 
-                role, 
-                userDiceData.value1, 
-                userDiceData.value2, 
-                userColor, // color 
-            );
-
-            // Serializziamo per Redis
-            map[username] = JSON.stringify(playerObj); 
+        if (!playersHash) return [];
+        
+        const players = [];
+        Object.values(playersHash).forEach(jsonStr => {
+            const p = this._safeJsonParse(jsonStr);
+            if (p) players.push(p);
         });
 
-        return map;
+        // Applica ordinamento centralizzato
+        if (players.length > 0) {
+            players.sort((a, b) => (a.order || 0) - (b.order || 0));
+        }
+
+        return players;
     }
 
-    // --- LOGICA DI LETTURA ---
-
+    /**
+     * Ritorna lo STATO COMPLETO del gioco (Metadata + Players + Secrets).
+     * Usato all'avvio o per refresh completi.
+     */
     static async getGameSnapshot(gameId) {
-        // 1. Chiede i dati grezzi al Model
-        const rawData = await Game.findByIdRaw(gameId); //Qua dobbiamo cambiare assoltamente nome al metodo get
+        // Chiede i dati grezzi al Model
+        const rawData = await Game.getGame(gameId);
         if (!rawData) return null;
 
         const { meta, playersHash } = rawData;
 
-        // 2. DESERIALIZZAZIONE (Logica spostata qui)
-        
-        // Parsing dei segreti
-        if (meta.secrets) {
-            try {
-                meta.secrets = JSON.parse(meta.secrets);
-            } catch (e) {
-                console.error("Errore parsing secrets service:", e);
-                meta.secrets = null; 
-            }
-        }
-        if(meta.currentRound) {
-            meta.currentRound = parseInt(meta.currentRound, 10);
-        }
-        // Parsing del tempo (da stringa a numero)
-        if (meta.phaseEndTime) {
-            meta.phaseEndTime = parseInt(meta.phaseEndTime, 10);
-        }   
+        // Deserializzazione Metadati
+        meta.secrets = this._safeJsonParse(meta.secrets);
+        if (meta.currentRound) meta.currentRound = parseInt(meta.currentRound, 10);
+        if (meta.phaseEndTime) meta.phaseEndTime = parseInt(meta.phaseEndTime, 10);
+        if (meta.currentTurnIndex !== undefined) meta.currentTurnIndex = parseInt(meta.currentTurnIndex, 10);
 
-        if (meta.currentTurnIndex !== undefined) {
-            meta.currentTurnIndex = parseInt(meta.currentTurnIndex, 10);
-        }
-
-        // Manteniamo l'oggetto/mappa
+        // Deserializzazione Players
         const players = []; 
-
         if (playersHash) {
             Object.values(playersHash).forEach(jsonStr => {
-                try {
-                    players.push(JSON.parse(jsonStr));
-                } catch (e) {
-                    console.error("Errore parsing player service:", e);
-                }
+                const p = this._safeJsonParse(jsonStr);
+                if (p) players.push(p);
             });
-        
         } 
-        if (players.length > 0 && players[0].order) { //Non so se serve ancora.
-            players.sort((a, b) => a.order - b.order);
+        
+        // Sorting
+        if (players.length > 0) {
+            players.sort((a, b) => (a.order || 0) - (b.order || 0));
         }   
-        // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
+        
         return { ...meta, players };
     }
 
     static async getGameSnapshotByRoomId(roomId) {
-        const gameId = await Game.findGameIdByRoomId(roomId);
-        if (!gameId) return null;
-        return this.getGameSnapshot(gameId);
+        const gameId = await this.getGameIdByRoom(roomId);
+        return gameId ? this.getGameSnapshot(gameId) : null;
     }
 
-    // --- LOGICA DI AGGIORNAMENTO ---
+    // ==========================================
+    // 3. LOGICA DI AGGIORNAMENTO (Updates)
+    // ==========================================
+
     static async updatePlayerState(gameId, username, partialData) {
         return await PlayerData.update(gameId, username, partialData);
     }
 
-    
-    static checkAllPlayersRolled(playersArray) {
-        // Controlla che ogni giocatore abbia hasRolled === true
-        return playersArray.every(p => p.hasRolled === true);
+    static async updateMetaField(gameId, field, value) {
+        await Game.updateMetaField(gameId, field, value);
     }
 
-    /**
-     * NUOVO: Cambia la fase del gioco (es. da DICE a GAME)
-     */
     static async advancePhase(gameId, newPhase) {
         await Game.updateMetaField(gameId, 'phase', newPhase);
-        // Ritorniamo lo snapshot aggiornato
         return await this.getGameSnapshot(gameId);
     }
 
-    // GG: Funzione per aggiornamento del parametro order
-    // currentRound === 1 -> ordine scandito dai dadi
-    // currentRound > 1 -> ordine stabilito applicando il Round Robin sui giocatori vivi
-    static sortPlayersByDice(playersArray, round) {
-        // Separiamo i vivi dai morti
-        const alivePlayers = playersArray.filter(p => p.isAlive !== false); // !== false gestisce anche undefined all'inizio
-        const deadPlayers = playersArray.filter(p => p.isAlive === false);
-
-        if (round === 1) {
-            // Ordina i vivi per somma dadi DECRESCENTE
-            alivePlayers.sort((a, b) => {
-                const sumA = (a.dice1 || 0) + (a.dice2 || 0);
-                const sumB = (b.dice1 || 0) + (b.dice2 || 0);
-                return sumB - sumA; 
+    static async startNewRound(gameId) {
+        const game = await this.getGameSnapshot(gameId);
+        const nextRound = (game.currentRound || 1) + 1;
+        
+        await this.updateMetaField(gameId, 'currentRound', nextRound);
+        
+        const resetPromises = game.players.map(p => {
+            return this.updatePlayerState(gameId, p.username, { 
+                hasRolled: false, 
+                hasSpoken: false, 
+                hasVoted: false, 
+                votesReceived: 0 
             });
-        } else { // round > 1
-            // Ordiniamo i vivi in base al loro ordine precedente
-            alivePlayers.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-            // Rotazione: Il primo della lista passa in fondo
-            if (alivePlayers.length > 0) {
-                const firstPlayer = alivePlayers.shift();
-                alivePlayers.push(firstPlayer);
-            }
-        }
-        alivePlayers.forEach((player, index) => {
-            player.order = index + 1;
         });
-
-        // Ai morti assegniamo ordine 0 (o un numero alto tipo 99) per spingerli in fondo
-        deadPlayers.forEach(player => {
-            player.order = 0; 
-        });
-
-        // 4. Ritorniamo l'array completo aggiornato
-        return [...alivePlayers, ...deadPlayers];
-    }
-    
-    static checkAllPlayersSpoken(playersArray) {
-        // Controlla che ogni giocatore abbia hasSpoken === true
-        return playersArray.every(p => p.hasSpoken === true);
-    }
-
-    static async advancePhase(gameId, newPhase) {
-        await Game.updateMetaField(gameId, 'phase', newPhase);
+        
+        await Promise.all(resetPromises);
         return await this.getGameSnapshot(gameId);
     }
 
-    // --- LOGICA DI VOTO ---
+    // ==========================================
+    // 4. LOGICA DI GIOCO (Voting, Checking)
+    // ==========================================
 
     static async registerVote(gameId, voterUsername, targetUsername) {
-        const game = await this.getGameSnapshot(gameId);
-        const voter = game.players.find(p => p.username === voterUsername);
+        const voter = await this.getPlayer(gameId, voterUsername);
         
         if (voter && !voter.hasVoted) {
             await this.updatePlayerState(gameId, voterUsername, { hasVoted: true });
             
             if (targetUsername) {
-                const target = game.players.find(p => p.username === targetUsername);
+                const target = await this.getPlayer(gameId, targetUsername);
                 if (target) {
                     const currentVotes = (target.votesReceived || 0) + 1;
                     await this.updatePlayerState(gameId, targetUsername, { votesReceived: currentVotes });
@@ -230,81 +191,39 @@ class GameService {
 
     static async processVotingResults(gameId) {
         const game = await this.getGameSnapshot(gameId);
-        
-        // Delega il calcolo matematico al VotingService
         const result = VotingService.calculateElimination(game);
-
+        
         if (result.eliminatedUser) {
-            // Applica l'effetto (Side Effect) nel DB
             await this.updatePlayerState(gameId, result.eliminatedUser.username, { isAlive: false });
-            
             return { 
                 eliminated: result.eliminatedUser.username, 
                 role: result.eliminatedUser.role, 
-                votes: result.eliminatedUser.votesReceived,
+                votes: result.eliminatedUser.votesReceived, 
                 message: result.message 
             };
         }
-
         return { eliminated: null, message: result.message };
     }
 
-    // --- CHECKERS & HELPERS ---
-
-    /**
-     * Prepara il gioco per il round successivo.
-     * Resetta: dadi, voti, stati (hasRolled, hasSpoken, hasVoted).
-     * Incrementa: round.
-     */
-    static async startNewRound(gameId) {
-        const game = await this.getGameSnapshot(gameId);
-        
-        // Incrementa il numero del currentRound
-        const nextRound = (game.currentRound || 1) + 1;
-        await this.updateMetaField(gameId, 'currentRound', nextRound);
-
-        // Resetta i dati di TUTTI i giocatori (vivi e morti, per pulizia)
-        const resetPromises = game.players.map(p => {
-            // Manteniamo solo i dati persistenti (ruolo, vita, colore, username)
-            // Resettiamo quelli di fase
-            return this.updatePlayerState(gameId, p.username, {
-                hasRolled: false,
-                hasSpoken: false,
-                hasVoted: false,
-                votesReceived: 0
-            });
-        });
-        await Promise.all(resetPromises);
-        
-        console.log(`[Game] Round ${nextRound} preparato. Dati resettati.`);
-        
-        return await this.getGameSnapshot(gameId);
-    }
-
-    /**
-     * Controlla le condizioni di vittoria.
-     * Ritorna: { isGameOver: boolean, winner: 'CIVILIANS' | 'IMPOSTORS' | null }
-     */
     static async checkWinCondition(gameId) {
-        const game = await this.getGameSnapshot(gameId);
-        const aliveImpostors = game.players.filter(p => p.isAlive && p.role === 'IMPOSTOR').length;
-        const aliveCivilians = game.players.filter(p => p.isAlive && p.role === 'CIVILIAN').length;
-
-        console.log(`[GameCheck] Impostori: ${aliveImpostors}, Civili: ${aliveCivilians}`);
-
-        if (aliveImpostors === 0) {
-            return { isGameOver: true, winner: 'CIVILIANS', cause: 'guessedImpostors'};
-        }
+        const players = await this.getPlayers(gameId);
+        const aliveImpostors = players.filter(p => p.isAlive && p.role === 'IMPOSTOR').length;
+        const aliveCivilians = players.filter(p => p.isAlive && p.role === 'CIVILIAN').length;
         
-        if (aliveImpostors >= aliveCivilians) {
-            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'killAllCivilians'};
-        }
-
-        if (game.currentRound >= game.maxRound) {
-            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
-        }
+        // Recupera round dai meta (perché non è nei players)
+        const rawData = await Game.getGame(gameId);
+        const currentRound = rawData && rawData.meta ? parseInt(rawData.meta.currentRound || 1) : 1;
+        
+        if (aliveImpostors === 0) return { isGameOver: true, winner: 'CIVILIANS', cause: 'guessedImpostors'};
+        if (aliveImpostors >= aliveCivilians) return { isGameOver: true, winner: 'IMPOSTORS', cause: 'killAllCivilians'};
+        if (currentRound >= 10) return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
+        
         return { isGameOver: false, winner: null };
     }
+
+    // ==========================================
+    // 5. UTILS & HELPERS
+    // ==========================================
 
     static checkAllPlayersRolled(playersArray) {
         return playersArray.every(p => p.hasRolled === true);
@@ -317,71 +236,26 @@ class GameService {
     static checkAllAlivePlayersVoted(players) {
         return VotingService.checkAllAlivePlayersVoted(players);
     }
-    
-    // Wrapper per l'ordinamento (proxy verso Utils)
+
     static sortPlayersByDice(playersArray, round) {
         return DiceUtils.sortPlayersForTurn(playersArray, round);
     }
 
-    // --- METODI DATA LAYER / CRUD ---
+    // --- Private Methods ---
 
-    static async getGameSnapshot(gameId) {
-        const game = await Game.getGame(gameId);
-        if (!game) return null;
-
-        const { meta, playersHash } = game;
-
-        // Deserializzazione sicura
-        meta.secrets = this._safeJsonParse(meta.secrets);
-        meta.phaseEndTime = meta.phaseEndTime ? parseInt(meta.phaseEndTime, 10) : 0;
-        meta.currentTurnIndex = meta.currentTurnIndex ? parseInt(meta.currentTurnIndex, 10) : undefined;
-
-        const players = []; 
-        if (playersHash) {
-            Object.values(playersHash).forEach(jsonStr => {
-                const p = this._safeJsonParse(jsonStr);
-                if (p) players.push(p);
-            });
-        } 
-        
-        if (players.length > 0 && players[0].order) {
-            players.sort((a, b) => a.order - b.order);
-        }   
-        
-        return { ...meta, players }; //Spread Notation per ..., scompattamm meta.
-    }
-
-    static async getGameSnapshotByRoomId(roomId) {
-        const gameId = await Game.findGameIdByRoomId(roomId);
-        return gameId ? this.getGameSnapshot(gameId) : null;
-    }
-
-    static async updateMetaField(gameId, field, value) {
-        await Game.updateMetaField(gameId, field, value);
-    }
-
-    static async updatePlayerState(gameId, username, partialData) {
-        return await PlayerData.update(gameId, username, partialData);
-    }
-
-    // --- PRIVATE UTILS ---
     static _buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors) {
         const map = {};
         playersList.forEach(username => {
             const isImpostor = (username === imposterUsername);
             const userDiceData = diceValues.find(d => d.username === username);
-            const role = isImpostor ? 'IMPOSTOR' : 'CIVILIAN';
-
-            // Creiamo l'oggetto base. Niente "secretWord" qui dentro.
             const playerObj = PlayerData.createPlayerData(
                 username, 
-                role, 
+                isImpostor ? 'IMPOSTOR' : 'CIVILIAN', 
                 userDiceData.value1, 
                 userDiceData.value2, 
                 colors[username], 
                 userDiceData.order
             );
-
             map[username] = JSON.stringify(playerObj); 
         });
         return map;
@@ -389,15 +263,14 @@ class GameService {
 
     static _generateRandomColors(playersList) {
         const colors = {};
-        playersList.forEach(username => {
-            colors[username] = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        playersList.forEach(username => { 
+            colors[username] = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'); 
         });
         return colors;
     }
 
-    static _safeJsonParse(str) {
-        //Da capire se è utile oppure no creare i json, perchè magari serializzare e deserializzare potrebbe essere impattante
-        try { return JSON.parse(str); } catch (e) { return null; }
+    static _safeJsonParse(str) { 
+        try { return JSON.parse(str); } catch (e) { return null; } 
     }
 }
 
