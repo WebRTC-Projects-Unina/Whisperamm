@@ -47,7 +47,8 @@ class Game {
         return gameId;
     }
 
-    // READ: Recupera i dati grezzi, intesi nel json che torna, che non ce ne fotte dato che lo sistema il service.
+    // READ: Recupera i dati grezzi
+    // Ovvero, qui viene restituito al service metadati (oggetto) e playerhash che è un JSON
     static async getGame(gameId) {
         const client = getRedisClient();
         
@@ -62,8 +63,9 @@ class Game {
         return { meta, playersHash }; //Ciò che ci interessa di game.
     }
 
-    static async findGameIdByRoomId(roomId) {
-       
+
+    //Forse addirittura sto metodo va in Room
+    static async getGameIdByRoomId(roomId) {
         const client = getRedisClient();
         const gameId = await client.hGet(`room:${roomId}`, 'gameId');
        

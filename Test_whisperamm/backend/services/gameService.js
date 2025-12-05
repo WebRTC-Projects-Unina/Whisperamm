@@ -44,7 +44,9 @@ class GameService {
         };
 
         // 6. Salva e Ritorna
-        await Game.create(gameId, metaData, playersMap);
+        await Game.create(gameId, metaData, playersMap); 
+        //A questo punto mi sa che potremmo anche mettere la creazione dei metadati di game qui
+        //Mentre la parte che riguarda playerdata in playerDataModel
         return await this.getGameSnapshot(gameId);
     }
 
@@ -83,7 +85,7 @@ class GameService {
 
     static async getGameSnapshot(gameId) {
         // 1. Chiede i dati grezzi al Model
-        const rawData = await Game.findByIdRaw(gameId);
+        const rawData = await Game.findByIdRaw(gameId); //Qua dobbiamo cambiare assoltamente nome al metodo get
         if (!rawData) return null;
 
         const { meta, playersHash } = rawData;
@@ -124,7 +126,7 @@ class GameService {
             });
         
         } 
-        if (players.length > 0 && players[0].order) {
+        if (players.length > 0 && players[0].order) { //Non so se serve ancora.
             players.sort((a, b) => a.order - b.order);
         }   
         // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
@@ -138,7 +140,6 @@ class GameService {
     }
 
     // --- LOGICA DI AGGIORNAMENTO ---
-
     static async updatePlayerState(gameId, username, partialData) {
         return await PlayerData.update(gameId, username, partialData);
     }
@@ -395,6 +396,7 @@ class GameService {
     }
 
     static _safeJsonParse(str) {
+        //Da capire se è utile oppure no creare i json, perchè magari serializzare e deserializzare potrebbe essere impattante
         try { return JSON.parse(str); } catch (e) { return null; }
     }
 }

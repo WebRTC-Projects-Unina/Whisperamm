@@ -29,7 +29,7 @@ const Game = () => {
     const gameStateRef = useRef(gameState);
     useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
-    // Calcolo Stato Morte
+    // Calcolo Stato attuale
     const myPlayer = gameState?.players?.find(p => p.username === user.username);
     // Se isAlive è undefined (inizio), consideralo vivo. Se è false, è morto.
     const amIAlive = myPlayer?.isAlive !== false; 
@@ -45,7 +45,7 @@ const Game = () => {
 
         const handleGameParams = (payload) => setGameState(payload);
         const handleIdentity = (payload) => setUserIdentity(payload);
-        console.log(userIdentity)
+        //Forse qui mettere direttamente il payload come user e game state è un pò sporco..
 
         const handlePrintDiceRoll = (payload) => {
             const playerInState = gameStateRef.current?.players?.find(p => p.username === payload.username);
@@ -75,7 +75,7 @@ const Game = () => {
 
         return () => {
             if (socket) {
-                socket.off('parametri'); socket.off('identityAssigned');
+                socket.off('gameStarted'); socket.off('identityAssigned');
                 socket.off('playerRolledDice'); socket.off('phaseChanged');
                 socket.off('lobbyError');
             }

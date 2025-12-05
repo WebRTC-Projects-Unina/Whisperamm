@@ -82,13 +82,16 @@ async function startTurnAssignmentPhase(io, roomId, gameId) {
         // Recupera stato
         let game = await GameService.getGameSnapshot(gameId);
         
+
+        //Ma non so se servono dato che se non erro ordino sia quando creo che quando vado a fare la getSnapshot..
         // Calcola ordine (Round Robin o Dadi)
-        const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound);
+        const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound); //Ma sai che forse riordiniamo più volte?..
         // Salva ordine su Redis
         const updatePromises = sortedPlayers.map((p, index) => 
             GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
-        );
+        ); 
         await Promise.all(updatePromises);
+
 
         // 4. Avvia Fase e Timer (15s per vedere classifica)
         await TimerService.startTimedPhase(
@@ -99,7 +102,8 @@ async function startTurnAssignmentPhase(io, roomId, gameId) {
             5, 
             async () => {
                 console.log(`[Timer] Fine visione classifica in ${roomId}.`);
-                await handleOrderPhaseComplete(io, { data: { roomId } });
+                await handleOrderPhaseComplete(io, { data: { roomId } }); //Qui mi sa che chiamarlo handle è un pò sbagliato dato che non reagisce a nulla dalla socket
+                //Viene semplicemente chiamato da noi
             },
             { players: sortedPlayers }
         );
@@ -115,27 +119,27 @@ async function startTurnAssignmentPhase(io, roomId, gameId) {
  */
 async function handleRollDice(io, socket) {
     const username = socket.data.username;
-    const roomId = socket.data.roomId;
+    const roomId = socket.data.roomId; 
+    //ma perchè gli arriva il roomId? Boh non lo mandiamo mai..
 
     try {
-
         // Recupera Game ID
         const gameId = await Game.findGameIdByRoomId(roomId); //Dio porco
         if (!gameId) return;
 
         // RECUPERIAMO IL GIOCO AGGIORNATO (che ora include il hasRolled: true appena messo)
-        let game = await GameService.getGameSnapshot(gameId);
+        let game = await GameService.getGameSnapshot(gameId); 
+        //Anche se forse non serve recuperare tutto lo snapshot, ma solo il player no?
 
         // Inviamo il risultato a tutti (Broadcast)
         const myData = game.players.find(p => p.username === username);
 
         // Ignora se ha già lanciato, in teoria è gestita dal frontend ma per sicurezza
-        if (myData.hasRolled) {
-        return; 
-        }
+        if (myData.hasRolled) {return; }
 
         // Questo aggiorna solo il singolo giocatore su Redis e ritorna la lista aggiornata
-        await GameService.updatePlayerState(gameId, username, { hasRolled: true });
+        await GameService.updatePlayerState(gameId, username, { hasRolled: true }); 
+        //Qua lavoriamo con PlayerDataModel ed è buono però per ora playerdata model non ha la creazione, che avviene nel Game Model..
         
         NotificationService.broadcastToRoom(io, roomId, 'playerRolledDice', {
             username: username,
@@ -145,16 +149,16 @@ async function handleRollDice(io, socket) {
         });
         
         // Recupera di nuovo lo stato del gioco aggiornato
-        game = await GameService.getGameSnapshot(gameId);
-
+        game = await GameService.getGameSnapshot(gameId); 
+        //Forse più che lo stato dell'intero gioco qui potremmo recuperare anche lo stato dei player
         // Controlliamo se TUTTI hanno lanciato
-        if (GameService.checkAllPlayersRolled(game.players)) {
-            // Fondamentale altrimenti tra X secondi scatta il timeout e prova a cambiare fase di nuovo.
+        if (GameService.checkAllPlayersRolled(game.players)) { 
+
             TimerService.clearTimer(roomId);
             // Attendo 4 secondi per l'animazione dei dadi
             setTimeout(async () => {
                 await startTurnAssignmentPhase(io, roomId, gameId);
-            }, 4000)
+            }, 4000) //Perchè qui non l'abbiamo fatto con TimerService?
         }
 
     } catch (err) {
@@ -198,17 +202,18 @@ async function forceRollsAndProceed(io, roomId, gameId) {
     }
 }
 
-async function handleOrderPhaseComplete(io, socket) {
+//Non mi piace che ci sia una funzione, tra l'altro penso che il gioco non sia mai passato in ORDER Phase a questo punto
+//Che è ok, però non ho completato orderPhase ma ho completato dice!
+async function handleOrderPhaseComplete(io, socket) { //Forse non va bene come nome
     const roomId = socket.data.roomId; 
 
     try {
-        const gameId = await Game.findGameIdByRoomId(roomId);
+        const gameId = await Game.findGameIdByRoomId(roomId); //qui proprio è una porcheria
         if (!gameId) return;
 
-        // 1. Reset/Inizializzazione Fase
+        // 1. Reset/Inizializzazione Fase forse qua ci vorrebbe qualcosa nel service..
         await GameService.updateMetaField(gameId, 'phase', GamePhase.GAME);
         await GameService.updateMetaField(gameId, 'currentTurnIndex', 0); // Inizia dal primo giocatore
-
         // Avvia il primo turno
         await startNextTurn(io, roomId, gameId);
 
@@ -254,7 +259,7 @@ async function handleConfirmWord(io, socket){
  * Controlla l'indice corrente: se c'è un giocatore, avvia il suo timer.
  * Se sono finiti, passa alla Discussione.
  */
-async function startNextTurn(io, roomId, gameId) {
+async function startNextTurn(io, roomId, gameId) { //Mi sa che va in gameService, oppure in un file che riguarda solo la logica di gioco
     try {
         let game = await GameService.getGameSnapshot(gameId);
         // Recuperiamo l'indice corrente 
@@ -262,6 +267,7 @@ async function startNextTurn(io, roomId, gameId) {
         
         // Ordiniamo i giocatori (come nel frontend) per sapere a chi tocca
         const sortedPlayers = game.players.sort((a, b) => a.order - b.order);
+        //Natavot..
 
         // --- CASO A: FASE FINITA (Tutti hanno parlato) ---
         if (currentIndex >= sortedPlayers.length) {
@@ -301,6 +307,7 @@ async function startNextTurn(io, roomId, gameId) {
                 // Forziamo l'avanzamento chiamando handleConfirmWord "finto"
                 // o chiamando direttamente la logica di avanzamento
                 await advanceTurnLogic(io, roomId, gameId, currentPlayer.username); 
+                //Questo mi sa che in realtà va in gameService..
             },
             { currentTurnIndex: currentIndex }
         );
@@ -314,7 +321,7 @@ async function startNextTurn(io, roomId, gameId) {
  * Logica atomica per segnare che un player ha parlato e incrementare l'indice.
  * Usata sia dal click manuale che dal timeout.
  */
-async function advanceTurnLogic(io, roomId, gameId, username) {
+async function advanceTurnLogic(io, roomId, gameId, username) { //Mi sa che va in game service
     // 1. Segna che ha parlato
     await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
     
@@ -442,7 +449,7 @@ async function handleVoteReceived(io, socket, payload) {
             hasVoted: true
         });
         // Controllo se i vivi hanno votato
-        const game = await GameService.getGameSnapshot(gameId);
+        const game = await GameService.getGameSnapshot(gameId); //Pure qua..forse mi servirebbe semplicemente players..
         
         if (GameService.checkAllAlivePlayersVoted(game.players)) {
             console.log(`[Vote] Tutti hanno votato manualmente in ${roomId}.`);
