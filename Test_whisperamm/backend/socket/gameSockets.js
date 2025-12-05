@@ -80,6 +80,7 @@ async function handleStartGame(io, socket, { roomId }) {
     
 }
 
+//---------------------------- FASE LANCIO DEI DADI -----------------------------
 
 /**
  * Funzione helper per passare alla fase TURN_ASSIGNMENT.
@@ -128,7 +129,6 @@ async function handleRollDice(io, socket) {
     const roomId = socket.data.roomId;
 
     try {
-
         // Recupera Game ID
         const gameId = await Game.findGameIdByRoomId(roomId);
         if (!gameId) return;
@@ -208,6 +208,45 @@ async function forceRollsAndProceed(io, roomId, gameId) {
     }
 }
 
+//---------------------------- FASE MOSTRA ORDINE -----------------------------
+
+/**
+ * Funzione helper per passare alla fase TURN_ASSIGNMENT.
+ * Viene chiamata o dal Timer (se scade) o da handleRollDice (se finiscono prima) o nel caso di round > 1.
+ */
+async function startTurnAssignmentPhase(io, roomId, gameId) {
+    try {
+        console.log(`[Game] Calcolo ordine e cambio fase a TURN_ASSIGNMENT per ${roomId}`);
+
+        // Recupera stato
+        let game = await GameService.getGameSnapshot(gameId);
+        
+        // Calcola ordine (Round Robin o Dadi)
+        const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound);
+        // Salva ordine su Redis
+        const updatePromises = sortedPlayers.map((p, index) => 
+            GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
+        );
+        await Promise.all(updatePromises);
+
+        // 4. Avvia Fase e Timer (15s per vedere classifica)
+        await TimerService.startTimedPhase(
+            io,
+            roomId,
+            gameId,
+            GamePhase.TURN_ASSIGNMENT, 
+            5, 
+            async () => {
+                console.log(`[Timer] Fine visione classifica in ${roomId}.`);
+                await handleOrderPhaseComplete(io, { data: { roomId } });
+            },
+            { players: sortedPlayers }
+        );
+    } catch (err) {
+        console.error("Errore nel passaggio a TURN_ASSIGNMENT:", err);
+    }
+}
+
 async function handleOrderPhaseComplete(io, socket) {
     const roomId = socket.data.roomId; 
 
@@ -227,6 +266,8 @@ async function handleOrderPhaseComplete(io, socket) {
     }
 }
 
+//---------------------------- FASE GIOCO/TURNI -----------------------------
+
 async function handleConfirmWord(io, socket){ 
     const roomId = socket.data.roomId;
     const username = socket.data.username;
@@ -235,9 +276,12 @@ async function handleConfirmWord(io, socket){
         const gameId = await Game.findGameIdByRoomId(roomId);
         if (!gameId) return;
         
-        // 1. Controllo: È davvero il suo turno? (Anti-Cheat)
+        // Controllo: È davvero il suo turno? È vivo?
         let game = await GameService.getGameSnapshot(gameId);
-        const sortedPlayers = game.players.sort((a, b) => a.order - b.order);
+        // Lavoro con i giocatori vivi (isAlive !==false)
+        const alivePlayers = game.players.filter(p => p.isAlive !== false);
+        // Ordiniamo i giocatori per sapere a chi tocca
+        const sortedPlayers = alivePlayers.sort((a, b) => a.order - b.order);
         const currentIndex = game.currentTurnIndex || 0;
         
         if (sortedPlayers[currentIndex].username !== username) {
@@ -251,7 +295,7 @@ async function handleConfirmWord(io, socket){
 
         console.log(`[Game] ${username} ha confermato manualmente.`);
 
-        // 3. Esegui avanzamento
+        // Esegui avanzamento
         await advanceTurnLogic(io, roomId, gameId, username);
 
     } catch (err) {
@@ -269,9 +313,10 @@ async function startNextTurn(io, roomId, gameId) {
         let game = await GameService.getGameSnapshot(gameId);
         // Recuperiamo l'indice corrente 
         let currentIndex = game.currentTurnIndex || 0;
-        
-        // Ordiniamo i giocatori (come nel frontend) per sapere a chi tocca
-        const sortedPlayers = game.players.sort((a, b) => a.order - b.order);
+        // Lavoro con i giocatori vivi (isAlive !==false)
+        const alivePlayers = game.players.filter(p => p.isAlive !== false);
+        // Ordiniamo i giocatori per sapere a chi tocca
+        const sortedPlayers = alivePlayers.sort((a, b) => a.order - b.order);
 
         // --- CASO A: FASE FINITA (Tutti hanno parlato) ---
         if (currentIndex >= sortedPlayers.length) {
@@ -296,7 +341,6 @@ async function startNextTurn(io, roomId, gameId) {
         const currentPlayer = sortedPlayers[currentIndex];
 
         // Avviamo il timer per QUESTO turno specifico (es. 30 secondi)
-        // Nota: Usiamo ancora 'phaseChanged' o un evento specifico 'turnUpdate'
         // Per semplicità usiamo startTimedPhase che aggiorna il tempo per tutti
         await TimerService.startTimedPhase(
             io,
@@ -306,10 +350,7 @@ async function startNextTurn(io, roomId, gameId) {
             5, // 30 secondi per dire la parola
             async () => {
                 // TIMEOUT: Se il giocatore non conferma, il server lo fa per lui
-                console.log(`[Timer] Tempo parola scaduto per ${currentPlayer.username}. Auto-skip.`);
-                
-                // Forziamo l'avanzamento chiamando handleConfirmWord "finto"
-                // o chiamando direttamente la logica di avanzamento
+                // Forziamo chiamando direttamente la logica di avanzamento
                 await advanceTurnLogic(io, roomId, gameId, currentPlayer.username); 
             },
             { currentTurnIndex: currentIndex }
@@ -325,16 +366,16 @@ async function startNextTurn(io, roomId, gameId) {
  * Usata sia dal click manuale che dal timeout.
  */
 async function advanceTurnLogic(io, roomId, gameId, username) {
-    // 1. Segna che ha parlato
+    // Segna che ha parlato
     await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
     
-    // 2. Incrementa l'indice del turno su Redis
+    // Incrementa l'indice del turno su Redis
     // Dobbiamo recuperare l'indice attuale e fare +1
     const game = await GameService.getGameSnapshot(gameId);
     const nextIndex = (game.currentTurnIndex || 0) + 1;
     await GameService.updateMetaField(gameId, 'currentTurnIndex', nextIndex);
 
-    // 3. Notifica visiva (opzionale, per far vedere la spunta verde istantanea)
+    // Notifica visiva (per far vedere la spunta verde istantanea)
     NotificationService.broadcastToRoom(io, roomId, 'playerSpoken', { 
         username, 
         nextIndex // Utile al frontend per sapere chi tocca
@@ -379,6 +420,40 @@ async function forceVoteCompletion(io, roomId, gameId) {
         console.error("Errore forceVoteCompletion:", err);
     }
 }
+
+async function handleVoteReceived(io, socket, payload) {
+    const { roomId, username } = socket.data;
+    const { voteFor } = payload; // Può essere 'NomeGiocatore' o null (Astensione)
+
+    try {
+        const gameId = await Game.findGameIdByRoomId(roomId);
+        if (!gameId) return;
+        // Registra Voto nel DB
+        const success = await GameService.registerVote(gameId, username, voteFor);
+        if (!success) return; // Aveva già votato, ignoriamo
+
+        // Diciamo a tutti che questo utente ha votato, così la sidebar si aggiorna subito
+        NotificationService.broadcastToRoom(io, roomId, 'playerVoted', {
+            username: username,
+            hasVoted: true
+        });
+        // Controllo se i vivi hanno votato
+        const game = await GameService.getGameSnapshot(gameId);
+        
+        if (GameService.checkAllAlivePlayersVoted(game.players)) {
+            console.log(`[Vote] Tutti hanno votato manualmente in ${roomId}.`);
+            // Fermo il timer
+            TimerService.clearTimer(roomId);
+            // Procedi ai risultati
+            await proceedToResults(io, roomId, gameId);
+        }
+
+    } catch (err) {
+        console.error("Errore handleVoteReceived:", err);
+    }
+}
+
+//---------------------------- FASE RISULTATO/FINALE/NUOVO ROUND -----------------------------
 
 /**
  * Calcola risultati e passa alla fase RESULTS.
@@ -433,40 +508,6 @@ async function proceedToResults(io, roomId, gameId) {
         console.error("Errore proceedToResults:", err);
     }
 }
-
-
-async function handleVoteReceived(io, socket, payload) {
-    const { roomId, username } = socket.data;
-    const { voteFor } = payload; // Può essere 'NomeGiocatore' o null (Astensione)
-
-    try {
-        const gameId = await Game.findGameIdByRoomId(roomId);
-        if (!gameId) return;
-        // Registra Voto nel DB
-        const success = await GameService.registerVote(gameId, username, voteFor);
-        if (!success) return; // Aveva già votato, ignoriamo
-
-        // Diciamo a tutti che questo utente ha votato, così la sidebar si aggiorna subito
-        NotificationService.broadcastToRoom(io, roomId, 'playerVoted', {
-            username: username,
-            hasVoted: true
-        });
-        // Controllo se i vivi hanno votato
-        const game = await GameService.getGameSnapshot(gameId);
-        
-        if (GameService.checkAllAlivePlayersVoted(game.players)) {
-            console.log(`[Vote] Tutti hanno votato manualmente in ${roomId}.`);
-            // Fermo il timer
-            TimerService.clearTimer(roomId);
-            // Procedi ai risultati
-            await proceedToResults(io, roomId, gameId);
-        }
-
-    } catch (err) {
-        console.error("Errore handleVoteReceived:", err);
-    }
-}
-
 
 
 function attach(socket, io) {
