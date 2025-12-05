@@ -6,6 +6,8 @@ const NotificationService = require('../services/notificationService');
 const PayloadUtils = require('../utils/gamePayloadUtils');
 const { GamePhase } = require('../models/Game');
 
+//NOTA: Togliere dal TimerService il compito di mandare messaggi!
+
 class GameController {
 
     static async handleStartGame(io, socket, { roomId }) {
@@ -110,53 +112,60 @@ class GameController {
 
     // --- FINE FASE DADI ---
 
+
+    //FASE TURN ASSIGNMENT
     static async startTurnAssignmentPhase(io, roomId, gameId) {
         try {
             console.log(`[Game] Cambio fase TURN_ASSIGNMENT per ${roomId}`);
-            let game = await GameService.getGameSnapshot(gameId);
+            let game = await GameService.getGameSnapshot(gameId); //Qua non serve questo
             
-            const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound);
+            const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound); 
+            //Questo è giusto che lo riordina, dato che è solo al primo turno che è assegnato l'ordine ma poi va calcolato a run time
+            //in base a chi viene eliminato
             
             const updatePromises = sortedPlayers.map((p, index) => 
                 GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
             );
             await Promise.all(updatePromises);
             
-            await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.TURN_ASSIGNMENT, 5, async () => {
-                await this.handleOrderPhaseComplete(io, roomId);
-            }, { players: sortedPlayers });
+            await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.TURN_ASSIGNMENT, 5, 
+                async () => {await this.orderPhaseCompleted(io, roomId);}, { players: sortedPlayers });
+                //La async è la callback passata che deve semplicemente far passare alla fase di Game.
 
         } catch (err) {
             console.error("Errore TURN_ASSIGNMENT:", err);
         }
     }
 
-    static async handleOrderPhaseComplete(io, roomId) {
+    //Qui semplicemente settiamo il current Turn Index a 0 e si parte in GAME
+    static async orderPhaseCompleted(io, roomId) {
         try {
             const gameId = await GameService.getGameIdByRoom(roomId);
             if (!gameId) return;
 
             await GameService.updateMetaField(gameId, 'phase', GamePhase.GAME);
-            await GameService.updateMetaField(gameId, 'currentTurnIndex', 0);
+            await GameService.updateMetaField(gameId, 'currentTurnIndex', 0); 
 
             await this.startNextTurn(io, roomId, gameId);
         } catch (err) {
-            console.error(`[Errore] handleOrderPhaseComplete:`, err);
+            console.error(`[Errore] orderPhaseComplete:`, err);
         }
     }
 
+
+    //FASE DI SWITCH Del microfono praticamente.
     static async startNextTurn(io, roomId, gameId) {
         try {
-            // Nota: getGameSnapshot restituisce players già ordinati dal Service
             let game = await GameService.getGameSnapshot(gameId);
             let currentIndex = game.currentTurnIndex || 0;
             const sortedPlayers = game.players; 
+            //Anche qui lo stesso
 
             if (currentIndex >= sortedPlayers.length) {
                 TimerService.clearTimer(roomId);
                 await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.DISCUSSION, 5, async () => {
                     await this.startVotingPhase(io, roomId, gameId);
-                });
+                });emit
                 return;
             }
 

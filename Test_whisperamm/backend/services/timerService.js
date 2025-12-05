@@ -22,7 +22,7 @@ class TimerService {
         const updatedGame = await GameService.advancePhase(gameId, nextPhase);
 
         /// Aggiorniamo ANCHE il tempo di fine su Redis (per chi fa refresh della pagina)
-        await Game.updateMetaField(gameId, 'phaseEndTime', endTime);
+        await Game.updateMetaField(gameId, 'phaseEndTime', endTime); //Da modificare questa
 
         // Costruzione Payload
         // Uniamo i dati base del gioco con i dati del timer E i dati extra
