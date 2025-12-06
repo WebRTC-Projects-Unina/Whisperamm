@@ -83,7 +83,16 @@ class Game {
         return await client.hGetAll(`game:${gameId}:players`);
     }
     
-
+    /**
+     * Incrementa un valore numerico nei metadati in modo ATOMICO (HINCRBY).
+     * Restituisce il nuovo valore dopo l'incremento.
+     */
+    static async incrementMetaField(gameId, field, amount = 1) {
+        const client = getRedisClient();
+        // Redis HINCRBY: incrementa il campo hash del valore specificato
+        // Restituisce il nuovo valore intero.
+        return await client.hIncrBy(`game:${gameId}`, field, amount);
+    }
 }
 
 module.exports = { Game, GamePhase };

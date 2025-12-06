@@ -167,9 +167,26 @@ class GameService {
         return await this.getGameSnapshot(gameId);
     }
 
+
+    /**
+     * Prepara il DB per l'inizio della fase di gioco (parlata).
+     * Imposta la fase e resetta l'indice del turno.
+     */
+    static async prepareGamePhase(gameId) {
+
+        await Promise.all([
+            Game.updateMetaField(gameId, 'phase', GamePhase.GAME),
+            Game.updateMetaField(gameId, 'currentTurnIndex', 0)
+        ]); //Forse questo posso farlo anche in maniera transazionale..
+        
+        // Ritorna true o void, basta che la promise si risolva
+    }
+
     // ==========================================
     // 4. LOGICA DI GIOCO (Voting, Checking)
     // ==========================================
+
+
 
     static async registerVote(gameId, voterUsername, targetUsername) {
         const voter = await this.getPlayer(gameId, voterUsername);
