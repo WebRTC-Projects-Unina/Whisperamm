@@ -161,7 +161,7 @@ const Game = () => {
                         </div>
                         {revealSecret && userIdentity && (
                             <div className="secret-content revealed">
-                                <p>Ruolo: <span className={userIdentity.role === 'Impostor' ? 'role-impostor' : 'role-civilian'}>{userIdentity.role}</span></p>
+                                <p>Ruolo: <span className={userIdentity.role === 'IMPOSTOR' ? 'role-impostor' : 'role-civilian'}>{userIdentity.role}</span></p>
                                 <p>Parola: <span>{userIdentity.secretWord}</span></p>
                             </div>
                         )}
