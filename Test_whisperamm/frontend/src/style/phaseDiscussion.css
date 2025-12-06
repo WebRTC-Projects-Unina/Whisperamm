@@ -44,7 +44,7 @@
     animation: pulse 1s infinite;
 }
 
-.players-container {
+.discussion-players-container {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
@@ -55,7 +55,7 @@
 }
 
 /* Card giocatore semplice per la discussione */
-.player-card {
+.discussion-player-card {
     background: rgba(255, 255, 255, 0.05);
     border: 2px solid #555;
     border-radius: 12px;
@@ -66,10 +66,10 @@
     min-width: 200px;
 }
 
-.player-avatar-large {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
+.discussion-player-avatar-large {
+    width: 180px;
+    height: 135px;
+    border-radius: 8px;
     display: flex;
     justify-content: center;
     align-items: center;

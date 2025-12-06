@@ -1,29 +1,35 @@
-import React, {useEffect, useState} from 'react';
+import React, {useEffect, useState, useContext, useRef} from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
+import { JanusContext } from '../context/JanusProvider'; // Import Context
 import { useLobbyValidation } from '../hooks/useLobbyValidation';
 import { useLobbySocket } from '../hooks/useLobbySocket';
 import { useLobbyHandlers } from '../hooks/useLobbyHandlers';
-import { useJanus } from '../hooks/useJanus';
 import '../style/Lobby.css';
 import MiniForm from './MiniForm';
 import Game from './Game';
+
+import VideoPlayer from './VideoPlayer';
 
 const Lobby = () => {
     
     const { user, setUser } = useAuth();
     const { socket, connectSocket, disconnectSocket } = useSocket();
     const { roomId } = useParams();
-
-    // --- JANUS INTEGRATION ---
+    
+    // --- JANUS CONTEXT ---
     const { 
-        isJanusReady,
-        isInitializing: janusInitializing,
+        initializeJanus, 
+        joinRoom, 
+        isJanusReady, 
+        localStream,
+        remoteStreams,
+        status: janusStatus, 
         error: janusError,
-        initializeJanus,
-        createJanusSession
-    } = useJanus();
+        cleanup: cleanupJanus
+    } = useContext(JanusContext);
+    
 
     // 1. Validation Hook (Fetch iniziale HTTP)
     const { 
@@ -32,8 +38,6 @@ const Lobby = () => {
         setLobbyError,
         roomName, 
         maxPlayers, 
-        // adminPlayer e isAdmin iniziali li ignoriamo qui, 
-        // ci affideremo ai dati freschi del socket
     } = useLobbyValidation(roomId, user);
 
     // 2. Stati UI Dati
@@ -44,26 +48,23 @@ const Lobby = () => {
     
     // 3. Stati Logica Gioco
     const [isReady, setIsReady] = useState(false);
-    const [allReady, setAllReady] = useState(false); // Arriva dal socket
+    const [allReady, setAllReady] = useState(false); 
     const [readyStates, setReadyStates] = useState({});
     const [gameLoading, setGameLoading] = useState(false);
     
     // 4. Stati Ruoli
-    const [adminPlayer, setAdminPlayer] = useState(null); // Nome dell'host
-    const [isAdmin, setIsAdmin] = useState(false); // Booleano derivato
-    const [canStartGame, setCanStartGame] = useState(false); // Booleano derivato
+    const [adminPlayer, setAdminPlayer] = useState(null); 
+    const [isAdmin, setIsAdmin] = useState(false); 
+    const [canStartGame, setCanStartGame] = useState(false); 
 
-    const [janusSetupDone, setJanusSetupDone] = useState(false); // Per evitare init multipli
-    // --- LOGICA DERIVATA (Sostituisce la logica "sporca" dentro i socket) ---
+    // --- LOGICA DERIVATA ---
     
-    // A. Calcolo se sono Admin
     useEffect(() => {
         if (user && adminPlayer) {
             setIsAdmin(user.username === adminPlayer);
         }
     }, [user, adminPlayer]);
 
-    // B. Calcolo se posso startare (Host + Tutti Pronti)
     useEffect(() => {
         if (isAdmin && allReady) {
             setCanStartGame(true);
@@ -72,7 +73,6 @@ const Lobby = () => {
         }
     }, [isAdmin, allReady]);
 
-    // C. Testo stanza piena
     useEffect(() => {
         if (players.length > 0 && maxPlayers && players.length >= maxPlayers) {
             setRoomFull("Stanza piena!");
@@ -81,33 +81,39 @@ const Lobby = () => {
         }
     }, [players, maxPlayers]);
 
-    // --- JANUS SETUP: Esegui solo una volta quando l'utente entra in Lobby ---
+    // --- JANUS LOGIC ---
+
+    // A. Inizializza Janus quando l'utente è validato
     useEffect(() => {
-        const setupJanus = async () => {
-            if (!user || isValidating || janusSetupDone) {
-                return;
-            }
+        if (user && !isValidating) {
+            initializeJanus();
+        }
+    }, [user, isValidating, initializeJanus]);
 
-            try {
-                console.log('🎥 Richiedendo permessi media in Lobby...');
-                
-                // ← SOLO inizializza (chiede permessi)
-                await initializeJanus();
-                console.log('✅ Permessi concessi');
-                
-                // ← Crea sessione (ma non attiva il microfono ancora)
-                await createJanusSession();
-                console.log('✅ Sessione Janus creata');
-                
-                setJanusSetupDone(true);
-            } catch (err) {
-                console.error('❌ Errore setup Janus:', err);
-                setJanusSetupDone(true);
-            }
+    // B. Effettua il Join nella stanza video quando Janus è connesso
+    const hasJoinedRef = useRef(false);
+
+    // Reset del flag se cambia la stanza
+    useEffect(() => {
+        hasJoinedRef.current = false;
+    }, [roomId]);
+
+    useEffect(() => {
+        // Se Janus è pronto, connesso e non siamo ancora entrati
+        if (isJanusReady && janusStatus === 'connected' && !hasJoinedRef.current && user) {
+            console.log(`🚀 Janus connesso. Tentativo ingresso stanza video: ${roomId}`);
+            joinRoom(roomId, user.username);
+            hasJoinedRef.current = true;
+        }
+    }, [isJanusReady, janusStatus, roomId, user, joinRoom]);
+
+    // C. Cleanup Janus all'uscita dalla Lobby
+    useEffect(() => {
+        return () => {
+            cleanupJanus();
+            hasJoinedRef.current = false;
         };
-
-        setupJanus();
-    }, [user, isValidating, janusSetupDone, initializeJanus, createJanusSession]);    
+    }, [cleanupJanus]);
 
     // 5. Socket Hook
     useLobbySocket(
@@ -148,12 +154,47 @@ const Lobby = () => {
 
     return (
         <div className="lobby-page">
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
+        
+        {/* 1. IL TUO VIDEO (LOCALE) */}
+        {localStream && (
+          <VideoPlayer 
+            stream={localStream} 
+            isLocal={true} 
+            display="Tu" 
+          />
+        )}
+
+        {/* 2. I VIDEO DEGLI ALTRI (REMOTI) */}
+        {remoteStreams.map((remote) => (
+          <VideoPlayer
+            key={remote.id} // Fondamentale per React
+            stream={remote.stream}
+            isLocal={false}
+            display={remote.display}
+          />
+        ))}
+        
+      </div>
             {/* BANNER ERRORE JANUS */}
             {janusError && (
-                <div className="janus-error-banner">
-                    <span>⚠️ Errore Video: {janusError}</span>
-                    <p>Permetti camera e microfono per poter giocare.</p>
+            <div className="janus-error-overlay">
+                <div className="janus-error-popup">
+                    <div className="popup-header">
+                        <span>⚠️ Errore Video</span>
+                    </div>
+                    <div className="popup-body">
+                        <p className="error-message">{janusError}</p>
+                        <p className="instruction">Ops, c'è un problema con audio e microfono verrai reindirizzato.</p>
+                    </div>
+
+                    {/* Opzionale: Bottone per ricaricare la pagina se necessario */}
+                    <button className="popup-btn" onClick={handleBackHome}>
+                        Continua
+                    </button>
                 </div>
+            </div>
             )}            
             <div className="lobby-layout">
                 {/* COLONNA SINISTRA: CHAT */}

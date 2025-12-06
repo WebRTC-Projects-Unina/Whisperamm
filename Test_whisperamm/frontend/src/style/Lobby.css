@@ -426,3 +426,31 @@
     font-size: 1.2rem;
   }
 }
+
+.janus-error-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.45);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.janus-error-popup {
+    background: #1c1f2b;
+    color: #fff;
+    border-radius: 14px;
+    padding: 28px 32px;
+    width: min(420px, 90vw);
+    box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+    text-align: center;
+}
+
+.popup-btn {
+    margin-top: 18px;
+    padding: 10px 20px;
+    border-radius: 8px;
+    color: #fff;
+    background: #a600ff;
+}

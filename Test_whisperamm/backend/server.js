@@ -53,10 +53,10 @@ app.use(express.json());
 // Importo le rotte
 const userRoutes = require('./routes/userRoutes');
 const roomRoutes = require('./routes/roomRoutes');
-const janusRoutes = require('./routes/janusRoutes');
+//const janusRoutes = require('./routes/janusRoutes');
 userRoutes(app); // Registra le rotte
 roomRoutes(app); // Registra le rotte
-janusRoutes(app); // Registra le rotte
+//janusRoutes(app); // Registra le rotte
 
 server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);

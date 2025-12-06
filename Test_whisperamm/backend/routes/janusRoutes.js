@@ -12,4 +12,7 @@ module.exports = (app) => {
 
     app.route('/api/janus/destroy-session')
         .post(JanusController.destroySession);
+
+    app.route('/api/janus/join-room')
+        .post(JanusController.joinVideoRoom);
 }

@@ -1,7 +1,9 @@
-import React, { useEffect, useState, useRef } from 'react';
+// src/components/Game.jsx
+import React, { useEffect, useState, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
+import { JanusContext } from '../context/JanusProvider'; // <--- IMPORTA JANUS
 
 import PhaseDice from './game/phaseDice';
 import PhaseOrder from './game/phaseOrder';
@@ -19,6 +21,17 @@ const Game = () => {
     const navigate = useNavigate();
     const { socket, disconnectSocket } = useSocket(); 
     
+    // --- JANUS INTEGRATION ---
+    const { 
+        initializeJanus, 
+        joinRoom, 
+        isJanusReady, 
+        status: janusStatus,
+        cleanup: cleanupJanus,
+        localStream,   // Ci servono per passarli alle fasi
+        remoteStreams
+    } = useContext(JanusContext);
+
     const [gameState, setGameState] = useState(null);      
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
@@ -27,13 +40,36 @@ const Game = () => {
     const [isWaiting, setIsWaiting] = useState(false); 
 
     const gameStateRef = useRef(gameState);
+    const hasJoinedJanus = useRef(false);
+
     useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
-    // Calcolo Stato attuale
     const myPlayer = gameState?.players?.find(p => p.username === user.username);
-    // Se isAlive è undefined (inizio), consideralo vivo. Se è false, è morto.
     const amIAlive = myPlayer?.isAlive !== false; 
 
+    // 1. INIZIALIZZA JANUS ALL'INGRESSO NEL GIOCO
+    useEffect(() => {
+        if (user) {
+            initializeJanus();
+        }
+        // Cleanup quando si lascia la pagina Game definitivamente
+        return () => {
+            cleanupJanus();
+            hasJoinedJanus.current = false;
+        };
+    }, [user, initializeJanus, cleanupJanus]);
+
+    // 2. EFFETTUA IL JOIN AUDIO/VIDEO
+    useEffect(() => {
+        if (isJanusReady && janusStatus === 'connected' && !hasJoinedJanus.current && user) {
+            console.log("🔊 Game: Join stanza audio...");
+            joinRoom(roomId, user.username);
+            hasJoinedJanus.current = true;
+        }
+    }, [isJanusReady, janusStatus, roomId, user, joinRoom]);
+
+
+    // --- LOGICA SOCKET ESISTENTE ---
     useEffect(() => {
         if (gameState?.phase && gameState.phase !== 'DICE') {
             setActiveRolls([]); 
@@ -45,7 +81,6 @@ const Game = () => {
 
         const handleGameParams = (payload) => setGameState(payload);
         const handleIdentity = (payload) => setUserIdentity(payload);
-        //Forse qui mettere direttamente il payload come user e game state è un pò sporco..
 
         const handlePrintDiceRoll = (payload) => {
             const playerInState = gameStateRef.current?.players?.find(p => p.username === payload.username);
@@ -83,11 +118,14 @@ const Game = () => {
     }, [socket, navigate, roomId]);
 
     const handleLeaveGame = () => {
-        if (window.confirm("Uscire?")) { disconnectSocket(); navigate(`/`); }
+        if (window.confirm("Uscire?")) { 
+            disconnectSocket(); 
+            cleanupJanus(); // Pulisci anche audio
+            navigate(`/`); 
+        }
     };
 
     const handleDiceRoll = () => { 
-        // Blocco di sicurezza aggiuntivo: i morti non lanciano
         if (!amIAlive) return; 
         if(isWaiting) return; 
         setIsWaiting(true);
@@ -111,20 +149,25 @@ const Game = () => {
 
     if (!socket || !gameState) return <div className="game-loader">Caricamento...</div>;
 
+    // Props comuni per l'audio da passare alle fasi
+    const audioProps = {
+        localStream,
+        remoteStreams
+    };
+
     const renderPhaseContent = () => {
         const phase = gameState.phase;
         const startTimer = gameState.startTimer || false;
 
-        // Mappa delle fasi
         switch (phase) {
             case 'DICE': case 'lancio_dadi':
-                return <PhaseDice gameState={gameState} user={user} activeRolls={activeRolls} onRollComplete={handleRollComplete} onDiceRoll={handleDiceRoll} isWaiting={isWaiting} startTimer={startTimer} />;
+                return <PhaseDice gameState={gameState} user={user} activeRolls={activeRolls} onRollComplete={handleRollComplete} onDiceRoll={handleDiceRoll} isWaiting={isWaiting} startTimer={startTimer} {...audioProps} />;
             case 'TURN_ASSIGNMENT': case 'ordine_gioco':
-                return <PhaseOrder gameState={gameState} user={user} />;
+                return <PhaseOrder gameState={gameState} user={user} {...audioProps} />;
             case 'GAME': case 'inizio_gioco':
-                return <PhaseWord gameState={gameState} user={user} socket={socket} />;
+                return <PhaseWord gameState={gameState} user={user} socket={socket} {...audioProps} />;
             case 'DISCUSSION': case 'discussione':
-                return <PhaseDiscussion gameState={gameState} user={user} socket={socket} />;
+                return <PhaseDiscussion gameState={gameState} user={user} socket={socket} {...audioProps} />;
             case 'VOTING': case 'votazione':
                 return <PhaseVoting gameState={gameState} user={user} socket={socket} />;
             case 'RESULTS': case 'risultati':
@@ -139,21 +182,18 @@ const Game = () => {
     return (
         <div className={`game-page ${!amIAlive ? 'is-dead-mode' : ''}`}>
             <div className="game-card">
-                
                 <header className="game-header">
                     <div className="game-header-left">
                         <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
                         <p className="game-subtitle">Fase: <span style={{color: '#ff9800'}}>{gameState.phase}</span></p>
                     </div>
                     <div className="game-header-right">
-                        {/* SE SEI MORTO APPARE QUESTO */}
                         {!amIAlive && <div className="dead-status-badge">💀 SEI ELIMINATO</div>}
                         <div className="game-room-badge">{roomId}</div>
                         <button className="game-btn-danger btn-small" onClick={handleLeaveGame}>Esci</button>
                     </div>
                 </header>
                 
-                {/* IDENTITA' (Se sei morto potresti volerla vedere sempre o mai, qui la lasciamo) */}
                 {gameState.phase !== 'DICE' && (
                     <div className="game-secret-section">
                         <div className="secret-toggle" onClick={() => setRevealSecret(!revealSecret)}>
@@ -168,11 +208,9 @@ const Game = () => {
                     </div>
                 )}
 
-                {/* WRAPPER CONTENUTO: Se è morto, il CSS blocca le interazioni qui dentro */}
                 <div className="phase-content-wrapper">
                     {renderPhaseContent()}
                 </div>
-
             </div>
         </div>
     );

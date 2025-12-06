@@ -185,6 +185,47 @@ class JanusController {
             });
         }
     }
+
+    /**
+     * Unisciti a una VideoRoom (Join as Publisher)
+     * POST /api/janus/join-room
+     */
+    static async joinVideoRoom(req, res) {
+        try {
+            const username = req.user?.username || req.body?.userId;
+            const { roomId, display } = req.body;
+
+            if (!username || !roomId) {
+                return res.status(400).json({ success: false, error: 'Missing fields' });
+            }
+
+            const janusSessionId = janusService.getSessionId(username);
+            const handleId = janusService.getHandleId(username);
+
+            if (!janusSessionId || !handleId) {
+                return res.status(400).json({ success: false, error: 'Session or Handle not found' });
+            }
+
+            console.log(`🔵 Joining Room ${roomId} as ${username}`);
+
+            const result = await janusService.joinVideoRoom(
+                janusSessionId,
+                handleId,
+                roomId,
+                username,
+                display
+            );
+
+            if (result.success) {
+                return res.status(200).json({ success: true, data: result.data });
+            } else {
+                return res.status(500).json({ success: false, error: result.error });
+            }
+        } catch (error) {
+            console.error('Error in joinVideoRoom:', error);
+            return res.status(500).json({ success: false, error: 'Internal server error' });
+        }
+    }
 }
 
 module.exports = JanusController;
