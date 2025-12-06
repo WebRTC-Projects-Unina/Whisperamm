@@ -7,7 +7,7 @@ const PayloadUtils = require('../utils/gamePayloadUtils');
 const { GamePhase } = require('../models/Game');
 
 //NOTA: Togliere dal TimerService il compito di mandare messaggi!
-
+//Lololo
 class GameController {
 
     static async handleStartGame(io, socket, { roomId }) {
