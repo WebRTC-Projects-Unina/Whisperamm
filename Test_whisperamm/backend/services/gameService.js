@@ -238,17 +238,15 @@ class GameService {
 
 
     static async registerVote(gameId, voterUsername, targetUsername) {
-        const voter = await this.getPlayer(gameId, voterUsername);
+        const voter = await this.getPlayer(gameId, voterUsername); //
         
         if (voter && !voter.hasVoted) {
+            // 1. Segna che il votante ha votato (basso rischio conflitto)
             await this.updatePlayerState(gameId, voterUsername, { hasVoted: true });
             
             if (targetUsername) {
-                const target = await this.getPlayer(gameId, targetUsername);
-                if (target) {
-                    const currentVotes = (target.votesReceived || 0) + 1;
-                    await this.updatePlayerState(gameId, targetUsername, { votesReceived: currentVotes });
-                }
+                // 2. Incrementa il target usando il metodo sicuro-gestisce concorrenza.
+                await PlayerData.incrementVotes(gameId, targetUsername);
             }
             return true;
         }
