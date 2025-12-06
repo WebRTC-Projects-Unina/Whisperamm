@@ -29,15 +29,32 @@ class RoomService {
         return roomId;
     }
 
+   // services/RoomService.js
+
     static async checkRoomAccess(roomId, username) {
+        
+
+         // Recupera lo stato della stanza (Capacity)
         const room = await Room.get(roomId);
         if (!room) return { canJoin: false, reason: 'ROOM_NOT_FOUND', room: null };
-
+        
+        // 1. PRIMA controlla se l'utente è già dentro (Membership)
+        // Questo evita la race condition se la disconnect sta avvenendo ora
         const isAlreadyIn = await Room.isPlayerInRoom(roomId, username);
-        if (isAlreadyIn) return { canJoin: true, reason: 'ALREADY_IN_ROOM', isRejoining: true, room };
+        if (isAlreadyIn) {
+            // Se è già dentro, non ci interessa se la stanza è "piena" numericamente, 
+            // perché lui occupa già uno slot. Recuperiamo la room solo per ritornarla.
+            const room = await Room.get(roomId); 
+            return { canJoin: true, reason: 'ALREADY_IN_ROOM', isRejoining: true, room };
+        }
 
+    
+        // Qui ora siamo sicuri: se c'è stata una disconnect tra il punto 1 e 2,
+        // room.currentPlayers sarà aggiornato (diminuito), permettendo l'accesso.
         if (room.currentPlayers >= room.maxPlayers) return { canJoin: false, reason: 'ROOM_FULL', room };
-        //if (room.status !== RoomStatus.WAITING) return { canJoin: false, reason: 'GAME_STARTED', room };
+        
+        // Check extra opzionale (se la partita è iniziata e non è un rejoin)
+        // if (room.status !== RoomStatus.WAITING) return { canJoin: false, reason: 'GAME_STARTED', room };
 
         return { canJoin: true, reason: 'CAN_JOIN', isRejoining: false, room };
     }

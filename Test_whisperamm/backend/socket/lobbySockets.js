@@ -3,7 +3,7 @@ const RoomService = require('../services/roomService');
 const UserService = require('../services/userService');
 const SocketService = require('../services/socketService');
 const NotificationService = require('../services/notificationService');
-const { Room } = require('../models/Room');
+const GameController = require('../controllers/GameController');
 
 // --- HELPER ---
 async function broadcastFullState(io, roomId) {
@@ -63,8 +63,10 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
             const gameStarted = await RoomService.checkGameStarted(roomId);
             if(gameStarted){
                 //Triggeriamo il front-end del rejoiner a far caricare game, ma dobbiamo anche mandargli i dati della partita
-                await NotificationService.sendToUser(io,roomId,username,'gameLoading','')
+                await NotificationService.sendToUser(io,roomId,username,'gameLoading',{})
                 //Qua dobbiamo mandare anche i dati di game e di gioco per farlo partire..
+                // DELEGA TOTALE al Controller: "Pensaci tu a rimetterlo in gioco"
+                await GameController.handlePlayerRejoin(socket, roomId, username);
 
             }else{
                 //Se si è ancora in lobby..

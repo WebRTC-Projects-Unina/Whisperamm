@@ -55,6 +55,49 @@ class GameController {
     }
 
     /**
+     * Gestisce il rientro di un giocatore in una partita già iniziata.
+     * Allinea il client con lo stato attuale (Snapshot, Identità, Fase).
+     */
+    static async handlePlayerRejoin(socket, roomId, username) {
+        try {
+            // 1. Recupera ID e Snapshot
+            const gameId = await GameService.getGameIdByRoom(roomId);
+            if (!gameId) return;
+
+            const gameSnapshot = await GameService.getGameSnapshot(gameId);
+            if (!gameSnapshot) return;
+
+            // 2. Trova il giocatore
+            const myself = gameSnapshot.players.find(p => p.username === username);
+            if (!myself) return;
+
+            console.log(`[GameController] Ripristino sessione per ${username} in room ${roomId}`);
+
+            // 3. Ricostruisci e Invia i Payload
+            // A. Dati Pubblici (Start Game)
+            const publicPayload = PayloadUtils.buildPublicGameData(gameSnapshot);
+            socket.emit('gameStarted', publicPayload);
+
+            // B. Dati Privati (Identity)
+            const privatePayload = PayloadUtils.buildPrivateIdentity(myself, gameSnapshot.secrets);
+            socket.emit('identityAssigned', privatePayload);
+
+            // C. Sincronizzazione Fase (Importante per il rejoin)
+            socket.emit('phaseChanged', {
+                phase: gameSnapshot.phase,
+                currentRound: gameSnapshot.currentRound || 1,
+                currentTurnIndex: gameSnapshot.currentTurnIndex || 0,
+                winner: null,
+                players: gameSnapshot.players
+            });
+
+        } catch (err) {
+            console.error(`[Errore Rejoin] ${username}:`, err);
+            socket.emit('error', { message: 'Errore durante il ripristino della partita' });
+        }
+    }
+
+    /**
      * =================================================================
      * 2. FASE LANCIO DADI
      * =================================================================
