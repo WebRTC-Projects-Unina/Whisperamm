@@ -66,7 +66,7 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
                 await NotificationService.sendToUser(io,roomId,username,'gameLoading',{})
                 //Qua dobbiamo mandare anche i dati di game e di gioco per farlo partire..
                 // DELEGA TOTALE al Controller: "Pensaci tu a rimetterlo in gioco"
-                await GameController.handlePlayerRejoin(socket, roomId, username);
+                await GameController.handlePlayerRejoin(io,socket, roomId, username);
 
             }else{
                 //Se si è ancora in lobby..

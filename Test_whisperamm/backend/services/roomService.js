@@ -172,7 +172,6 @@ class RoomService {
     
     static async checkGameStarted(roomId){ 
         const statusRoom = await Room.getRoomStatus(roomId);
-        console.log("Status Room: "+statusRoom)
         return statusRoom===RoomStatus.PLAYING
     }
 
