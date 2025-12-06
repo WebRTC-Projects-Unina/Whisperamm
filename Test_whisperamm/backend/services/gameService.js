@@ -135,6 +135,32 @@ class GameService {
     // 3. LOGICA DI AGGIORNAMENTO (Updates)
     // ==========================================
 
+
+    /**
+     * Calcola il nuovo ordine dei turni basato sui dadi e sul round,
+     * aggiorna il DB e restituisce la lista ordinata.
+     */
+    static async assignTurnOrder(gameId) {
+        // 1. Recupera TUTTO lo stato (Players + Meta) in una sola chiamata
+        // Risparmiamo una query rispetto al codice precedente
+        const game = await this.getGameSnapshot(gameId);
+        
+        // 2. Logica di ordinamento (delegata all'Utils)
+        // Usa game.players e game.currentRound recuperati dallo snapshot
+        const sortedPlayers = DiceUtils.sortPlayersForTurn(game.players, game.currentRound || 1);
+        
+        // 3. Persistenza: Aggiorna il campo 'order' per ogni giocatore
+        // Usiamo this.updatePlayerState che astrae la scrittura sul DB
+        const updatePromises = sortedPlayers.map((p, index) => 
+            this.updatePlayerState(gameId, p.username, { order: index + 1 })
+        );
+        await Promise.all(updatePromises);
+
+        // 4. Ritorna i dati pronti per il Controller (e il Frontend)
+        return sortedPlayers;
+    }
+
+
     static async updatePlayerState(gameId, username, partialData) {
         return await PlayerData.update(gameId, username, partialData);
     }
@@ -186,6 +212,29 @@ class GameService {
     // 4. LOGICA DI GIOCO (Voting, Checking)
     // ==========================================
 
+    /**
+     * Controlla lo stato del turno attuale.
+     * Restituisce un oggetto che dice al Controller se il giro è finito o chi deve parlare.
+     */
+    static async getCurrentTurnStatus(gameId) {
+        // Recuperiamo lo snapshot (usiamo il metodo esistente che incapsula le chiamate al Model)
+        const game = await this.getGameSnapshot(gameId);
+        
+        const currentIndex = game.currentTurnIndex || 0;
+        const totalPlayers = game.players.length;
+
+        // È finito il giro?
+        if (currentIndex >= totalPlayers) {
+            return { status: 'ROUND_OVER' };
+        }
+
+        // LOGICA DI BUSINESS: Chi tocca?
+        return { 
+            status: 'PLAY_TURN', 
+            player: game.players[currentIndex], 
+            index: currentIndex 
+        };
+    }
 
 
     static async registerVote(gameId, voterUsername, targetUsername) {

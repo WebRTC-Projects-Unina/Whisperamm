@@ -142,19 +142,10 @@ class GameController {
     static async startTurnAssignmentPhase(io, roomId, gameId) {
         try {
             console.log(`[Game] Cambio fase TURN_ASSIGNMENT per ${roomId}`);
-            let players = await GameService.getPlayers(gameId);
-            
-            // 1. LOGICA DI ORDINAMENTO: Delega al Service il calcolo (es. somma dadi decrescente)
-            // Nota: game.currentRound serve se ci sono regole di rotazione basate sul round.
-            const sortedPlayers = GameService.sortPlayersByDice(players, (await GameService.getGameSnapshot(gameId)).currentRound); 
-            //Passiamo anche currentRound perchè ad ogni currentRound deve slittare in avanti l'ordine, dunque modificare l'ordine.
-           
-            // 2. PERSISTENZA ORDINE: Salva il nuovo campo 'order' su ogni giocatore in Redis
-            const updatePromises = sortedPlayers.map((p, index) => 
-                GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
-            );
-            await Promise.all(updatePromises);
-            
+
+            // 1. Il Service fa calcoli e salvataggi database.
+            const sortedPlayers = await GameService.assignTurnOrder(gameId);
+
            // 2. Avvia timer grafico
             await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.TURN_ASSIGNMENT, 5, 
                 async () => {  // CALLBACK DI FINE TIMER:
@@ -178,37 +169,36 @@ class GameController {
      * =================================================================
      * Gestisce il passaggio del turno da un giocatore all'altro.
      */
+    
     static async startNextTurn(io, roomId, gameId) {
         try {
-            let game = await GameService.getGameSnapshot(gameId);
-            let currentIndex = game.currentTurnIndex || 0;
-            const sortedPlayers = game.players;  
+            // 1. CHIEDI AL SERVICE: "Qual è la situazione?"
+            const turnState = await GameService.getCurrentTurnStatus(gameId);
 
-            // --- CASO BASE: FINE DEL GIRO ---
-            // Se l'indice ha superato l'ultimo giocatore, tutti hanno parlato.
-            if (currentIndex >= sortedPlayers.length) {
+            // 2. RAMO A: GIRO FINITO
+            if (turnState.status === 'ROUND_OVER') {
                 TimerService.clearTimer(roomId);
-                // Avvia fase di DISCUSSIONE (tempo libero prima del voto)
+                
+                // Avvia fase DISCUSSIONE
                 await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.DISCUSSION, 5, 
-                    async () => { await this.startVotingPhase(io, roomId, gameId); } // Dopo discussione -> Voto
+                    async () => { await this.startVotingPhase(io, roomId, gameId); }
                 );
                 return;
             }
 
-            // --- CASO RICORSIVO: TOCCA A UN GIOCATORE ---
-            const currentPlayer = sortedPlayers[currentIndex];
-            
-            // Avvia timer per il singolo turno (es. 5 secondi per dire la parola)
+            // 3. RAMO B: TOCCA A UN GIOCATORE
+            // Il service ci ha già dato l'oggetto player pulito
+            const { player, index } = turnState;
+
             await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.GAME, 5, async () => {
-                // CALLBACK TIMEOUT: Se il tempo scade, forza il passaggio al prossimo
-                await this.advanceTurnLogic(io, roomId, gameId, currentPlayer.username); 
-            }, { currentTurnIndex: currentIndex }); // Payload utile al frontend per evidenziare chi parla
+                // Timeout: forza passaggio turno
+                await this.advanceTurnLogic(io, roomId, gameId, player.username); 
+            }, { currentTurnIndex: index }); 
 
         } catch (err) {
             console.error("Errore startNextTurn:", err);
         }
     }
-
     // Gestisce la conferma manuale del giocatore ("Ho detto la parola")
     static async handleConfirmWord(io, socket) {
         const { roomId, username } = socket.data;
