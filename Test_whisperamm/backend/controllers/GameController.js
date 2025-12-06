@@ -88,7 +88,7 @@ class GameController {
         }
     }
 
-    // --- PRIVATE HELPERS (DRY Pattern) ---
+    // --- PRIVATE HELPERS ---
 
     // Aggiorna DB e invia notifica Socket
     static async _performSingleRoll(io, roomId, gameId, username) {
@@ -117,16 +117,16 @@ class GameController {
     static async startTurnAssignmentPhase(io, roomId, gameId) {
         try {
             console.log(`[Game] Cambio fase TURN_ASSIGNMENT per ${roomId}`);
-            let game = await GameService.getGameSnapshot(gameId); //Qua non serve questo
+            let players = await GameService.getPlayers(gameId);
             
-            const sortedPlayers = GameService.sortPlayersByDice(game.players, game.currentRound); 
-            //Questo è giusto che lo riordina, dato che è solo al primo turno che è assegnato l'ordine ma poi va calcolato a run time
-            //in base a chi viene eliminato
-            
+            //Bisogna riordinare ad ogni round, dato che se ci sono eliminazioni bisogna rivedere l'ordine
+            const sortedPlayers = GameService.sortPlayersByDice(players, game.currentRound); 
+           
             const updatePromises = sortedPlayers.map((p, index) => 
                 GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
             );
             await Promise.all(updatePromises);
+            
             
             await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.TURN_ASSIGNMENT, 5, 
                 async () => {await this.orderPhaseCompleted(io, roomId);}, { players: sortedPlayers });
@@ -145,6 +145,7 @@ class GameController {
 
             await GameService.updateMetaField(gameId, 'phase', GamePhase.GAME);
             await GameService.updateMetaField(gameId, 'currentTurnIndex', 0); 
+            //Forse tutta sta parte poteva essere messa in un service..per essere fatta in maniera transazionale.
 
             await this.startNextTurn(io, roomId, gameId);
         } catch (err) {
@@ -157,6 +158,7 @@ class GameController {
     static async startNextTurn(io, roomId, gameId) {
         try {
             let game = await GameService.getGameSnapshot(gameId);
+            //Qua conviene tenerli così...
             let currentIndex = game.currentTurnIndex || 0;
             const sortedPlayers = game.players; 
             //Anche qui lo stesso
