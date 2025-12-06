@@ -135,6 +135,32 @@ class GameService {
     // 3. LOGICA DI AGGIORNAMENTO (Updates)
     // ==========================================
 
+
+    /**
+     * Calcola il nuovo ordine dei turni basato sui dadi e sul round,
+     * aggiorna il DB e restituisce la lista ordinata.
+     */
+    static async assignTurnOrder(gameId) {
+        // 1. Recupera TUTTO lo stato (Players + Meta) in una sola chiamata
+        // Risparmiamo una query rispetto al codice precedente
+        const game = await this.getGameSnapshot(gameId);
+        
+        // 2. Logica di ordinamento (delegata all'Utils)
+        // Usa game.players e game.currentRound recuperati dallo snapshot
+        const sortedPlayers = DiceUtils.sortPlayersForTurn(game.players, game.currentRound || 1);
+        
+        // 3. Persistenza: Aggiorna il campo 'order' per ogni giocatore
+        // Usiamo this.updatePlayerState che astrae la scrittura sul DB
+        const updatePromises = sortedPlayers.map((p, index) => 
+            this.updatePlayerState(gameId, p.username, { order: index + 1 })
+        );
+        await Promise.all(updatePromises);
+
+        // 4. Ritorna i dati pronti per il Controller (e il Frontend)
+        return sortedPlayers;
+    }
+
+
     static async updatePlayerState(gameId, username, partialData) {
         return await PlayerData.update(gameId, username, partialData);
     }
@@ -167,9 +193,49 @@ class GameService {
         return await this.getGameSnapshot(gameId);
     }
 
+
+    /**
+     * Prepara il DB per l'inizio della fase di gioco (parlata).
+     * Imposta la fase e resetta l'indice del turno.
+     */
+    static async prepareGamePhase(gameId) {
+
+        await Promise.all([
+            Game.updateMetaField(gameId, 'phase', GamePhase.GAME),
+            Game.updateMetaField(gameId, 'currentTurnIndex', 0)
+        ]); //Forse questo posso farlo anche in maniera transazionale..
+        
+        // Ritorna true o void, basta che la promise si risolva
+    }
+
     // ==========================================
     // 4. LOGICA DI GIOCO (Voting, Checking)
     // ==========================================
+
+    /**
+     * Controlla lo stato del turno attuale.
+     * Restituisce un oggetto che dice al Controller se il giro è finito o chi deve parlare.
+     */
+    static async getCurrentTurnStatus(gameId) {
+        // Recuperiamo lo snapshot (usiamo il metodo esistente che incapsula le chiamate al Model)
+        const game = await this.getGameSnapshot(gameId);
+        
+        const currentIndex = game.currentTurnIndex || 0;
+        const totalPlayers = game.players.length;
+
+        // È finito il giro?
+        if (currentIndex >= totalPlayers) {
+            return { status: 'ROUND_OVER' };
+        }
+
+        // LOGICA DI BUSINESS: Chi tocca?
+        return { 
+            status: 'PLAY_TURN', 
+            player: game.players[currentIndex], 
+            index: currentIndex 
+        };
+    }
+
 
     static async registerVote(gameId, voterUsername, targetUsername) {
         const voter = await this.getPlayer(gameId, voterUsername);
@@ -187,6 +253,37 @@ class GameService {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Verifica SE il giocatore può parlare ora.
+     * Sostituisce l'if manuale nel controller.
+     */
+    static async isPlayerTurn(gameId, username) {
+        const game = await this.getGameSnapshot(gameId); //
+        if (!game) return false;
+
+        const currentIndex = game.currentTurnIndex || 0;
+        const activePlayer = game.players[currentIndex];
+
+        return activePlayer && activePlayer.username === username;
+    }
+
+    /**
+     * Esegue TUTTE le operazioni di fine turno in un colpo solo.
+     * 1. Segna hasSpoken = true
+     * 2. Incrementa indice atomicamente
+     * 3. Ritorna il nuovo indice per la notifica
+     */
+    static async completeCurrentTurn(gameId, username) {
+        // 1. Segna che ha parlato
+        await this.updatePlayerState(gameId, username, { hasSpoken: true }); //
+
+        // 2. Incrementa l'indice atomicamente (delegando al Model -> Redis HINCRBY)
+        // Usiamo il metodo atomico creato nello step precedente
+        const nextIndex = await Game.incrementMetaField(gameId, 'currentTurnIndex', 1);
+
+        return nextIndex;
     }
 
     static async processVotingResults(gameId) {
