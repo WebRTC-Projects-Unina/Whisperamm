@@ -192,56 +192,60 @@ class GameController {
 
             await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.GAME, 5, async () => {
                 // Timeout: forza passaggio turno
-                await this.advanceTurnLogic(io, roomId, gameId, player.username); 
+                await this.performTurnSwitch(io, roomId, gameId, player.username); 
             }, { currentTurnIndex: index }); 
 
         } catch (err) {
             console.error("Errore startNextTurn:", err);
         }
     }
-    // Gestisce la conferma manuale del giocatore ("Ho detto la parola")
+
+   // Gestisce la conferma manuale ("Ho detto la parola")
     static async handleConfirmWord(io, socket) {
         const { roomId, username } = socket.data;
         try {
             const gameId = await GameService.getGameIdByRoom(roomId);
             if (!gameId) return;
-            
-            let game = await GameService.getGameSnapshot(gameId);
-            const currentIndex = game.currentTurnIndex || 0;
-            
-            // ANTI-CHEAT: Verifica che chi chiama l'API sia davvero il giocatore di turno
-            if (game.players[currentIndex].username !== username) {
-                console.warn(`[Cheat] ${username} fuori turno!`);
+
+            // 1. VALIDAZIONE 
+            const isTurn = await GameService.isPlayerTurn(gameId, username);
+            if (!isTurn) {
+                console.warn(`[Cheat] ${username} ha provato a saltare il turno!`);
                 return; 
             }
 
-            // Cancella il timer automatico perché l'utente ha finito prima
+            // 2. AZIONE: Ferma il timer e procedi
             TimerService.clearTimer(roomId);
-            // Passa al prossimo
-            await this.advanceTurnLogic(io, roomId, gameId, username);
+            
+            // RIUSO: Chiamiamo la funzione unica di avanzamento
+            await this.performTurnSwitch(io, roomId, gameId, username);
 
         } catch (err) {
             console.error(`[Errore] handleConfirmWord:`, err);
         }
     }
 
-    // Logica comune per chiudere un turno (chiamata da Timeout o da Conferma Manuale)
-    static async advanceTurnLogic(io, roomId, gameId, username) {
-        // 1. STATO: Segna che l'utente ha parlato
-        await GameService.updatePlayerState(gameId, username, { hasSpoken: true });
-        
-        // 2. INCREMENTO: Sposta l'indice in avanti per il prossimo ciclo
-        const game = await GameService.getGameSnapshot(gameId); // Refresh per sicurezza
-        const nextIndex = (game.currentTurnIndex || 0) + 1;
-        await GameService.updateMetaField(gameId, 'currentTurnIndex', nextIndex);
+    /**
+     * UNICA funzione di avanzamento.
+     * Viene chiamata sia da handleConfirmWord (manuale) sia dal Timer (timeout).
+     */
+    static async performTurnSwitch(io, roomId, gameId, username) {
+        try {
+            // 1. LOGICA DI GIOCO (Service)
+            // Il service segna "hasSpoken" e incrementa l'indice in modo sicuro
+            const nextIndex = await GameService.completeCurrentTurn(gameId, username);
 
-        // 3. NOTIFICA: Dice ai client chi ha appena finito
-        NotificationService.broadcastToRoom(io, roomId, 'playerSpoken', { username, nextIndex });
-        
-        // 4. RICORSIONE: Richiama startNextTurn che valuterà il nuovo indice (Next Player o Fine Giro)
-        await this.startNextTurn(io, roomId, gameId);
+            // 2. NOTIFICA (View/Socket)
+            NotificationService.broadcastToRoom(io, roomId, 'playerSpoken', { username, nextIndex });
+
+            // 3. FLUSSO (Controller)
+            // Rilancia il ciclo per capire se tocca al prossimo o se il giro è finito
+            await this.startNextTurn(io, roomId, gameId);
+
+        } catch (err) {
+            console.error("Errore performTurnSwitch:", err);
+        }
     }
-
 
     /**
      * =================================================================

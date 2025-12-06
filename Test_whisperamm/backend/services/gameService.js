@@ -255,6 +255,37 @@ class GameService {
         return false;
     }
 
+    /**
+     * Verifica SE il giocatore può parlare ora.
+     * Sostituisce l'if manuale nel controller.
+     */
+    static async isPlayerTurn(gameId, username) {
+        const game = await this.getGameSnapshot(gameId); //
+        if (!game) return false;
+
+        const currentIndex = game.currentTurnIndex || 0;
+        const activePlayer = game.players[currentIndex];
+
+        return activePlayer && activePlayer.username === username;
+    }
+
+    /**
+     * Esegue TUTTE le operazioni di fine turno in un colpo solo.
+     * 1. Segna hasSpoken = true
+     * 2. Incrementa indice atomicamente
+     * 3. Ritorna il nuovo indice per la notifica
+     */
+    static async completeCurrentTurn(gameId, username) {
+        // 1. Segna che ha parlato
+        await this.updatePlayerState(gameId, username, { hasSpoken: true }); //
+
+        // 2. Incrementa l'indice atomicamente (delegando al Model -> Redis HINCRBY)
+        // Usiamo il metodo atomico creato nello step precedente
+        const nextIndex = await Game.incrementMetaField(gameId, 'currentTurnIndex', 1);
+
+        return nextIndex;
+    }
+
     static async processVotingResults(gameId) {
         const game = await this.getGameSnapshot(gameId);
         const result = VotingService.calculateElimination(game);
