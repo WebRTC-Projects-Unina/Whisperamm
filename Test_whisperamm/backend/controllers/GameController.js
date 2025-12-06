@@ -120,7 +120,7 @@ class GameController {
             let players = await GameService.getPlayers(gameId);
             
             //Bisogna riordinare ad ogni round, dato che se ci sono eliminazioni bisogna rivedere l'ordine
-            const sortedPlayers = GameService.sortPlayersByDice(players, game.currentRound); 
+            const sortedPlayers = GameService.sortPlayersByDice(players, gameId.currentRound); 
            
             const updatePromises = sortedPlayers.map((p, index) => 
                 GameService.updatePlayerState(gameId, p.username, { order: index + 1 })
@@ -167,7 +167,7 @@ class GameController {
                 TimerService.clearTimer(roomId);
                 await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.DISCUSSION, 5, async () => {
                     await this.startVotingPhase(io, roomId, gameId);
-                });emit
+                });
                 return;
             }
 

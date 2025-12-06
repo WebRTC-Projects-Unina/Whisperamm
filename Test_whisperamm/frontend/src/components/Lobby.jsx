@@ -5,6 +5,7 @@ import { useSocket } from '../context/SocketProvider';
 import { useLobbyValidation } from '../hooks/useLobbyValidation';
 import { useLobbySocket } from '../hooks/useLobbySocket';
 import { useLobbyHandlers } from '../hooks/useLobbyHandlers';
+import { useJanus } from '../hooks/useJanus';
 import '../style/Lobby.css';
 import MiniForm from './MiniForm';
 import Game from './Game';
@@ -14,7 +15,16 @@ const Lobby = () => {
     const { user, setUser } = useAuth();
     const { socket, connectSocket, disconnectSocket } = useSocket();
     const { roomId } = useParams();
-    
+
+    // --- JANUS INTEGRATION ---
+    const { 
+        isJanusReady,
+        isInitializing: janusInitializing,
+        error: janusError,
+        initializeJanus,
+        createJanusSession
+    } = useJanus();
+
     // 1. Validation Hook (Fetch iniziale HTTP)
     const { 
         isValidating, 
@@ -43,6 +53,7 @@ const Lobby = () => {
     const [isAdmin, setIsAdmin] = useState(false); // Booleano derivato
     const [canStartGame, setCanStartGame] = useState(false); // Booleano derivato
 
+    const [janusSetupDone, setJanusSetupDone] = useState(false); // Per evitare init multipli
     // --- LOGICA DERIVATA (Sostituisce la logica "sporca" dentro i socket) ---
     
     // A. Calcolo se sono Admin
@@ -70,6 +81,33 @@ const Lobby = () => {
         }
     }, [players, maxPlayers]);
 
+    // --- JANUS SETUP: Esegui solo una volta quando l'utente entra in Lobby ---
+    useEffect(() => {
+        const setupJanus = async () => {
+            if (!user || isValidating || janusSetupDone) {
+                return;
+            }
+
+            try {
+                console.log('🎥 Richiedendo permessi media in Lobby...');
+                
+                // ← SOLO inizializza (chiede permessi)
+                await initializeJanus();
+                console.log('✅ Permessi concessi');
+                
+                // ← Crea sessione (ma non attiva il microfono ancora)
+                await createJanusSession();
+                console.log('✅ Sessione Janus creata');
+                
+                setJanusSetupDone(true);
+            } catch (err) {
+                console.error('❌ Errore setup Janus:', err);
+                setJanusSetupDone(true);
+            }
+        };
+
+        setupJanus();
+    }, [user, isValidating, janusSetupDone, initializeJanus, createJanusSession]);    
 
     // 5. Socket Hook
     useLobbySocket(
@@ -110,6 +148,13 @@ const Lobby = () => {
 
     return (
         <div className="lobby-page">
+            {/* BANNER ERRORE JANUS */}
+            {janusError && (
+                <div className="janus-error-banner">
+                    <span>⚠️ Errore Video: {janusError}</span>
+                    <p>Permetti camera e microfono per poter giocare.</p>
+                </div>
+            )}            
             <div className="lobby-layout">
                 {/* COLONNA SINISTRA: CHAT */}
                 <div className="lobby-chat-column">
