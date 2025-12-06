@@ -12,6 +12,7 @@ const PhaseDice = ({
     isWaiting
 }) => {
     
+    //Forse potremmo toglierla dato che myPlayer lo settiamo in game..
     const myPlayer = gameState.players?.find(p => p.username === user.username);
     const amIReady = myPlayer?.hasRolled;
     const endTime = gameState.endTime;
@@ -68,7 +69,7 @@ const PhaseDice = ({
                     </div>
                 </div>
             )}
-
+            
             <div className="game-content-row">
                 {/* 1. TAVOLO (Sinistra) */}
                 <div className="game-table-area">

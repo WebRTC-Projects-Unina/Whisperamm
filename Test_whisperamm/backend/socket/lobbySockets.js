@@ -64,6 +64,7 @@ async function handleJoinLobby(io, socket, { roomId, user }) {
             if(gameStarted){
                 //Triggeriamo il front-end del rejoiner a far caricare game, ma dobbiamo anche mandargli i dati della partita
                 await NotificationService.sendToUser(io,roomId,username,'gameLoading','')
+                //Qua dobbiamo mandare anche i dati di game e di gioco per farlo partire..
 
             }else{
                 //Se si è ancora in lobby..

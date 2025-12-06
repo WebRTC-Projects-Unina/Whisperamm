@@ -19,14 +19,10 @@ class TimerService {
         const endTime = now + (durationSeconds * 1000);
 
         // 3. Aggiorna stato nel DB (Opzionale ma consigliato per riconnessioni)
-        // await GameService.updateMetaField(gameId, 'phaseEndTime', endTime);
-        // await GameService.updateMetaField(gameId, 'phase', nextPhase); 
-        // (Nota: Assumiamo che la fase sia già settata o la settiamo qui)
         const updatedGame = await GameService.advancePhase(gameId, nextPhase);
 
         /// Aggiorniamo ANCHE il tempo di fine su Redis (per chi fa refresh della pagina)
-        // Assumiamo che il model Game abbia questo metodo (lo avevamo aggiunto prima)
-        await Game.updateMetaField(gameId, 'phaseEndTime', endTime);
+        await Game.updateMetaField(gameId, 'phaseEndTime', endTime); //Da modificare questa
 
         // Costruzione Payload
         // Uniamo i dati base del gioco con i dati del timer E i dati extra

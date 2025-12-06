@@ -1,252 +1,184 @@
 // src/services/GameService.js
 const crypto = require('crypto');
 const { Game, GamePhase } = require('../models/Game');
+const { PlayerData } = require('../models/playerData');
 const { GameSecretsUtil } = require('../utils/GameSecretsUtil'); 
 const RoomService = require('./roomService');
-const { PlayerData } = require('../models/playerData');
+const DiceUtils = require('../utils/DiceUtils');
+const VotingService = require('./VotingService');
 
 class GameService {
 
+    // ==========================================
+    // 1. CREAZIONE E AVVIO
+    // ==========================================
+
     static async createGame(roomId) {       
         const gameId = crypto.randomUUID();
-        await RoomService.setAllPlayersInGame(roomId) //Novità peppiniana
-        const room = await RoomService.getRoom(roomId);
-        const playersList = room.players;
-        const maxRound = room.rounds;
+        await RoomService.setAllPlayersInGame(roomId);
+        
+        const playersList = await RoomService.getPlayers(roomId); 
 
-
-        // Genera le parole per Civili e Impostori, in più l'impostore
-        const gameSecrets = GameSecretsUtil.getRandomSecrets(); //arriva già seriealizzato
+        // 1. Setup Ruoli e Segreti
+        const gameSecrets = GameSecretsUtil.getRandomSecrets();
         const imposterIndex = Math.floor(Math.random() * playersList.length);
         const imposterUsername = playersList[imposterIndex];
 
-        // Genero colori casuali per i giocatori (da aggiornare se vogliamo farli scegliere)
-        const colors = {};
-        playersList.forEach(username => {
-            colors[username] = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
-        });
+        // 2. Setup Colori
+        const colors = this._generateRandomColors(playersList);
 
+        // 3. Setup Dadi (Logica delegata a DiceUtils)
+        const diceValues = DiceUtils.generateInitialDiceValues(playersList);
 
-        // Genera i valori dei dadi per ogni utente (2-12 unici)
-        const availableNumbers = Array.from({ length: 11 }, (_, i) => i + 2);
-
-        // Per ogni player prendo un indice casuale dall'array dei numeri disponibili
-        // e lo assegno come valore totale dei dadi (d1 + d2)
-        const diceValues = playersList.map(player => {
-            const randomIndex = Math.floor(Math.random() * availableNumbers.length);
-            // .spice rimuove l'elemento dall'array e lo ritorna come array
-            const totalValue = availableNumbers.splice(randomIndex, 1)[0];
-            
-            // Definiamo un range sicuro per d1
-            const minD1 = Math.max(1, totalValue - 6);
-            const maxD1 = Math.min(6, totalValue - 1);
-            // Generiamo d1 casualmente all'interno di questo range sicuro
-            const d1 = Math.floor(Math.random() * (maxD1 - minD1 + 1)) + minD1;
-            // Calcoliamo d2 per differenza
-            const d2 = totalValue - d1;
-
-            // Ritorniamo l'oggetto per questo giocatore
-            return {
-                username: player,
-                value1: d1,
-                value2: d2
-            };
-        });
-
-        // Costruisci mappa giocatori (che verrà serializzato)
+        // 4. Costruisci mappa finale giocatori per Redis
         const playersMap = this._buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors);
 
-        // 3. Prepara Metadati (Serializzazione qui!)
+        // 5. Prepara Metadati
         const metaData = {
             gameId,
             roomId,
             phase: GamePhase.DICE, 
-            maxRound,
-            currentRound: 1,
-            secrets: gameSecrets, //Stringa JSON arriva dall'utilities
-            // GG: devo aggiungere un altro campo per gestire il timer in maniera centralizzata
+            round: 1,
+            secrets: gameSecrets, // Redis serializza autom. se supportato, altrimenti stringify
             phaseEndTime: 0
         };
 
-        // 4. Chiama il Model (CRUD pura)
-        await Game.create(gameId, metaData, playersMap);
-
-        // 5. RILEGGI TUTTO E RITORNA L'OGGETTO COMPLETO
-        // Qui avviene la magia: riutilizzi la logica di lettura che parsa i JSON.
-        // Così il frontend riceve un oggetto pulito, non stringhe.
-        const fullGame = await this.getGameSnapshot(gameId);
-        return fullGame;
-    }
-
-    static async updateMetaField(gameId, field, value) {
-        // Chiama il model
-        await Game.updateMetaField(gameId, field, value);
-    }
-
-    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors = null) {
-        const map = {};
+        // 6. Salva e Ritorna
+        await Game.create(gameId, metaData, playersMap); 
         
-        playersList.forEach(username => {
-            const isImpostor = (username === imposterUsername);
-            const userDiceData = diceValues.find(d => d.username === username);
-            const userColor = colors ? colors[username] : null;
-            const role = isImpostor ? 'IMPOSTOR' : 'CIVILIAN';
+        return await this.getGameSnapshot(gameId);
+    }
 
-            // Usiamo 
-            // Non costruiamo l'oggetto a mano qui.
-            const playerObj = PlayerData.createPlayerData(
-                username, 
-                role, 
-                userDiceData.value1, 
-                userDiceData.value2, 
-                userColor, // color 
-            );
+    // ==========================================
+    // 2. LOGICA DI LETTURA (Data Retrieval)
+    // ==========================================
 
-            // Serializziamo per Redis
-            map[username] = JSON.stringify(playerObj); 
+    /**
+     * Ritorna solo ID gioco (Wrapper al model)
+     */
+    static async getGameIdByRoom(roomId) {
+        return await Game.findGameIdByRoomId(roomId);
+    }
+
+    /**
+     * Ritorna UN singolo giocatore (Lettura O(1) Redis)
+     * Utile per check veloci (es. hasRolled, hasVoted)
+     */
+    static async getPlayer(gameId, username) {
+        return await PlayerData.get(gameId, username);
+    }
+
+    /**
+     * Ritorna TUTTI i giocatori (lista ordinata) SENZA metadata/secrets.
+     * Molto più leggero di getGameSnapshot.
+     */
+    static async getPlayers(gameId) {
+        // Usa il metodo esistente nel model Game.js che ritorna l'hash
+        const playersHash = await Game.getPlayers(gameId); 
+        
+        if (!playersHash) return [];
+        
+        const players = [];
+        Object.values(playersHash).forEach(jsonStr => {
+            const p = this._safeJsonParse(jsonStr);
+            if (p) players.push(p);
         });
 
-        return map;
+        // Applica ordinamento centralizzato
+        if (players.length > 0) {
+            players.sort((a, b) => (a.order || 0) - (b.order || 0));
+        }
+
+        return players;
     }
 
-    // --- LOGICA DI LETTURA ---
-
+    /**
+     * Ritorna lo STATO COMPLETO del gioco (Metadata + Players + Secrets).
+     * Usato all'avvio o per refresh completi.
+     */
     static async getGameSnapshot(gameId) {
-        // 1. Chiede i dati grezzi al Model
-        const rawData = await Game.findByIdRaw(gameId);
+        // Chiede i dati grezzi al Model
+        const rawData = await Game.getGame(gameId);
         if (!rawData) return null;
 
         const { meta, playersHash } = rawData;
 
-        // 2. DESERIALIZZAZIONE (Logica spostata qui)
-        
-        // Parsing dei segreti
-        if (meta.secrets) {
-            try {
-                meta.secrets = JSON.parse(meta.secrets);
-            } catch (e) {
-                console.error("Errore parsing secrets service:", e);
-                meta.secrets = null; 
-            }
-        }
-        if(meta.currentRound) {
-            meta.currentRound = parseInt(meta.currentRound, 10);
-        }
-        // Parsing del tempo (da stringa a numero)
-        if (meta.phaseEndTime) {
-            meta.phaseEndTime = parseInt(meta.phaseEndTime, 10);
-        }   
+        // Deserializzazione Metadati
+        meta.secrets = this._safeJsonParse(meta.secrets);
+        if (meta.currentRound) meta.currentRound = parseInt(meta.currentRound, 10);
+        if (meta.phaseEndTime) meta.phaseEndTime = parseInt(meta.phaseEndTime, 10);
+        if (meta.currentTurnIndex !== undefined) meta.currentTurnIndex = parseInt(meta.currentTurnIndex, 10);
 
-        if (meta.currentTurnIndex !== undefined) {
-            meta.currentTurnIndex = parseInt(meta.currentTurnIndex, 10);
-        }
-
-        // Manteniamo l'oggetto/mappa
+        // Deserializzazione Players
         const players = []; 
-
         if (playersHash) {
             Object.values(playersHash).forEach(jsonStr => {
-                try {
-                    players.push(JSON.parse(jsonStr));
-                } catch (e) {
-                    console.error("Errore parsing player service:", e);
-                }
+                const p = this._safeJsonParse(jsonStr);
+                if (p) players.push(p);
             });
-        
         } 
-        if (players.length > 0 && players[0].order) {
-            players.sort((a, b) => a.order - b.order);
+        
+        // Sorting
+        if (players.length > 0) {
+            players.sort((a, b) => (a.order || 0) - (b.order || 0));
         }   
-        // 3. Ritorna l'oggetto pulito e strutturato al Controller/Socket
+        
         return { ...meta, players };
     }
 
     static async getGameSnapshotByRoomId(roomId) {
-        const gameId = await Game.findGameIdByRoomId(roomId);
-        if (!gameId) return null;
-        return this.getGameSnapshot(gameId);
+        const gameId = await this.getGameIdByRoom(roomId);
+        return gameId ? this.getGameSnapshot(gameId) : null;
     }
 
-    // --- LOGICA DI AGGIORNAMENTO ---
+    // ==========================================
+    // 3. LOGICA DI AGGIORNAMENTO (Updates)
+    // ==========================================
 
     static async updatePlayerState(gameId, username, partialData) {
         return await PlayerData.update(gameId, username, partialData);
     }
 
-    
-    static checkAllPlayersRolled(playersArray) {
-        // Controlla che ogni giocatore abbia hasRolled === true
-        return playersArray.every(p => p.hasRolled === true);
+    static async updateMetaField(gameId, field, value) {
+        await Game.updateMetaField(gameId, field, value);
     }
 
-    /**
-     * NUOVO: Cambia la fase del gioco (es. da DICE a GAME)
-     */
     static async advancePhase(gameId, newPhase) {
         await Game.updateMetaField(gameId, 'phase', newPhase);
-        // Ritorniamo lo snapshot aggiornato
         return await this.getGameSnapshot(gameId);
     }
 
-    // GG: Funzione per aggiornamento del parametro order
-    // currentRound === 1 -> ordine scandito dai dadi
-    // currentRound > 1 -> ordine stabilito applicando il Round Robin sui giocatori vivi
-    static sortPlayersByDice(playersArray, round) {
-        // Separiamo i vivi dai morti
-        const alivePlayers = playersArray.filter(p => p.isAlive !== false); // !== false gestisce anche undefined all'inizio
-        const deadPlayers = playersArray.filter(p => p.isAlive === false);
-
-        if (round === 1) {
-            // Ordina i vivi per somma dadi DECRESCENTE
-            alivePlayers.sort((a, b) => {
-                const sumA = (a.dice1 || 0) + (a.dice2 || 0);
-                const sumB = (b.dice1 || 0) + (b.dice2 || 0);
-                return sumB - sumA; 
-            });
-        } else { // round > 1
-            // Ordiniamo i vivi in base al loro ordine precedente
-            alivePlayers.sort((a, b) => (a.order || 0) - (b.order || 0));
-
-            // Rotazione: Il primo della lista passa in fondo
-            if (alivePlayers.length > 0) {
-                const firstPlayer = alivePlayers.shift();
-                alivePlayers.push(firstPlayer);
-            }
-        }
-        alivePlayers.forEach((player, index) => {
-            player.order = index + 1;
-        });
-
-        // Ai morti assegniamo ordine 0 (o un numero alto tipo 99) per spingerli in fondo
-        deadPlayers.forEach(player => {
-            player.order = 0; 
-        });
-
-        // 4. Ritorniamo l'array completo aggiornato
-        return [...alivePlayers, ...deadPlayers];
-    }
-    
-    static checkAllPlayersSpoken(playersArray) {
-        // Controlla che ogni giocatore abbia hasSpoken === true
-        return playersArray.every(p => p.hasSpoken === true);
-    }
-
-
-    /**
-     * Registra il voto di un giocatore verso un target.
-     */
-    static async registerVote(gameId, voterUsername, targetUsername) {
+    static async startNewRound(gameId) {
         const game = await this.getGameSnapshot(gameId);
+        const nextRound = (game.currentRound || 1) + 1;
         
-        // Segna che il votante ha votato
-        // Nota: Aggiorniamo l'oggetto in memoria prima di salvare
-        const voter = game.players.find(p => p.username === voterUsername);
+        await this.updateMetaField(gameId, 'currentRound', nextRound);
+        
+        const resetPromises = game.players.map(p => {
+            return this.updatePlayerState(gameId, p.username, { 
+                hasRolled: false, 
+                hasSpoken: false, 
+                hasVoted: false, 
+                votesReceived: 0 
+            });
+        });
+        
+        await Promise.all(resetPromises);
+        return await this.getGameSnapshot(gameId);
+    }
+
+    // ==========================================
+    // 4. LOGICA DI GIOCO (Voting, Checking)
+    // ==========================================
+
+    static async registerVote(gameId, voterUsername, targetUsername) {
+        const voter = await this.getPlayer(gameId, voterUsername);
+        
         if (voter && !voter.hasVoted) {
-            // Aggiorna il votante
             await this.updatePlayerState(gameId, voterUsername, { hasVoted: true });
             
             if (targetUsername) {
-                const target = game.players.find(p => p.username === targetUsername);
+                const target = await this.getPlayer(gameId, targetUsername);
                 if (target) {
                     const currentVotes = (target.votesReceived || 0) + 1;
                     await this.updatePlayerState(gameId, targetUsername, { votesReceived: currentVotes });
@@ -254,107 +186,92 @@ class GameService {
             }
             return true;
         }
-        return false; // Aveva già votato
+        return false;
     }
 
-    static checkAllAlivePlayersVoted(players) {
-        const alivePlayers = players.filter(p => p.isAlive);
-        return alivePlayers.every(p => p.hasVoted);
-    }
-
-    /**
-     * Calcola i risultati della votazione.
-     * Ritorna: { eliminated: "Username" | null, reason: "Tie" | "Voted" }
-     */
     static async processVotingResults(gameId) {
         const game = await this.getGameSnapshot(gameId);
-        const alivePlayers = game.players.filter(p => p.isAlive);
-
-        // Ordina per voti ricevuti (decrescente)
-        alivePlayers.sort((a, b) => (b.votesReceived || 0) - (a.votesReceived || 0));
-
-        const first = alivePlayers[0];
-        const second = alivePlayers[1];
-
-        // Caso A: Nessun voto o Pareggio
-        if (!first || (first.votesReceived || 0) === 0) {
-             return { eliminated: null, message: "Nessuno ha ricevuto abbastanza voti." };
-        }
-
-        if (second && first.votesReceived === second.votesReceived) {
-            return { eliminated: null, message: "Pareggio! Nessuno viene eliminato." };
-        }
-
-        // Caso B: C'è un eliminato
-        // 1. Segnalo come morto nel DB
-        await this.updatePlayerState(gameId, first.username, { isAlive: false });
+        const result = VotingService.calculateElimination(game);
         
-        // 2. Ritorno i dati per il frontend (INCLUSO IL RUOLO)
-        return { 
-            eliminated: first.username, 
-            role: first.role, // <--- FONDAMENTALE PER IL REVEAL
-            votes: first.votesReceived,
-            message: `${first.username} è stato eliminato.` 
-        };
+        if (result.eliminatedUser) {
+            await this.updatePlayerState(gameId, result.eliminatedUser.username, { isAlive: false });
+            return { 
+                eliminated: result.eliminatedUser.username, 
+                role: result.eliminatedUser.role, 
+                votes: result.eliminatedUser.votesReceived, 
+                message: result.message 
+            };
+        }
+        return { eliminated: null, message: result.message };
     }
 
-
-    /**
-     * Prepara il gioco per il round successivo.
-     * Resetta: dadi, voti, stati (hasRolled, hasSpoken, hasVoted).
-     * Incrementa: round.
-     */
-    static async startNewRound(gameId) {
-        const game = await this.getGameSnapshot(gameId);
-        
-        // Incrementa il numero del currentRound
-        const nextRound = (game.currentRound || 1) + 1;
-        await this.updateMetaField(gameId, 'currentRound', nextRound);
-
-        // Resetta i dati di TUTTI i giocatori (vivi e morti, per pulizia)
-        const resetPromises = game.players.map(p => {
-            // Manteniamo solo i dati persistenti (ruolo, vita, colore, username)
-            // Resettiamo quelli di fase
-            return this.updatePlayerState(gameId, p.username, {
-                hasRolled: false,
-                hasSpoken: false,
-                hasVoted: false,
-                votesReceived: 0
-            });
-        });
-        await Promise.all(resetPromises);
-        
-        console.log(`[Game] Round ${nextRound} preparato. Dati resettati.`);
-        
-        return await this.getGameSnapshot(gameId);
-    }
-
-    /**
-     * Controlla le condizioni di vittoria.
-     * Ritorna: { isGameOver: boolean, winner: 'CIVILIANS' | 'IMPOSTORS' | null }
-     */
     static async checkWinCondition(gameId) {
-        const game = await this.getGameSnapshot(gameId);
+        const players = await this.getPlayers(gameId);
+        const aliveImpostors = players.filter(p => p.isAlive && p.role === 'IMPOSTOR').length;
+        const aliveCivilians = players.filter(p => p.isAlive && p.role === 'CIVILIAN').length;
         
-        const aliveImpostors = game.players.filter(p => p.isAlive && p.role === 'IMPOSTOR').length;
-        const aliveCivilians = game.players.filter(p => p.isAlive && p.role === 'CIVILIAN').length;
-
-        console.log(`[GameCheck] Impostori: ${aliveImpostors}, Civili: ${aliveCivilians}`);
-
-        if (aliveImpostors === 0) {
-            return { isGameOver: true, winner: 'CIVILIANS', cause: 'guessedImpostors'};
-        }
+        // Recupera round dai meta (perché non è nei players)
+        const rawData = await Game.getGame(gameId);
+        const currentRound = rawData && rawData.meta ? parseInt(rawData.meta.currentRound || 1) : 1;
         
-        if (aliveImpostors >= aliveCivilians) {
-            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'killAllCivilians'};
-        }
-
-        if (game.currentRound >= game.maxRound) {
-            return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
-        }
+        if (aliveImpostors === 0) return { isGameOver: true, winner: 'CIVILIANS', cause: 'guessedImpostors'};
+        if (aliveImpostors >= aliveCivilians) return { isGameOver: true, winner: 'IMPOSTORS', cause: 'killAllCivilians'};
+        if (currentRound >= 10) return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
+        
         return { isGameOver: false, winner: null };
     }
 
+    // ==========================================
+    // 5. UTILS & HELPERS
+    // ==========================================
+
+    static checkAllPlayersRolled(playersArray) {
+        return playersArray.every(p => p.hasRolled === true);
+    }
+
+    static checkAllPlayersSpoken(playersArray) {
+        return playersArray.every(p => p.hasSpoken === true);
+    }
+
+    static checkAllAlivePlayersVoted(players) {
+        return VotingService.checkAllAlivePlayersVoted(players);
+    }
+
+    static sortPlayersByDice(playersArray, round) {
+        return DiceUtils.sortPlayersForTurn(playersArray, round);
+    }
+
+    // --- Private Methods ---
+
+    static _buildInitialPlayersMap(playersList, imposterUsername, diceValues, colors) {
+        const map = {};
+        playersList.forEach(username => {
+            const isImpostor = (username === imposterUsername);
+            const userDiceData = diceValues.find(d => d.username === username);
+            const playerObj = PlayerData.createPlayerData(
+                username, 
+                isImpostor ? 'IMPOSTOR' : 'CIVILIAN', 
+                userDiceData.value1, 
+                userDiceData.value2, 
+                colors[username], 
+                userDiceData.order
+            );
+            map[username] = JSON.stringify(playerObj); 
+        });
+        return map;
+    }
+
+    static _generateRandomColors(playersList) {
+        const colors = {};
+        playersList.forEach(username => { 
+            colors[username] = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0'); 
+        });
+        return colors;
+    }
+
+    static _safeJsonParse(str) { 
+        try { return JSON.parse(str); } catch (e) { return null; } 
+    }
 }
 
 module.exports = GameService;
