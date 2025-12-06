@@ -286,6 +286,27 @@ class GameService {
         return nextIndex;
     }
 
+    static async forceEndVotingPhase(gameId) {
+        // 1. Recupera lo stato attuale
+        const game = await this.getGameSnapshot(gameId); //
+
+        // 2. Filtra: Chi è vivo e sta dormendo?
+        const idlePlayers = game.players.filter(p => p.isAlive && !p.hasVoted);
+
+        if (idlePlayers.length === 0) return;
+
+        // 3. Azione massiva: Registra voto NULL per tutti loro
+        // Riusiamo registerVote che gestisce già i flag hasVoted
+        const promises = idlePlayers.map(p => 
+            this.registerVote(gameId, p.username, null)
+        );
+        
+        await Promise.all(promises);
+        
+        // Opzionale: ritornare quanti voti sono stati forzati per logging
+        return idlePlayers.length;
+    }
+
     static async processVotingResults(gameId) {
         const game = await this.getGameSnapshot(gameId);
         const result = VotingService.calculateElimination(game);

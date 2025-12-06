@@ -287,16 +287,13 @@ class GameController {
 
     // Chiamata dal Timer se scade il tempo votazione
     static async forceVoteCompletion(io, roomId, gameId) {
-        try {
-            let game = await GameService.getGameSnapshot(gameId);
-            // Trova chi non ha votato
-            const idlePlayers = game.players.filter(p => p.isAlive && !p.hasVoted);
-            // Registra un voto nullo (null) per loro
-            const forcePromises = idlePlayers.map(p => GameService.registerVote(gameId, p.username, null));
-            await Promise.all(forcePromises);
+      try {
+            // 1. LOGICA: Il Service sistema i voti mancanti
+            await GameService.forceEndVotingPhase(gameId);
             
-            // Calcola i risultati
+            // 2. FLUSSO: Si passa al calcolo risultati
             await this.proceedToResults(io, roomId, gameId);
+
         } catch (err) {
             console.error("Errore forceVoteCompletion:", err);
         }
