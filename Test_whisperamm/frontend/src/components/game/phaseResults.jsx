@@ -38,7 +38,7 @@ const PhaseResults = ({ gameState }) => {
             <div className="results-header">
                 <h2 className="phase-title">Risultati Votazione</h2>
                 <div className="timer-bar">
-                    Prossimo round in {timeLeft}s
+                    {timeLeft}s
                 </div>
             </div>
 

@@ -45,6 +45,11 @@ class Room {
         return await client.hGet(`room:${roomId}`, 'host');
     }
   
+    static async getRounds(roomId) {
+        const client = getRedisClient();
+        const rounds = await client.hGet(`room:${roomId}`, 'rounds');
+        return parseInt(rounds,10);
+    }
 
     static async getRoomStatus(roomId){
         const client = getRedisClient()
@@ -100,7 +105,6 @@ class Room {
         });
         multi.sAdd(`room:${roomId}:players`, hostUsername);
         multi.sAdd('rooms:active', roomId);
-        
         await multi.exec();
         return roomId;
     }

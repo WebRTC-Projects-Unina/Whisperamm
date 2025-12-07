@@ -92,6 +92,10 @@ class GameService {
         return players;
     }
 
+    static async getRoomIdByGame(gameId) {
+        return await Game.findRoomIdByGameId(gameId);
+    }
+
     /**
      * Ritorna lo STATO COMPLETO del gioco (Metadata + Players + Secrets).
      * Usato all'avvio o per refresh completi.
@@ -304,16 +308,17 @@ class GameService {
 
     static async checkWinCondition(gameId) {
         const players = await this.getPlayers(gameId);
+        const roomId = await this.getRoomIdByGame(gameId);
+        const maxRound = await RoomService.getRounds(roomId);
         const aliveImpostors = players.filter(p => p.isAlive && p.role === 'IMPOSTOR').length;
         const aliveCivilians = players.filter(p => p.isAlive && p.role === 'CIVILIAN').length;
         
         // Recupera round dai meta (perché non è nei players)
         const rawData = await Game.getGame(gameId);
         const currentRound = rawData && rawData.meta ? parseInt(rawData.meta.currentRound || 1) : 1;
-        
         if (aliveImpostors === 0) return { isGameOver: true, winner: 'CIVILIANS', cause: 'guessedImpostors'};
         if (aliveImpostors >= aliveCivilians) return { isGameOver: true, winner: 'IMPOSTORS', cause: 'killAllCivilians'};
-        if (currentRound >= 10) return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
+        if (currentRound >= maxRound) return { isGameOver: true, winner: 'IMPOSTORS', cause: 'roundsExceeded'}
         
         return { isGameOver: false, winner: null };
     }

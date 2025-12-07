@@ -152,6 +152,8 @@ class RoomService {
     static async getPlayers(roomId) { return await Room.getPlayers(roomId); }
     static async getRoom(roomId) { return await Room.get(roomId); }
     static async getHost(roomId) { return await Room.getHost(roomId); }
+    static async getRounds(roomId) { return await Room.getRounds(roomId); }
+    
     
     static async checkGameStarted(roomId){ 
         const statusRoom = await Room.getRoomStatus(roomId);

@@ -71,6 +71,11 @@ class Game {
         return gameId;
     }
 
+    static async findRoomIdByGameId(gameId) {
+        const client = getRedisClient();
+        const roomId = await client.hGet(`game:${gameId}`, 'roomId');
+        return roomId;
+    }
     // Aggiorna un singolo campo nei metadati, utile per cambi di fase, round, ecc.
     static async updateMetaField(gameId, field, value) {
         const client = getRedisClient();
