@@ -13,7 +13,7 @@ export const SocketProvider = ({ children }) => {
         // Se esiste già, non ne creiamo un'altra
         if (socket) return;
         
-        const newSocket = io('http://localhost:8080', {
+        const newSocket = io('/', {
             withCredentials: true,
             transports: ['websocket']
         });
