@@ -21,7 +21,7 @@ export const JanusProvider = ({ children }) => {
     const remoteFeedsRef = useRef({});
     const publisherIdRef = useRef(null);
 
-    const JANUS_SERVER = 'http://192.168.119.131:8088/janus'; 
+    const JANUS_SERVER = 'http://130.110.9.51:8088/janus'; 
 
     // 1. Cleanup (Memoizzato per evitare loop infiniti nei useEffect dei consumatori)
     const cleanup = useCallback(() => {
