@@ -66,7 +66,7 @@ app.use(express.static(path.join(__dirname, 'dist')));
 
 // "Catch-all": Qualsiasi richiesta che non è stata gestita dalle API sopra
 // restituisce la pagina index.html di React.
-app.get('*', (req, res) => {
+app.get(/^(.*)$/, (req, res) => {
     res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
