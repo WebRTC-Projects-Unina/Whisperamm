@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     useEffect(() => {
         const loadUserFromSession = async () => {
             try {
-                const res = await fetch('http://localhost:8080/api/me', {
+                const res = await fetch('/api/me', {
                     credentials: 'include', // Invia il cookie di sessione
                     //Con 'include' invia il Cookie sessioni
                     //'same-origin' se front e back sono sullo stesso dominio
