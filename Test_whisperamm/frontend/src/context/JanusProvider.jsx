@@ -16,7 +16,7 @@ export const JanusProvider = ({ children }) => {
 
     const janusRef = useRef(null);
     const videoroomHandleRef = useRef(null);
-    const opaqueId = useRef(`videoroom-${Janus.randomString(12)}`);
+    const opaqueId = useRef(`videoroom-${Janus?.randomString(12)}`);
     const currentRoomIdRef = useRef(null);
     const remoteFeedsRef = useRef({});
     const publisherIdRef = useRef(null);
