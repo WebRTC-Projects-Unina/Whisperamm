@@ -2,6 +2,7 @@ require('dotenv').config(); //Importa e configura variabili d'ambiente dal file 
 const express = require('express');
 const app = express();
 const PORT = process.env.PORT || 8080;
+const path = require('path'); // 1. NUOVO: Serve per gestire i percorsi dei file
 const { randomUUID } = require('crypto'); // 'crypto' è un modulo built-in
 const cookieParser = require('cookie-parser');
 const { connectRedis } = require('./models/redis');
@@ -13,11 +14,11 @@ const { Server } = require('socket.io');
 const registerSocketController = require('./socket/controllerSocket');
 
 const server = http.createServer(app);
-
+const clientOrigin = process.env.CLIENT_URL || 'http://localhost:5173';
 const io = new Server(server, {
   cors: {
     // Deve corrispondere esattamente all'origine del tuo client
-    origin: 'http://localhost:5173',
+    origin: clientOrigin,
     methods: ['GET', 'POST'],
     credentials: true // Abilitato per 'withCredentials: true' nel client
   }
@@ -41,7 +42,7 @@ const cors = require('cors');
 // Usa CORS con origine esplicita e credenziali abilitate
 app.use(
   cors({
-    origin: 'http://localhost:5173',
+    origin: clientOrigin,
     credentials: true,
   })
 );
@@ -57,6 +58,17 @@ const roomRoutes = require('./routes/roomRoutes');
 userRoutes(app); // Registra le rotte
 roomRoutes(app); // Registra le rotte
 //janusRoutes(app); // Registra le rotte
+
+// --- 3. NUOVO: SERVIRE IL FRONTEND (Produzione) ---
+
+// Serve i file statici (immagini, css, js) dalla cartella 'dist'
+app.use(express.static(path.join(__dirname, 'dist')));
+
+// "Catch-all": Qualsiasi richiesta che non è stata gestita dalle API sopra
+// restituisce la pagina index.html di React.
+app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+});
 
 server.listen(PORT, () => {
     console.log(`Server in ascolto sulla porta ${PORT}`);
