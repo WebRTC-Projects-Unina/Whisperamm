@@ -38,7 +38,7 @@ export const JanusProvider = ({ children }) => {
     const remoteFeedsRef = useRef({});
     const publisherIdRef = useRef(null);
 
-    const JANUS_SERVER = 'http://130.110.9.51:8088/janus'; 
+    const JANUS_SERVER = 'https://nonvillainous-nonsuccessfully-carline.ngrok-free.dev/janus'; // Sostituisci con il tuo server Janus
 
     // 1. Cleanup
     const cleanup = useCallback(() => {
