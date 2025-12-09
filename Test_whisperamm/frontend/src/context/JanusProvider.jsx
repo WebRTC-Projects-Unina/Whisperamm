@@ -1,11 +1,24 @@
 import React, { createContext, useState, useCallback, useRef, useEffect } from 'react';
-// 1. IMPORT FONDAMENTALI: Adapter deve essere il primo
-import 'webrtc-adapter';
-import Janus from 'janus-gateway'; 
+import adapter from 'webrtc-adapter'; 
 import { useAuth } from './AuthProvider';
 import { stringToIntegerId } from '../utils/helper';
 
 export const JanusContext = createContext();
+
+// ✅ Usa Janus dal window object (caricato da script nel HTML)
+// Oppure importalo come modulo se hai rimosso lo script
+import Janus from '../utils/janus';
+
+// Funzione helper per generare string random
+const generateRandomString = (len) => {
+    const charSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    let randomString = '';
+    for (let i = 0; i < len; i++) {
+        let randomPoz = Math.floor(Math.random() * charSet.length);
+        randomString += charSet.charAt(randomPoz);
+    }
+    return randomString;
+};
 
 export const JanusProvider = ({ children }) => {
     const { user } = useAuth();
@@ -19,9 +32,8 @@ export const JanusProvider = ({ children }) => {
     const janusRef = useRef(null);
     const videoroomHandleRef = useRef(null);
     
-    // --- FIX 1: NON usare Janus.randomString qui. Usa JS nativo per evitare crash se Janus è undefined ---
-    const opaqueId = useRef(`videoroom-${Math.random().toString(36).substring(2, 14)}`);
-    
+    const opaqueId = useRef(`videoroom-${generateRandomString(12)}`);
+
     const currentRoomIdRef = useRef(null);
     const remoteFeedsRef = useRef({});
     const publisherIdRef = useRef(null);
@@ -63,7 +75,6 @@ export const JanusProvider = ({ children }) => {
                 const publish = { request: "publish", audio: useAudio, video: true };
                 videoroomHandleRef.current.send({ message: publish, jsep: jsep });
             
-                // Force local stream check
                 setTimeout(() => {
                     const handle = videoroomHandleRef.current;
                     if (handle && handle.webrtcStuff && handle.webrtcStuff.myStream) {
@@ -145,9 +156,11 @@ export const JanusProvider = ({ children }) => {
     const forceStreamUpdate = (pluginHandle, id, display, setRemoteStreams) => {
         const internals = pluginHandle.webrtcStuff;
         if (internals && internals.remoteStream) {
+            console.log(`🔥🔥🔥 FORCE: Stream trovato in webrtcStuff per ${display}!`);
             gestisciStream(internals.remoteStream, id, display, setRemoteStreams);
             return true;
         }
+
         if (internals && internals.pc) {
             const receivers = internals.pc.getReceivers();
             if (receivers && receivers.length > 0) {
@@ -171,11 +184,9 @@ export const JanusProvider = ({ children }) => {
     const subscribeToRemoteFeed = useCallback((id, display, room) => {
         if (remoteFeedsRef.current[id]) return;
 
-        // --- FIX 2: Usa window.Janus se Janus è undefined ---
-        const JanusLib = Janus || window.Janus;
-        if (!JanusLib) return;
-
-        JanusLib.attach({
+        console.log(`🔌 Inizio attach plugin per subscriber: ${display} (${id})`);
+        
+        janusRef.current.attach({
             plugin: "janus.plugin.videoroom",
             opaqueId: opaqueId.current,
             success: (pluginHandle) => {
@@ -195,19 +206,26 @@ export const JanusProvider = ({ children }) => {
                                 message: { request: "start", room: room }, 
                                 jsep: jsep 
                             });
+
                             setTimeout(() => {
                                 forceStreamUpdate(remoteFeedsRef.current[id], id, display, setRemoteStreams);
-                            }, 1500);
+                            }, 1500); 
+
+                            setTimeout(() => {
+                                forceStreamUpdate(remoteFeedsRef.current[id], id, display, setRemoteStreams);
+                            }, 3000); 
                         },
                         error: (err) => console.error("❌ WebRTC error:", err)
                     });
                 }
+
                 if (msg["started"] === "ok" || (msg["videoroom"] === "event" && msg["started"] === "ok")) {
                       setTimeout(() => {
                           forceStreamUpdate(remoteFeedsRef.current[id], id, display, setRemoteStreams);
                       }, 500);
                 }
             },
+
             ontrack: (track, mid, on) => {
                 const stream = track.streams ? track.streams[0] : new MediaStream([track]);
                 gestisciStream(stream, id, display, setRemoteStreams);
@@ -222,6 +240,20 @@ export const JanusProvider = ({ children }) => {
         });
     }, []);
 
+    const gestisciStream = (stream, id, display, setter) => {
+        const updateState = setter || setRemoteStreams;
+        updateState(prev => {
+            const index = prev.findIndex(p => p.id === id);
+            if (index !== -1) {
+                console.log(`🔄 Aggiorno stream esistente per ${display}`);
+                const newArr = [...prev];
+                newArr[index] = { id, display, stream }; 
+                return newArr;
+            }
+            return [...prev, { id, display, stream }];
+        });
+    };
+
     const onJanusMessage = useCallback((msg, jsep) => {
         const event = msg["videoroom"];
         if (event) {
@@ -230,6 +262,7 @@ export const JanusProvider = ({ children }) => {
                 publisherIdRef.current = msg["id"];
                 setStatus('joined');
                 publishOwnFeed(true);
+
                 if (msg["publishers"]) {
                     const list = msg["publishers"];
                     for (let f of list) {
@@ -255,6 +288,7 @@ export const JanusProvider = ({ children }) => {
                     }
                 } 
                 else if (msg["error"]) {
+                    console.error("❌ Errore VideoRoom:", msg["error"]);
                     if (msg["error_code"] === 426) {
                         createRoomAndJoin();
                     }
@@ -285,7 +319,13 @@ export const JanusProvider = ({ children }) => {
                 onJanusMessage(msg, jsep);
             },
             onlocalstream: (stream) => {
-                if (stream) setLocalStream(stream);
+                console.log("🎥 ONLOCALSTREAM scattato!", stream);
+                if (stream) {
+                    setLocalStream(stream);
+                }
+            },
+            onremotestream: (stream) => {
+                console.log("🎥 ONREMOTESTREAM sul publisher handle (ignorato)", stream);
             },
             oncleanup: () => {
                 setLocalStream(null);
@@ -296,10 +336,10 @@ export const JanusProvider = ({ children }) => {
     const createJanusSession = useCallback(() => {
         setStatus('connecting');
         
-        // --- FIX 3: Recupero sicuro di Janus ---
-        const JanusLib = Janus || window.Janus;
-
-        const janus = new JanusLib({
+        // ✅ Usa window.Janus se caricato da script
+        const JanusAPI = Janus;
+        
+        const janus = new JanusAPI({
             server: JANUS_SERVER,
             success: () => {
                 janusRef.current = janus;
@@ -307,7 +347,7 @@ export const JanusProvider = ({ children }) => {
             },
             error: (err) => {
                 console.error("❌ Errore Janus:", err);
-                setError("Errore connessione Janus");
+                setError("Errore connessione Janus: " + JSON.stringify(err));
                 setStatus('error');
             },
             destroyed: () => setStatus('disconnected')
@@ -317,25 +357,22 @@ export const JanusProvider = ({ children }) => {
     const initializeJanus = useCallback(() => {
         if (isJanusReady) return;
 
-        // --- FIX 4: Il punto del CRASH originale ---
-        // Cerchiamo Janus dall'import o dalla window
-        const JanusLib = Janus || window.Janus;
-
-        if (!JanusLib) {
-            console.error("❌ ERRORE CRITICO: Janus non caricato!");
-            setError("Libreria Janus non disponibile");
+       // Usiamo direttamente l'oggetto importato
+        const JanusAPI = Janus;
+        
+        if (!JanusAPI || typeof JanusAPI !== 'function') {
+            console.error("❌ Janus non è disponibile!", JanusAPI);
+            setError("Errore: libreria Janus non caricata. Ricarica la pagina.");
             return;
         }
 
-        if (!JanusLib.init) {
-             console.error("❌ Janus caricato ma metodo .init mancante", JanusLib);
-             return;
-        }
+        console.log("✅ Janus trovato:", JanusAPI);
 
-        JanusLib.init({
+        JanusAPI.init({
             debug: "all",
+            dependencies: JanusAPI.useDefaultDependencies({ adapter: adapter }),
             callback: () => {
-                if (!JanusLib.isWebrtcSupported()) {
+                if (!JanusAPI.isWebrtcSupported()) {
                     setError("WebRTC non supportato");
                     return;
                 }
