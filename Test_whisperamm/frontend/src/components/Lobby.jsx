@@ -2,7 +2,7 @@ import React, {useEffect, useState, useContext, useRef} from 'react';
 import { useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
-import { JanusContext } from '../context/JanusProvider'; // Import Context
+import { JanusContext } from '../context/JanusProvider'; 
 import { useLobbyValidation } from '../hooks/useLobbyValidation';
 import { useLobbySocket } from '../hooks/useLobbySocket';
 import { useLobbyHandlers } from '../hooks/useLobbyHandlers';
@@ -81,11 +81,10 @@ const Lobby = () => {
         }
     }, [players, maxPlayers]);
 
-    // --- JANUS LOGIC ---
-
-    // A. Inizializza Janus quando l'utente è validato
+   
     useEffect(() => {
         if (user && !isValidating) {
+            //Appena l'utente è validato, startiamo janus
             initializeJanus();
         }
     }, [user, isValidating, initializeJanus]);
