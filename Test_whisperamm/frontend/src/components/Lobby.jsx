@@ -27,6 +27,7 @@ const Lobby = () => {
         error: janusError,
         cleanup: cleanupJanus
     } = useContext(JanusContext);
+    //Lobby si prende tutto ciò che gli serve, estraendo ciò che mi deriva dal context
     
 
     // 1. Validation Hook (Fetch iniziale HTTP)
@@ -80,10 +81,16 @@ const Lobby = () => {
     }, [players, maxPlayers]);
 
    
+    //Appena l'utente entra in Lobby, ed è appena stato validato (stanza esiste e sappiamo che user è ok)
+    //accendiamo la videocamera, inizializzandoJanus
     useEffect(() => {
         if (user && !isValidating) {
             //Appena l'utente è validato, startiamo janus
-            initializeJanus();
+            initializeJanus(); //Setta anche isJanusReady=true, dunque si attiva l'useEffect che tenta di fare joinRoom
+            //init->createSession->attachPlugin
+//Init crea la base per creare connessione https con server Janus
+//Se tutto ok, creiamo la connessione con server janus con createJanusSession();
+//Creato l'oggetto che gestisce la connessione (istanza janus) -> attachVideoRoomPlugin che però inizialmente non si collega ad una stanza
         }
     }, [user, isValidating, initializeJanus]);
 

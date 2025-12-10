@@ -77,16 +77,16 @@ export const JanusProvider = ({ children }) => {
     
         console.log("🎥 Richiesta permessi media e creazione offerta...");
     
-        videoroomHandleRef.current.createOffer({
-            media: { 
+        videoroomHandleRef.current.createOffer({ //Creo l'offerta mandando il parametrouseAudio in funzione del fatto se voglio o meno mandargli l'audio!
+            media: { //E' l'offerta
                 audioRecv: false, 
                 videoRecv: false, 
                 audioSend: useAudio, 
                 videoSend: true 
             },
-            success: (jsep) => {
+            success: (jsep) => { //Se va tutto ok la creazione dell'sdp penso che mi risponda il server con success e quindi si attiva la callback?
                 console.log("✅ Offerta SDP creata, invio PUBLISH...");
-                const publish = { request: "publish", audio: useAudio, video: true };
+                const publish = { request: "publish", audio: useAudio, video: true };  
                 videoroomHandleRef.current.send({ message: publish, jsep: jsep });
             
                 setTimeout(() => {
@@ -104,21 +104,23 @@ export const JanusProvider = ({ children }) => {
     }, []);
 
     const joinRoom = useCallback((roomId, display) => {
-        if (!videoroomHandleRef.current) return;
+        if (!videoroomHandleRef.current) return; //Controlla il pluginHandle ottenuto con l'attach
         
         const numericRoomId = typeof roomId === 'number' ? roomId : stringToIntegerId(roomId);
+        //Janus vuole che gli ID siano numeri interi dunque uso sta funzione per pulire le stringhe dei roomId
         if (isNaN(numericRoomId)) {
             setError("ID Stanza non valido");
             return;
         }
         currentRoomIdRef.current = numericRoomId;
-        const register = {
-            request: "join",
-            room: numericRoomId,
-            ptype: "publisher",
-            display: display || user?.username || "User"
+        const register = { //Costruzione del messaggio JSON da inviare al server
+            request: "join", //Azione
+            room: numericRoomId, //Destinazione, dove voglio entrare
+            ptype: "publisher", //Non entro da subscriber solo, ma come publisher, voglio mandarti telecamera e mirofono
+            display: display || user?.username || "User"  //Nome che vedranno gli altri sul server janus
         };
-        videoroomHandleRef.current.send({ message: register });
+        videoroomHandleRef.current.send({ message: register }); //Mandiamo al server 
+        //Questa azione non avvia direttamente i flussi multimediali, ma innesca la negoziazione e il successo verrà notificato da un evento joined gestito dalla callback onJanusMessage
     }, [user]);
 
     const createRoomAndJoin = useCallback(() => {
@@ -283,10 +285,14 @@ export const JanusProvider = ({ children }) => {
         //Ogni volta che Janus ha qualcosa da dirci viene chiamata questa funzione..
         const event = msg["videoroom"];
         if (event) {
-            if (event === "joined") { //Scatta appena il server conferma che sei entrato nella Room (?)
+            if (event === "joined") { 
+                //Scatta appena il server conferma che sei entrato nella Room, ovvero dopo aver fatto JoinRoom ed è finita la negoziazione col server janus
+                //che rigira un mex che scatena l'evento joined e dunque parte la chiamata a publishOwnFeed
                 publisherIdRef.current = msg["id"]; //Server assegna al publisher un id numerico univoco-
                 setStatus('joined'); 
-                publishOwnFeed(true); 
+                publishOwnFeed(true);  //True è il parametro che viene mandato, audio true praticamente avvia l'audio semplicemente però penso a sto punt sempre (?)
+        //E' un possibile problema per la nostra implementazione?
+
                 if (msg["publishers"]) {
                     for (let f of msg["publishers"]) subscribeToRemoteFeed(f["id"], f["display"], msg["room"]);
                 //Se nella room c'è gente prima, il server ci manda pure una lista e per ognuno facciamo subscribeToRemoteFeed 
@@ -307,7 +313,9 @@ export const JanusProvider = ({ children }) => {
                         }
                     }
                 } else if (msg["error"]) {
-                    if (msg["error_code"] === 426) createRoomAndJoin();
+                    if (msg["error_code"] === 426) createRoomAndJoin(); 
+                    //Dopo la join, che è l'entrypoint da Lobby, praticamente starta la sessione di negoziazione e dunque se mi torna indietro questo evento on janusMessage 
+                    //chiama la funzione createRoomAndJoin.. forse potremmo ottimizzarlo e chiamarlo direttamente all'atto della crea Stanza
                     //Errore 426: Significa "La stanza non esiste". Il codice è intelligente: se la stanza non c'è, 
                     //prova a crearla al volo chiamando createRoomAndJoin.
                 }
@@ -323,9 +331,9 @@ export const JanusProvider = ({ children }) => {
     }, [publishOwnFeed, subscribeToRemoteFeed, createRoomAndJoin]);
 
     const attachVideoRoomPlugin = useCallback((janusInstance) => {
-        //Con questo non entriamo ancora nella room, ma lo rendo pronto a trasmettere!
-        janusInstance.attach({
-            plugin: "janus.plugin.videoroom",
+        //Nell'attach passo un oggetto pieno di funzioni, ovvero delle callback che vengono a eseguire all'atto di eventi
+        janusInstance.attach({ //Sull'istanza creata, attacco il plugin videoRoom,crea un tubo virtuale isolato nella connessione
+            plugin: "janus.plugin.videoroom", //ce ne sono tanti di plugin
             opaqueId: opaqueId.current, //Serve per debugging sul Janus Server
             success: (pluginHandle) => { //Se il server risponde: ok plugin agganciato ..
                 videoroomHandleRef.current = pluginHandle //un pò come un telecomando, utile per inviare comandi
