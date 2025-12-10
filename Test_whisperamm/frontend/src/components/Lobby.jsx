@@ -23,8 +23,6 @@ const Lobby = () => {
         initializeJanus, 
         joinRoom, 
         isJanusReady, 
-        localStream,
-        remoteStreams,
         status: janusStatus, 
         error: janusError,
         cleanup: cleanupJanus
@@ -153,29 +151,6 @@ const Lobby = () => {
 
     return (
         <div className="lobby-page">
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
-        
-        {/* 1. IL TUO VIDEO (LOCALE) */}
-        {localStream && (
-          <VideoPlayer 
-            stream={localStream} 
-            isLocal={true} 
-            display="Tu" 
-          />
-        )}
-
-        {/* 2. I VIDEO DEGLI ALTRI (REMOTI) */}
-        {remoteStreams.map((remote) => (
-          <VideoPlayer
-            key={remote.id} // Fondamentale per React
-            stream={remote.stream}
-            isLocal={false}
-            display={remote.display}
-          />
-        ))}
-        
-      </div>
             {/* BANNER ERRORE JANUS */}
             {janusError && (
             <div className="janus-error-overlay">
