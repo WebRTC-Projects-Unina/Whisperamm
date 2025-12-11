@@ -3,7 +3,7 @@ import React, { useEffect, useState, useRef, useContext } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import { useSocket } from '../context/SocketProvider'; 
-import { JanusContext } from '../context/JanusProvider'; // <--- IMPORTA JANUS
+import { JanusContext } from '../context/JanusProvider'; 
 
 import PhaseDice from './game/phaseDice';
 import PhaseOrder from './game/phaseOrder';
@@ -28,8 +28,9 @@ const Game = () => {
         isJanusReady, 
         status: janusStatus,
         cleanup: cleanupJanus,
-        localStream,   // Ci servono per passarli alle fasi
-        remoteStreams
+        localStream,   
+        remoteStreams,
+        toggleAudio 
     } = useContext(JanusContext);
 
     const [gameState, setGameState] = useState(null);      
@@ -152,7 +153,8 @@ const Game = () => {
     // Props comuni per l'audio da passare alle fasi
     const audioProps = {
         localStream,
-        remoteStreams
+        remoteStreams,
+        toggleAudio // <--- Ora le fasi riceveranno questa funzione
     };
 
     const renderPhaseContent = () => {
@@ -169,11 +171,11 @@ const Game = () => {
             case 'DISCUSSION': case 'discussione':
                 return <PhaseDiscussion gameState={gameState} user={user} socket={socket} {...audioProps} />;
             case 'VOTING': case 'votazione':
-                return <PhaseVoting gameState={gameState} user={user} socket={socket} />;
+                return <PhaseVoting gameState={gameState} user={user} socket={socket} {...audioProps}/>;
             case 'RESULTS': case 'risultati':
                 return <PhaseResults gameState={gameState} user={user} />;
             case 'FINISH': case 'finita':
-                return <PhaseFinish gameState={gameState} user={user} onLeave={handleLeaveGame} />;
+                return <PhaseFinish gameState={gameState} user={user} onLeave={handleLeaveGame} {...audioProps}/>;
             default:
                 return <div style={{color:'white'}}>Fase: {phase}</div>;
         }

@@ -6,92 +6,127 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
+    padding-top: 30px;
     animation: fadeIn 1s ease-out;
 }
-
-/* --- TEMI COLORE --- */
-/* Civili (Verde/Blu) */
-.theme-civilian .winner-title { color: #44ff44; text-shadow: 0 0 20px rgba(68, 255, 68, 0.6); }
-.theme-civilian .winner-icon { text-shadow: 0 0 30px rgba(68, 255, 68, 0.4); }
-
-/* Impostori (Rosso/Viola) */
-.theme-impostor .winner-title { color: #ff4444; text-shadow: 0 0 20px rgba(255, 68, 68, 0.6); }
-.theme-impostor .winner-icon { text-shadow: 0 0 30px rgba(255, 68, 68, 0.4); }
-
 
 /* HEADER */
 .finish-header {
     text-align: center;
     margin-bottom: 30px;
-    animation: popIn 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    flex-shrink: 0;
 }
 
-.winner-icon { font-size: 5rem; margin-bottom: 10px; }
-.winner-title { font-size: 3rem; font-weight: 900; margin: 0; text-transform: uppercase; letter-spacing: 2px; }
-.winner-subtitle { color: #aaa; margin-top: 5px; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 4px; }
-
+.winner-icon { font-size: 4rem; margin-bottom: 10px; display: block; }
+.winner-title { font-size: 2.5rem; font-weight: 900; margin: 0; text-transform: uppercase; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
+.winner-subtitle { font-size: 1.1rem; opacity: 0.8; margin-top: 5px; }
 
 /* GRIGLIA RIEPILOGO */
 .finish-players-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 15px;
+    /* Card larghe almeno 240px */
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 30px;
+    
     width: 100%;
-    max-width: 1000px;
-    overflow-y: auto;
-    padding: 10px;
+    max-width: 1200px;
+    
+    overflow-y: auto; /* Scroll se ci sono tanti giocatori */
+    padding: 20px;
     margin-bottom: 20px;
-    flex-grow: 1;
+    flex-grow: 1; /* Occupa lo spazio disponibile */
 }
 
+/* CARD GIOCATORE (Layout Verticale) */
 .finish-card {
     display: flex;
+    flex-direction: column; /* Impila gli elementi verticalmente */
     align-items: center;
-    padding: 15px;
-    background: rgba(255, 255, 255, 0.05);
-    border-radius: 12px;
-    border: 2px solid #444;
-    gap: 15px;
+    justify-content: space-between;
+    
+    padding: 25px;
+    background: rgba(20, 20, 30, 0.7);
+    border-radius: 20px;
+    border: 3px solid #444;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    
+    min-height: 320px; /* Altezza sufficiente per video + info */
+    transition: transform 0.3s ease;
 }
 
-/* Stile specifico card in base al ruolo svelato */
+.finish-card:hover {
+    transform: translateY(-8px);
+    background: rgba(30, 30, 45, 0.9);
+    z-index: 5;
+}
+
+/* Bordi colorati per ruolo */
 .finish-card.is-impostor { border-color: #ff4444; background: rgba(255, 68, 68, 0.1); }
-.finish-card.is-civilian { border-color: #44ff44; background: rgba(68, 255, 68, 0.05); }
+.finish-card.is-civilian { border-color: #44ff44; background: rgba(68, 255, 68, 0.1); }
+.finish-card.me { border-style: dashed; }
 
-.finish-info { flex-grow: 1; display: flex; flex-direction: column; }
-.finish-name { font-size: 1.1rem; font-weight: bold; color: white; }
-.finish-role { font-size: 0.8rem; font-weight: bold; margin-top: 2px; }
+/* AVATAR GIGANTE (Contenitore Video) */
+.player-avatar-large-finish {
+    width: 180px; 
+    height: 180px;
+    border-radius: 50%; /* Video rotondo */
+    background: #333;
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 4rem;
+    font-weight: 900;
+    color: white;
+    
+    margin-bottom: 20px;
+    border: 5px solid rgba(255,255,255,0.15);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    
+    position: relative;
+    overflow: hidden; /* Taglia il video se esce */
+}
 
-.is-impostor .finish-role { color: #ff4444; }
-.is-civilian .finish-role { color: #44ff44; }
+/* INFO TESTUALI */
+.finish-info { 
+    text-align: center;
+    width: 100%;
+}
+
+.finish-name { 
+    font-size: 1.5rem; 
+    font-weight: 800; 
+    color: white; 
+    margin-bottom: 5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+}
+
+.finish-role { 
+    font-size: 1rem; 
+    font-weight: 700; 
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+.is-impostor .finish-role { color: #ff6666; }
+.is-civilian .finish-role { color: #66ff66; }
 
 .finish-status {
-    font-size: 0.8rem;
-    color: #ccc;
-    background: rgba(0,0,0,0.3);
-    padding: 5px 10px;
+    margin-top: 15px;
+    font-size: 0.9rem;
+    color: #eee;
+    background: rgba(0,0,0,0.5);
+    padding: 6px 15px;
     border-radius: 20px;
 }
 
-/* FOOTER */
+/* Temi Generali */
+.theme-impostor .winner-title { color: #ff4444; }
+.theme-civilian .winner-title { color: #44ff44; }
+
+/* Footer */
 .finish-footer {
-    margin-top: auto;
+    padding-bottom: 30px;
     width: 100%;
     display: flex;
     justify-content: center;
-}
-
-.btn-home {
-    background: #333;
-    border: 2px solid #fff;
-    width: auto;
-    min-width: 250px;
-}
-.btn-home:hover { background: #555; transform: translateY(-3px); }
-
-/* Mobile */
-@media (max-width: 768px) {
-    .winner-title { font-size: 2rem; }
-    .finish-players-grid { grid-template-columns: 1fr; }
 }

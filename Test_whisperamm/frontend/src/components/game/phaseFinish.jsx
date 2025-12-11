@@ -1,14 +1,29 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import '../../style/phaseFinish.css';
+import VideoPlayer from '../VideoPlayer'; // <--- Assicurati che l'import sia corretto
 
-const PhaseFinish = ({ gameState, user, onLeave }) => {
-    const winner = gameState.winner; // "CIVILIANS" o "IMPOSTORS"
-    const cause = gameState.cause;   // "guessedImpostors", "killAllCivilians", "roundsExceeded"
+const PhaseFinish = ({ 
+    gameState, 
+    user, 
+    onLeave,
+    localStream,    // <--- Props necessarie per il video
+    remoteStreams,
+    toggleAudio     // <--- Props per attivare il microfono
+}) => {
+    const winner = gameState.winner;
+    const cause = gameState.cause;   
     
     const isImpostorWin = winner === 'IMPOSTORS';
     const themeClass = isImpostorWin ? "theme-impostor" : "theme-civilian";
 
-    // Logica per determinare Chi vince 
+    // --- AUDIO ON: Alla fine della partita ci si sente tutti ---
+    useEffect(() => {
+        if (toggleAudio) {
+            console.log("🏁 Fine Partita: Audio ON");
+            toggleAudio(true);
+        }
+    }, [toggleAudio]);
+
     const getTextContent = () => {
         if (winner === 'CIVILIANS') {
             return {
@@ -17,20 +32,16 @@ const PhaseFinish = ({ gameState, user, onLeave }) => {
                 emoji: "🎉"
             };
         } 
-        
-        // Se vincono gli impostori...
         if (cause === 'roundsExceeded') {
             return {
                 title: "GLI IMPOSTORI VINCONO",
-                subtitle: "I civili non hanno trovato il colpevole in tempo (Round esauriti).",
-                emoji: "⏳" // Clessidra per indicare il tempo/round finiti
+                subtitle: "Tempo scaduto (Round esauriti).",
+                emoji: "⏳"
             };
         }
-
-        // Vittoria impostori classica (kill)
         return {
             title: "GLI IMPOSTORI HANNO VINTO",
-            subtitle: "I civili sono stati eliminati o superati in numero.",
+            subtitle: "I civili sono stati eliminati.",
             emoji: "🔪"
         };
     };
@@ -40,27 +51,48 @@ const PhaseFinish = ({ gameState, user, onLeave }) => {
     return (
         <div className={`phase-finish-container ${themeClass}`}>
             
-            {/* HEADER VITTORIA */}
             <div className="finish-header">
                 <div className="winner-icon">{content.emoji}</div>
                 <h1 className="winner-title">{content.title}</h1>
                 <p className="winner-subtitle">{content.subtitle}</p>
             </div>
 
-            {/* RIEPILOGO GIOCATORI E RUOLI */}
             <div className="finish-players-grid">
                 {gameState.players?.map((p) => {
                     const isMe = p.username === user.username;
                     const pRole = p.role || 'CIVILIAN'; 
                     const isPImpostor = pRole === 'IMPOSTOR';
                     
+                    // 1. Trova lo stream video corretto
+                    const remote = remoteStreams ? remoteStreams.find(r => r.display === p.username) : null;
+                    const streamToRender = isMe ? localStream : (remote ? remote.stream : null);
+
                     return (
                         <div 
                             key={p.username} 
                             className={`finish-card ${isMe ? 'me' : ''} ${isPImpostor ? 'is-impostor' : 'is-civilian'}`}
                         >
-                            <div className="player-avatar-large" style={{ backgroundColor: p.color || '#777' }}>
-                                {p.username.charAt(0).toUpperCase()}
+                            {/* 2. AVATAR / VIDEO GIGANTE */}
+                            <div 
+                                className="player-avatar-large-finish" 
+                                style={{ 
+                                    backgroundColor: p.color || '#777',
+                                    position: 'relative',
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                {/* Fallback Iniziale (Lettera) */}
+                                {!streamToRender && p.username.charAt(0).toUpperCase()}
+
+                                {/* VIDEO PLAYER REALE */}
+                                {streamToRender && (
+                                    <VideoPlayer 
+                                        stream={streamToRender} 
+                                        isLocal={isMe} 
+                                        display={p.username}
+                                        audioOnly={false} // Mostra il video!
+                                    />
+                                )}
                             </div>
                             
                             <div className="finish-info">
@@ -72,7 +104,6 @@ const PhaseFinish = ({ gameState, user, onLeave }) => {
                                 </div>
                             </div>
 
-                            {/* Status finale */}
                             <div className="finish-status">
                                 {p.isAlive ? "🏆 Vivo" : "💀 Morto"}
                             </div>
@@ -81,7 +112,6 @@ const PhaseFinish = ({ gameState, user, onLeave }) => {
                 })}
             </div>
 
-            {/* FOOTER AZIONI */}
             <div className="finish-footer">
                 <button className="game-btn-action btn-home" onClick={onLeave}>
                     TORNA ALLA HOME 🏠

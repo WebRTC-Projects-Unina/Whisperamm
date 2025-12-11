@@ -31,7 +31,7 @@ const PhaseOrder = ({
     }, [gameState.endTime]);
 
 
-    // ORDINAMENTO ROBUSTO
+    // ORDINAMENTO ROBUSTO (Morti in fondo, poi per Ordine, poi per Dadi)
     const sortedPlayers = [...(gameState.players || [])].sort((a, b) => {
         const aliveA = a.isAlive !== false;
         const aliveB = b.isAlive !== false;
@@ -72,8 +72,8 @@ const PhaseOrder = ({
                     const isMe = p.username === user.username;
                     const isDead = p.isAlive === false; 
                     
-                    // Logica Stream
-                    const remote = remoteStreams.find(r => r.display === p.username);
+                    // Logica Stream: Trova il video corretto
+                    const remote = remoteStreams ? remoteStreams.find(r => r.display === p.username) : null;
                     const streamToRender = isMe ? localStream : (remote ? remote.stream : null);    
 
                     const totalValue = p.diceValue ?? ((p.dice1 || 0) + (p.dice2 || 0));
@@ -94,19 +94,21 @@ const PhaseOrder = ({
                                 {isDead ? '💀' : `#${displayOrder}`}
                             </div>
 
-                            {/* Avatar + VIDEO PLAYER (Tutto dentro questo div) */}
+                            {/* --- AVATAR CON VIDEO --- */}
                             <div className="player-avatar-large" style={{ 
                                 backgroundColor: isDead ? '#333' : (p.color || '#777'),
-                                position: 'relative' // Fondamentale per posizionare il pallino verde
+                                position: 'relative'
                             }}>
-                                {p.username.charAt(0).toUpperCase()}
+                                {/* 1. Mostra iniziale SOLO se NON c'è video */}
+                                {!streamToRender && p.username.charAt(0).toUpperCase()}
 
-                                {/* 2. PLAYER INVISIBILE (Corretto: aggiunto &&) */}
+                                {/* 2. VIDEO PLAYER ATTIVO (audioOnly=false mostra il video) */}
                                 {streamToRender && !isDead && (
                                     <VideoPlayer 
                                         stream={streamToRender} 
                                         isLocal={isMe} 
-                                        audioOnly={true} 
+                                        display={p.username}
+                                        audioOnly={false} // <--- VIDEO ON!
                                     />
                                 )}
 
@@ -116,11 +118,12 @@ const PhaseOrder = ({
                                         position: 'absolute',
                                         bottom: '0',
                                         right: '0',
-                                        width: '15px',
-                                        height: '15px',
+                                        width: '14px',
+                                        height: '14px',
                                         backgroundColor: '#2ecc71',
                                         borderRadius: '50%',
-                                        border: '2px solid white'
+                                        border: '2px solid white',
+                                        zIndex: 10
                                     }} title="Audio Attivo"/>
                                 )}
                             </div>
@@ -139,7 +142,7 @@ const PhaseOrder = ({
                                 </span>
                             </div>
 
-                            {/* Indicatore visivo */}
+                            {/* Indicatore visivo chi inizia */}
                             <div className="turn-indicator">
                                 {index === 0 && !isDead && <span>👑 Inizia</span>}
                             </div>

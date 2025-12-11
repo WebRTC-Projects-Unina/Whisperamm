@@ -43,41 +43,61 @@
     color: #ff4444;
     animation: pulse 1s infinite;
 }
-
 .discussion-players-container {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 20px;
+    display: grid; /* Cambiato da flex a grid per ordine */
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Card larghe */
+    gap: 25px;
     width: 100%;
-    max-width: 1000px;
+    max-width: 1400px;
+    padding: 20px;
     overflow-y: auto;
 }
 
-/* Card giocatore semplice per la discussione */
+/* Card giocatore Discussion */
 .discussion-player-card {
-    background: rgba(255, 255, 255, 0.05);
+    background: rgba(20, 20, 30, 0.6);
     border: 2px solid #555;
-    border-radius: 12px;
-    padding: 15px 25px;
+    border-radius: 16px;
+    padding: 20px;
+    
+    /* CAMBIAMENTO CHIAVE: Verticale */
     display: flex;
+    flex-direction: column; 
     align-items: center;
+    justify-content: center;
+    
     gap: 15px;
-    min-width: 200px;
+    min-height: 250px;
+    transition: all 0.2s;
+}
+
+/* Quando parla qualcuno (opzionale se gestisci lo stato "talking") */
+.discussion-player-card.is-talking {
+    border-color: #2ecc71;
+    box-shadow: 0 0 20px rgba(46, 204, 113, 0.3);
 }
 
 .discussion-player-avatar-large {
-    width: 180px;
-    height: 135px;
-    border-radius: 8px;
+    /* Rendiamo il video rettangolare (4:3) per la discussione, più professionale */
+    width: 100%; 
+    aspect-ratio: 4/3; /* Mantiene proporzioni webcam */
+    max-width: 280px;
+    
+    border-radius: 12px;
+    background: #000;
+    
     display: flex;
     justify-content: center;
     align-items: center;
+    font-size: 3rem;
     font-weight: bold;
-    color: #120220;
+    color: white;
+    overflow: hidden;
+    border: 2px solid rgba(255,255,255,0.1);
 }
 
 .player-name-large {
-    color: #fff;
-    font-weight: 600;
+    font-size: 1.4rem;
+    font-weight: 700;
+    text-align: center;
 }

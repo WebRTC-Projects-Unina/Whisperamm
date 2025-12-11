@@ -1,9 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import '../../style/phaseVoting.css';
+import VideoPlayer from '../VideoPlayer'; // <--- IMPORTA IL PLAYER
 
-const PhaseVoting = ({ gameState, user, socket }) => {
+const PhaseVoting = ({ 
+    gameState, 
+    user, 
+    socket,
+    localStream,    // <--- RICEVI STREAM DAL GAME
+    remoteStreams
+}) => {
     
-    // --- 1. LOGICA TIMER SINCRONIZZATA ---
+    // --- 1. LOGICA TIMER ---
     const calculateTimeLeft = () => {
         const endTime = gameState.endTime;
         if (!endTime) return 0;
@@ -12,14 +19,13 @@ const PhaseVoting = ({ gameState, user, socket }) => {
     };
 
     const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
-    const [selectedPlayer, setSelectedPlayer] = useState(null); // Username del target
-    const [hasConfirmed, setHasConfirmed] = useState(false);    // UI Lock dopo invio
+    const [selectedPlayer, setSelectedPlayer] = useState(null); 
+    const [hasConfirmed, setHasConfirmed] = useState(false);    
 
-    // Recuperiamo info utili
+    // Info Player
     const alivePlayers = gameState.players?.filter(p => p.isAlive) || [];
     const myPlayer = gameState.players?.find(p => p.username === user.username);
     const amIAlive = myPlayer?.isAlive;
-    // Se nel gameState c'è traccia che ho già votato (recupero crash/refresh)
     const serverSaysIVoted = myPlayer?.hasVoted;
 
     useEffect(() => {
@@ -32,12 +38,8 @@ const PhaseVoting = ({ gameState, user, socket }) => {
     }, [gameState.endTime]);
 
     // --- HANDLERS ---
-
     const handleSelect = (targetUsername) => {
-        // Non puoi selezionare se: sei morto, hai già votato, o il tempo è finito
         if (!amIAlive || hasConfirmed || serverSaysIVoted || timeLeft <= 0) return;
-        
-        // Toggle selezione
         if (selectedPlayer === targetUsername) {
             setSelectedPlayer(null);
         } else {
@@ -47,24 +49,17 @@ const PhaseVoting = ({ gameState, user, socket }) => {
 
     const submitVote = (target) => {
         if (!socket) return;
-        
         console.log(`📤 Invio voto per: ${target || "ASTENSIONE"}`);
-        
-        // Emit al server
-        socket.emit('Vote', { voteFor: target }); // target è null per astensione
-        
-        // Blocco UI locale istantaneo
+        socket.emit('Vote', { voteFor: target }); 
         setHasConfirmed(true);
         setSelectedPlayer(null);
     };
 
-    // Blocco totale se ho già votato (visivamente)
     const isInteractionLocked = !amIAlive || hasConfirmed || serverSaysIVoted || timeLeft <= 0;
 
     return (
         <div className="phase-voting-container">
             
-            {/* HEADER */}
             <div className="voting-header">
                 <h2 className="phase-title">
                     {isInteractionLocked && amIAlive ? "Voto Inviato" : "Chi vuoi eliminare?"}
@@ -84,8 +79,11 @@ const PhaseVoting = ({ gameState, user, socket }) => {
                 {alivePlayers.map((p) => {
                     const isMe = p.username === user.username;
                     const isSelected = selectedPlayer === p.username;
-                    // Se il server ci dice che questo player ha votato, mostriamo un'icona (opzionale)
                     const hasVotedBadge = p.hasVoted; 
+
+                    // --- RECUPERO LO STREAM ---
+                    const remote = remoteStreams ? remoteStreams.find(r => r.display === p.username) : null;
+                    const streamToRender = isMe ? localStream : (remote ? remote.stream : null);
 
                     return (
                         <div 
@@ -98,9 +96,28 @@ const PhaseVoting = ({ gameState, user, socket }) => {
                             onClick={() => handleSelect(p.username)}
                             style={{ borderColor: isSelected ? '#ff4444' : (p.color || '#444') }}
                         >
-                            {/* Avatar */}
-                            <div className="player-avatar-large" style={{ backgroundColor: p.color || '#777' }}>
-                                {p.username.charAt(0).toUpperCase()}
+                            {/* --- AVATAR / VIDEO GRANDE --- */}
+                            <div 
+                                className="player-avatar-voting-large" 
+                                style={{ 
+                                    backgroundColor: p.color || '#777',
+                                    position: 'relative',
+                                    overflow: 'hidden'
+                                }}
+                            >
+                                {/* Fallback Lettera */}
+                                {!streamToRender && p.username.charAt(0).toUpperCase()}
+
+                                {/* VIDEO ATTIVO */}
+                                {streamToRender && (
+                                    <VideoPlayer 
+                                        stream={streamToRender} 
+                                        isLocal={isMe} 
+                                        display={p.username}
+                                        audioOnly={false} // Vediamo le facce!
+                                        // muted={true} // Scommenta se vuoi silenziarli durante il voto
+                                    />
+                                )}
                             </div>
                             
                             {/* Nome */}
@@ -116,10 +133,9 @@ const PhaseVoting = ({ gameState, user, socket }) => {
                 })}
             </div>
 
-            {/* FOOTER AZIONI (Solo per vivi che devono ancora votare) */}
+            {/* FOOTER AZIONI */}
             {!isInteractionLocked && (
                 <div className="voting-footer">
-                    {/* Tasto Astensione (Sempre attivo) */}
                     <button 
                         className="btn-abstain"
                         onClick={() => submitVote(null)}
@@ -127,7 +143,6 @@ const PhaseVoting = ({ gameState, user, socket }) => {
                         🤷 ASTIENITI
                     </button>
 
-                    {/* Tasto Vota (Attivo solo se selezionato) */}
                     <button 
                         className="game-btn-action btn-confirm-vote"
                         disabled={!selectedPlayer}
@@ -137,12 +152,11 @@ const PhaseVoting = ({ gameState, user, socket }) => {
                             cursor: selectedPlayer ? 'pointer' : 'not-allowed'
                         }}
                     >
-                        {selectedPlayer ? `VOTA ${selectedPlayer.toUpperCase()} 🔪` : "SELEZIONA UN GIOCATORE"}
+                        {selectedPlayer ? `VOTA ${selectedPlayer.toUpperCase()} 🔪` : "SELEZIONA"}
                     </button>
                 </div>
             )}
 
-            {/* Messaggio di attesa post-voto */}
             {(hasConfirmed || serverSaysIVoted) && (
                 <div className="waiting-others-msg">
                     <div className="loader-dots"></div>

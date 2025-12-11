@@ -23,12 +23,11 @@ const Lobby = () => {
         initializeJanus, 
         joinRoom, 
         isJanusReady, 
-        localStream,
-        remoteStreams,
         status: janusStatus, 
         error: janusError,
         cleanup: cleanupJanus
     } = useContext(JanusContext);
+    //Lobby si prende tutto ciò che gli serve, estraendo ciò che mi deriva dal context
     
 
     // 1. Validation Hook (Fetch iniziale HTTP)
@@ -82,10 +81,17 @@ const Lobby = () => {
     }, [players, maxPlayers]);
 
    
+    //Appena l'utente entra in Lobby, ed è appena stato validato (stanza esiste e sappiamo che user è ok)
+    //accendiamo la videocamera, inizializzandoJanus
     useEffect(() => {
         if (user && !isValidating) {
-            //Appena l'utente è validato, startiamo janus
-            initializeJanus();
+            //Appena l'utente è validato, startiamo la connessione con il server Janus
+            initializeJanus(); //Setta anche isJanusReady=true, dunque si attiva l'useEffect che tenta di fare joinRoom
+            //init->createSession->attachPlugin
+//Init crea la base per creare connessione https con server Janus
+//Se tutto ok, creiamo la connessione con server janus con createJanusSession();
+//A questo punto con l'attachVideoRoomPlugin ottengo la connessione diretta con il plugin VideoRoom.
+//Ogni client che si collega avrà un proprio handle verso il plugin VideoRoom, ovvero una propria connessione al plugin videoRoom!
         }
     }, [user, isValidating, initializeJanus]);
 
@@ -99,9 +105,11 @@ const Lobby = () => {
 
     useEffect(() => {
         // Se Janus è pronto, connesso e non siamo ancora entrati
+        //questo dunque è attivato a causa della initializeJanus!!!!
         if (isJanusReady && janusStatus === 'connected' && !hasJoinedRef.current && user) {
             console.log(`🚀 Janus connesso. Tentativo ingresso stanza video: ${roomId}`);
-            joinRoom(roomId, user.username);
+            joinRoom(roomId, user.username); //Qui facciamo il vero e proprio passo nella Room! 
+            //E' qui che apriremo il nostro RTCPeerConnection verso il mediaServer
             hasJoinedRef.current = true;
         }
     }, [isJanusReady, janusStatus, roomId, user, joinRoom]);
@@ -153,29 +161,6 @@ const Lobby = () => {
 
     return (
         <div className="lobby-page">
-
-        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center' }}>
-        
-        {/* 1. IL TUO VIDEO (LOCALE) */}
-        {localStream && (
-          <VideoPlayer 
-            stream={localStream} 
-            isLocal={true} 
-            display="Tu" 
-          />
-        )}
-
-        {/* 2. I VIDEO DEGLI ALTRI (REMOTI) */}
-        {remoteStreams.map((remote) => (
-          <VideoPlayer
-            key={remote.id} // Fondamentale per React
-            stream={remote.stream}
-            isLocal={false}
-            display={remote.display}
-          />
-        ))}
-        
-      </div>
             {/* BANNER ERRORE JANUS */}
             {janusError && (
             <div className="janus-error-overlay">
