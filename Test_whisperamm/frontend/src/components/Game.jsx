@@ -121,7 +121,7 @@ const Game = () => {
     const handleLeaveGame = () => {
         if (window.confirm("Uscire?")) { 
             disconnectSocket(); 
-            cleanupJanus(); // Pulisci anche audio
+            cleanupJanus(); 
             navigate(`/`); 
         }
     };
