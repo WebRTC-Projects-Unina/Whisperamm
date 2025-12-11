@@ -685,22 +685,24 @@ var Janus = (function () {
         function eventHandler() {
             if(sessionId == null)
                 return;
-            Janus.debug('Long poll...');
+            Janus.debug('Long poll...'); 
+            //Ecco la Long Poll che viene chiamata quando ricevo il sessionID a seguito di success!
             if(!connected) {
                 Janus.warn("Is the server down? (connected=false)");
                 return;
             }
-            let longpoll = server + "/" + sessionId + "?rid=" + new Date().getTime();
+            let longpoll = server + "/" + sessionId + "?rid=" + new Date().getTime(); 
+            //Costruzione URL con timestamp, per evitare il caching
             if(maxev)
                 longpoll = longpoll + "&maxev=" + maxev;
             if(token)
                 longpoll = longpoll + "&token=" + encodeURIComponent(token);
             if(apisecret)
                 longpoll = longpoll + "&apisecret=" + encodeURIComponent(apisecret);
-            Janus.httpAPICall(longpoll, {
+            Janus.httpAPICall(longpoll, { //Qui sta la chiamata Get longpoll!
                 verb: 'GET',
                 withCredentials: withCredentials,
-                success: handleEvent,
+                success: handleEvent, //Grazie a questo è praticamente un loop infinito, dato che richiama handleEvent appena il server risponde!
                 timeout: longPollTimeout,
                 error: function(textStatus, errorThrown) {
                     Janus.error(textStatus + ":", errorThrown);
@@ -1931,7 +1933,7 @@ var Janus = (function () {
                 if(config.pc)
                     pluginHandle.iceState(config.pc.iceConnectionState);
             };
-            config.pc.onicecandidate = function(event) {
+            config.pc.onicecandidate = function(event) { //Scatenata dopo la setLocalDescription sicuramente!
                 if(!event.candidate || (event.candidate.candidate && event.candidate.candidate.indexOf('endOfCandidates') > 0)) {
                     Janus.log('End of candidates.');
                     config.iceDone = true;
@@ -2198,6 +2200,8 @@ var Janus = (function () {
                 mediaConstraints.iceRestart = true;
             Janus.debug(mediaConstraints);
             let offer = await config.pc.createOffer(mediaConstraints);
+    //La createOffer chiede in maniera asincrona all'RTCPeerConnection di occuparsi
+    //di generare l'sdp
             Janus.debug(offer);
             // JSON.stringify doesn't work on some WebRTC objects anymore
             // See https://code.google.com/p/chromium/issues/detail?id=467366
@@ -2212,13 +2216,16 @@ var Janus = (function () {
                 type: 'offer',
                 sdp: offer.sdp
             };
-            await config.pc.setLocalDescription(offer);
-            config.mediaConstraints = mediaConstraints;
+            await config.pc.setLocalDescription(offer); //Come giusto che sia..!!!!!!!
+             //facendo config.pc.setLocalDescription il browser capisce che deve andarsi a cercare i candidati ICE
+
+            config.mediaConstraints = mediaConstraints; //Prendo i media constraint..
             if(!config.iceDone && !config.trickle) {
                 // FIXME Don't do anything until we have all candidates
                 Janus.log("Waiting for all candidates...");
                 return null;
             }
+           
             // If transforms are present, notify Janus that the media is end-to-end encrypted
             if(config.insertableStreams || config.externalEncryption)
                 offer.e2ee = true;

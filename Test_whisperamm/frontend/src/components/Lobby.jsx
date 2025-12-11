@@ -85,12 +85,13 @@ const Lobby = () => {
     //accendiamo la videocamera, inizializzandoJanus
     useEffect(() => {
         if (user && !isValidating) {
-            //Appena l'utente è validato, startiamo janus
+            //Appena l'utente è validato, startiamo la connessione con il server Janus
             initializeJanus(); //Setta anche isJanusReady=true, dunque si attiva l'useEffect che tenta di fare joinRoom
             //init->createSession->attachPlugin
 //Init crea la base per creare connessione https con server Janus
 //Se tutto ok, creiamo la connessione con server janus con createJanusSession();
-//Creato l'oggetto che gestisce la connessione (istanza janus) -> attachVideoRoomPlugin che però inizialmente non si collega ad una stanza
+//A questo punto con l'attachVideoRoomPlugin ottengo la connessione diretta con il plugin VideoRoom.
+//Ogni client che si collega avrà un proprio handle verso il plugin VideoRoom, ovvero una propria connessione al plugin videoRoom!
         }
     }, [user, isValidating, initializeJanus]);
 
@@ -104,9 +105,11 @@ const Lobby = () => {
 
     useEffect(() => {
         // Se Janus è pronto, connesso e non siamo ancora entrati
+        //questo dunque è attivato a causa della initializeJanus!!!!
         if (isJanusReady && janusStatus === 'connected' && !hasJoinedRef.current && user) {
             console.log(`🚀 Janus connesso. Tentativo ingresso stanza video: ${roomId}`);
-            joinRoom(roomId, user.username);
+            joinRoom(roomId, user.username); //Qui facciamo il vero e proprio passo nella Room! 
+            //E' qui che apriremo il nostro RTCPeerConnection verso il mediaServer
             hasJoinedRef.current = true;
         }
     }, [isJanusReady, janusStatus, roomId, user, joinRoom]);
