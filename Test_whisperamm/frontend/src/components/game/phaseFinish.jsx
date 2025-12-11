@@ -1,27 +1,25 @@
-// src/components/game/phaseFinish.jsx
-import React, { useEffect } from 'react'; // Aggiungi useEffect
+import React, { useEffect } from 'react';
 import '../../style/phaseFinish.css';
-import VideoPlayer from '../VideoPlayer'; // <--- IMPORTA IL PLAYER
+import VideoPlayer from '../VideoPlayer'; // <--- Assicurati che l'import sia corretto
 
 const PhaseFinish = ({ 
     gameState, 
     user, 
     onLeave,
-    localStream,    // <--- RICEVI GLI STREAM
+    localStream,    // <--- Props necessarie per il video
     remoteStreams,
-    toggleAudio     // <--- RICEVI IL CONTROLLO AUDIO
+    toggleAudio     // <--- Props per attivare il microfono
 }) => {
     const winner = gameState.winner;
-    const cause = gameState.cause; 
+    const cause = gameState.cause;   
     
     const isImpostorWin = winner === 'IMPOSTORS';
     const themeClass = isImpostorWin ? "theme-impostor" : "theme-civilian";
 
-    // --- ATTIVAZIONE AUDIO FINALE ---
-    // Vogliamo che alla fine tutti possano parlarsi (es. "Ah eri tu!")
+    // --- AUDIO ON: Alla fine della partita ci si sente tutti ---
     useEffect(() => {
         if (toggleAudio) {
-            console.log("🏁 Fine Partita: Audio ON per tutti");
+            console.log("🏁 Fine Partita: Audio ON");
             toggleAudio(true);
         }
     }, [toggleAudio]);
@@ -37,7 +35,7 @@ const PhaseFinish = ({
         if (cause === 'roundsExceeded') {
             return {
                 title: "GLI IMPOSTORI VINCONO",
-                subtitle: "Tempo scaduto: i civili non hanno trovato il colpevole.",
+                subtitle: "Tempo scaduto (Round esauriti).",
                 emoji: "⏳"
             };
         }
@@ -65,8 +63,7 @@ const PhaseFinish = ({
                     const pRole = p.role || 'CIVILIAN'; 
                     const isPImpostor = pRole === 'IMPOSTOR';
                     
-                    // --- LOGICA STREAM VIDEO ---
-                    // Cerchiamo lo stream video del giocatore
+                    // 1. Trova lo stream video corretto
                     const remote = remoteStreams ? remoteStreams.find(r => r.display === p.username) : null;
                     const streamToRender = isMe ? localStream : (remote ? remote.stream : null);
 
@@ -75,25 +72,25 @@ const PhaseFinish = ({
                             key={p.username} 
                             className={`finish-card ${isMe ? 'me' : ''} ${isPImpostor ? 'is-impostor' : 'is-civilian'}`}
                         >
-                            {/* AVATAR + VIDEO PLAYER */}
+                            {/* 2. AVATAR / VIDEO GIGANTE */}
                             <div 
-                                className="player-avatar-large" 
+                                className="player-avatar-large-finish" 
                                 style={{ 
                                     backgroundColor: p.color || '#777',
                                     position: 'relative',
-                                    overflow: 'hidden' // Importante per il video
+                                    overflow: 'hidden'
                                 }}
                             >
-                                {/* Fallback Iniziale */}
+                                {/* Fallback Iniziale (Lettera) */}
                                 {!streamToRender && p.username.charAt(0).toUpperCase()}
 
-                                {/* VIDEO LIVE */}
+                                {/* VIDEO PLAYER REALE */}
                                 {streamToRender && (
                                     <VideoPlayer 
                                         stream={streamToRender} 
                                         isLocal={isMe} 
                                         display={p.username}
-                                        audioOnly={false} // <--- VOGLIAMO IL VIDEO!
+                                        audioOnly={false} // Mostra il video!
                                     />
                                 )}
                             </div>

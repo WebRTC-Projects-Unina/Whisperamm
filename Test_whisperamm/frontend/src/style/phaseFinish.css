@@ -6,82 +6,85 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* justify-content: center; <-- RIMOSSO per permettere lo scroll se serve */
-    padding-top: 40px; /* Spazio dall'alto */
+    padding-top: 30px;
     animation: fadeIn 1s ease-out;
 }
 
-/* --- HEADER --- */
+/* HEADER */
 .finish-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 30px;
     flex-shrink: 0;
 }
 
-/* --- GRIGLIA RIEPILOGO (LARGE) --- */
+.winner-icon { font-size: 4rem; margin-bottom: 10px; display: block; }
+.winner-title { font-size: 2.5rem; font-weight: 900; margin: 0; text-transform: uppercase; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
+.winner-subtitle { font-size: 1.1rem; opacity: 0.8; margin-top: 5px; }
+
+/* GRIGLIA RIEPILOGO */
 .finish-players-grid {
     display: grid;
-    /* Minimo 260px di larghezza per card (molto più grandi di prima) */
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    /* Card larghe almeno 240px */
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 30px;
     
     width: 100%;
-    max-width: 1400px; /* Allarghiamo il contenitore */
+    max-width: 1200px;
     
-    overflow-y: auto;
+    overflow-y: auto; /* Scroll se ci sono tanti giocatori */
     padding: 20px;
     margin-bottom: 20px;
-    flex-grow: 1;
+    flex-grow: 1; /* Occupa lo spazio disponibile */
 }
 
-/* CARD GIOCATORE (Ora Verticale) */
+/* CARD GIOCATORE (Layout Verticale) */
 .finish-card {
     display: flex;
-    flex-direction: column; /* <-- FONDAMENTALE: Impila video e testo */
+    flex-direction: column; /* Impila gli elementi verticalmente */
     align-items: center;
     justify-content: space-between;
     
     padding: 25px;
-    background: rgba(30, 30, 40, 0.6); /* Più scuro per risalto video */
-    backdrop-filter: blur(5px);
+    background: rgba(20, 20, 30, 0.7);
     border-radius: 20px;
     border: 3px solid #444;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     
-    min-height: 350px; /* Altezza minima garantita */
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    min-height: 320px; /* Altezza sufficiente per video + info */
+    transition: transform 0.3s ease;
 }
 
 .finish-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
-    z-index: 10;
+    transform: translateY(-8px);
+    background: rgba(30, 30, 45, 0.9);
+    z-index: 5;
 }
 
-/* Stile specifico card */
-.finish-card.is-impostor { border-color: #ff4444; background: rgba(255, 68, 68, 0.15); }
+/* Bordi colorati per ruolo */
+.finish-card.is-impostor { border-color: #ff4444; background: rgba(255, 68, 68, 0.1); }
 .finish-card.is-civilian { border-color: #44ff44; background: rgba(68, 255, 68, 0.1); }
 .finish-card.me { border-style: dashed; }
 
-/* NUOVO: CONTENITORE VIDEO/AVATAR GIGANTE */
-/* Questa classe deve matchare quella che hai messo nel JSX: player-avatar-large-finish */
+/* AVATAR GIGANTE (Contenitore Video) */
 .player-avatar-large-finish {
-    width: 200px;
-    height: 200px;
-    border-radius: 50%; /* O '20px' se vuoi video quadrati stondati */
-    background: #555;
+    width: 180px; 
+    height: 180px;
+    border-radius: 50%; /* Video rotondo */
+    background: #333;
     
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 5rem;
+    font-size: 4rem;
     font-weight: 900;
     color: white;
     
     margin-bottom: 20px;
-    border: 5px solid rgba(255,255,255,0.1);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-    overflow: hidden; /* Taglia il video se esce */
+    border: 5px solid rgba(255,255,255,0.15);
+    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
+    
     position: relative;
+    overflow: hidden; /* Taglia il video se esce */
 }
 
 /* INFO TESTUALI */
@@ -91,30 +94,36 @@
 }
 
 .finish-name { 
-    font-size: 1.6rem; 
+    font-size: 1.5rem; 
     font-weight: 800; 
     color: white; 
     margin-bottom: 5px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
 }
 
 .finish-role { 
-    font-size: 1.1rem; 
+    font-size: 1rem; 
     font-weight: 700; 
     text-transform: uppercase;
-    letter-spacing: 2px;
+    letter-spacing: 1px;
 }
+.is-impostor .finish-role { color: #ff6666; }
+.is-civilian .finish-role { color: #66ff66; }
 
 .finish-status {
     margin-top: 15px;
-    font-size: 1rem;
-    color: #fff;
-    background: rgba(0,0,0,0.6);
-    padding: 8px 16px;
-    border-radius: 30px;
-    font-weight: 600;
+    font-size: 0.9rem;
+    color: #eee;
+    background: rgba(0,0,0,0.5);
+    padding: 6px 15px;
+    border-radius: 20px;
 }
 
-/* FOOTER */
+/* Temi Generali */
+.theme-impostor .winner-title { color: #ff4444; }
+.theme-civilian .winner-title { color: #44ff44; }
+
+/* Footer */
 .finish-footer {
     padding-bottom: 30px;
     width: 100%;
