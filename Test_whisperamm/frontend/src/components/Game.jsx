@@ -175,7 +175,7 @@ const Game = () => {
             case 'RESULTS': case 'risultati':
                 return <PhaseResults gameState={gameState} user={user} />;
             case 'FINISH': case 'finita':
-                return <PhaseFinish gameState={gameState} user={user} onLeave={handleLeaveGame} />;
+                return <PhaseFinish gameState={gameState} user={user} onLeave={handleLeaveGame} {...audioProps}/>;
             default:
                 return <div style={{color:'white'}}>Fase: {phase}</div>;
         }
