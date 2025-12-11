@@ -3,6 +3,7 @@ const { Room, RoomStatus } = require('../models/Room');
 const UserService = require('./userService');
 const { getRedisClient } = require('../models/redis'); // Importato SOLO per removePlayer
 const crypto = require('crypto');
+const { Game } = require('../models/Game');
 const { stat } = require('fs');
 
 class RoomService {
@@ -102,6 +103,11 @@ class RoomService {
                 if (remainingPlayers.length === 0) {
                     Room.chainDeleteRoom(multi, roomId);
                     deletedRoom = true;
+                    // Usiamo room.gameId recuperato dalla get(roomId) iniziale
+                    if (room.gameId) { //sempre se è partito il gioco..
+                        Game.chainDeleteGame(multi, room.gameId);
+                    }
+
                 } else {
                     if (currentHost === username) {
                         const newHost = remainingPlayers[0];

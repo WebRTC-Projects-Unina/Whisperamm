@@ -82,6 +82,15 @@ class Game {
         const client = getRedisClient();
         return await client.hGetAll(`game:${gameId}:players`);
     }
+
+
+    //
+    static chainDeleteGame(chain, gameId) {
+        // Elimina i metadati del gioco
+        chain.del(`game:${gameId}`);
+        // Elimina l'hashmap dei giocatori (PlayerData)
+        chain.del(`game:${gameId}:players`);
+    }
     
     /**
      * Incrementa un valore numerico nei metadati in modo ATOMICO (HINCRBY).
