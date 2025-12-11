@@ -1,16 +1,53 @@
+/* Questo impedisce che padding e bordi facciano uscire gli elementi dallo schermo */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
+  color-scheme: dark; /* Forziamo il dark scheme visto il tuo background */
   color: rgba(255, 255, 255, 0.87);
+  
+  /* Impostiamo il tuo colore di base qui */
   background-color: #120220;
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+html {
+  height: 100%;
+  width: 100%;
+  overflow-x: hidden; /* Blocca scroll laterale a livello globale */
+  overscroll-behavior-x: none; /* Disabilita effetto rimbalzo su mobile */
+}
+
+body {
+  margin: 0;
+  padding: 20px; /* IMPORTANTE: Dà aria ai bordi su mobile */
+  
+  /* Flexbox per centrare tutto */
+  display: flex;
+  flex-direction: column; /* Meglio column per mobile per evitare problemi */
+  justify-content: center; /* Centra verticalmente */
+  align-items: center;     /* Centra orizzontalmente */
+  
+  min-width: 320px;
+  min-height: 100vh;
+  width: 100%;
+  
+  background-color: #120220;
+  /* background-attachment: fixed aiuta su mobile per evitare che l'immagine salti quando scorri */
+  background:         
+        linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
+        url('../imgs/Loop.gif') center/cover no-repeat fixed !important;
+
+  overscroll-behavior-x: none; /* Disabilita effetto rimbalzo su mobile */
 }
 
 a {
@@ -22,28 +59,22 @@ a:hover {
   color: #535bf2;
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
-  background-color: #120220;
-  background:         
-        linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
-        url('../imgs/Loop.gif') center/cover no-repeat !important;
-  width: 100%;
-}
-
-html {
-  height: 100%;
-  width: 100%;
-  background-color: #120220 !important;
-}
-
 h1 {
   font-size: 3.2em;
   line-height: 1.1;
+  text-align: center; /* Centra il testo del titolo */
+}
+
+/* 2. MEDIA QUERY PER MOBILE */
+/* Quando lo schermo è piccolo (cellulare), riduciamo il titolo */
+@media (max-width: 600px) {
+  h1 {
+    font-size: 2rem; /* Molto più leggibile su telefono */
+  }
+  
+  body {
+    padding: 15px; /* Un po' meno padding su schermi piccoli */
+  }
 }
 
 button {
@@ -62,19 +93,6 @@ button:hover {
 }
 button:focus,
 button:focus-visible {
-  outline: none;                       /* tolgo il bordo blu di default */
-  box-shadow: 0 0 0 3px #c861fb;       /* colore focus personalizzato */
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+  outline: none;
+  box-shadow: 0 0 0 3px #c861fb;
 }

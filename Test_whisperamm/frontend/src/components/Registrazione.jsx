@@ -8,6 +8,10 @@ const Registrazione = () => {
     const [error, setError] = useState(null);
     const { user, setUser } = useAuth();
 
+    // NUOVO STATO: Ci serve per sapere se stiamo "uscendo"
+    const [isExiting, setIsExiting] = useState(false);
+
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError(null);
@@ -37,7 +41,14 @@ const Registrazione = () => {
             }
 
             console.log('Registrato:', data.user);
-            setUser(data.user); // ✅ Salva l'intero oggetto { id: "...", username: "..." }
+            // 1. Attiviamo l'animazione
+            setIsExiting(true); 
+
+            // 2. Aspettiamo 800ms (0.8 secondi) che finisca l'effetto CSS
+            setTimeout(() => {
+                console.log('Registrato:', data.user);
+                setUser(data.user); // Questo causerà il cambio pagina DOPO l'animazione
+            }, 800);
             
         } catch (err) {
             setError(err.message);
@@ -51,27 +62,34 @@ const Registrazione = () => {
     }
 
     return (
-        <div className="registration-container">
-            <h1>Benvenuto a Whisperamm</h1>
-            <p>Inserisci il nickname per giocare.</p>
-
-            <form onSubmit={handleSubmit}>
-                <div className="form-group">
-                    <label htmlFor="username">Il tuo nickname</label>
-                    <input
-                        type="text"
-                        id="username"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="Es. Pippozzo"
-                        autoFocus
-                    />
-                </div>
-                <button type="submit" className="btn btn-submit">
-                    Entra
-                </button>
-                {error && <p className="error-message">{error}</p>}
-            </form>
+        /* AGGIUNTO UN DIV WRAPPER ESTERNO "registration-wrapper" */
+        <div className={`registration-wrapper ${isExiting ? 'exiting' : ''}`}>
+            <div className="registration-container">
+                <h1>Benvenuto a<br />Whisperamm</h1>
+                
+                <form onSubmit={handleSubmit}>
+                    <div className="form-group">
+                        <label htmlFor="username">Inserisci il tuo nickname</label>
+                        <input
+                            type="text"
+                            id="username"
+                            value={username}
+                            onChange={(e) => setUsername(e.target.value)}
+                            placeholder="Es. Pippozzo"
+                            disabled={isExiting}
+                            // autoFocus rimosso come richiesto
+                        />
+                    </div>
+                    <button 
+                        type="submit" 
+                        className="btn btn-submit"
+                        disabled={isExiting}
+                    >
+                        {isExiting ? '...' : 'ENTRA'}
+                    </button>
+                    {error && <p className="error-message">{error}</p>}
+                </form>
+            </div>
         </div>
     );
 };

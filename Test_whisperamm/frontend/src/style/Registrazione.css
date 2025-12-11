@@ -1,106 +1,248 @@
-/* --- Impostazioni Globali e Reset --- */
-body {
-    margin: 0;
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-    background-color: #120220; /* viola scuro */
-    color: #f0f0f0; /* Testo chiaro */
+/* NOTA: Non tocco più html o body globalmente.
+   Uso .registration-wrapper per simulare il body di questa pagina.
+*/
+
+/* --- WRAPPER PAGINA (Sostituisce il body) --- */
+.registration-wrapper {
+    position: fixed; /* Occupa tutto lo schermo */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    
+   background: 
+        linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
+        url('../imgs/Loop.gif') center/cover no-repeat;
+    color: #f0f0f0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    
+    /* Centratura */
     display: flex;
     justify-content: center;
     align-items: center;
-    min-height: 100vh;
+    overflow: hidden;
+    z-index: 1; /* Assicura che stia sopra */
 }
 
-h1, h2, p {
+/* 2. Quando il wrapper ha la classe .exiting (abbiamo premuto ENTRA) */
+.registration-wrapper.exiting .registration-container {
+    /* Il buco nero si rimpicciolisce e ruota vorticosamente */
+    transform: scale(0) rotate(720deg); 
+    
+    /* Diventa trasparente alla fine */
+    opacity: 0;
+    
+    /* FORZIAMO questa animazione */
+    transition: all 0.8s cubic-bezier(0.6, -0.28, 0.735, 0.045) !important;
+}
+
+/* 3. FIX SFONDO: Questa parte gestisce il wrapper esterno */
+.registration-wrapper.exiting {
+    /* IMPORTANTE: Ho tolto "background-image: none". 
+       Ora la GIF delle stelle rimane visibile mentre il buco sparisce! */
+       
+    pointer-events: none; /* Blocca i click mentre avviene l'animazione */
+}
+
+/* --- IL CERCHIO PERFETTO --- */
+.registration-container {
+    /* Gradiente Buco Nero */
+    background: radial-gradient(circle, #000000 50%, rgba(143, 64, 159) 100%);
+    
+    width: min(90vw, 450px);
+    height: min(90vw, 450px);
+    border-radius: 50%;
+    
+    /* Ombra Luminosa */
+    box-shadow: 
+        0 0 60px rgba(166, 0, 255, 0.7),
+        0 0 120px rgba(143, 64, 159, 0.5);
+    border: 2px solid #444;
+    
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem;
+    box-sizing: border-box;
+    position: relative;
+
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+    
+    /* Preparazione transizione */
+    transition: transform 0.8s ease-in, opacity 0.8s ease-in;
+}
+
+/* --- TITOLO (Specifico per registration-container) --- */
+.registration-container h1 {
+    font-size: clamp(1.8rem, 6vw, 2.5rem); 
+    line-height: 1.1;
     text-align: center;
+    margin-top: 15%; 
+    margin-bottom: auto; 
+    background: -webkit-linear-gradient(45deg, #ffffff, #d946ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));
 }
 
-h1 {
-    color: #e0e0e0;
-}
-
-/* --- Contenitore Principale (Centrato) --- */
-.registration-container,
-.lobby-container {
-    background-color: #171819; /* Grigio scuro per il box */
-    padding: 2.5rem;
-    border-radius: 12px;
-    box-shadow: 0 4px 12px rgba(143, 64, 159, 0.4);
+/* --- FORM (Specifico) --- */
+.registration-container form {
     width: 100%;
-    max-width: 400px;
-    border: 1px solid #444;
-}
-
-/* --- Stile del Form di Registrazione --- */
-form {
     display: flex;
     flex-direction: column;
-    gap: 1.5rem; /* Spazio tra gli elementi del form */
+    align-items: center;
+    gap: 0.8rem;
+    margin-top: auto; 
+    margin-bottom: 15%; 
 }
 
-.form-group {
+.registration-container .form-group {
+    width: 70%;
     display: flex;
     flex-direction: column;
-    gap: 0.5rem;
+    align-items: center;
 }
 
-.form-group label {
-    font-size: 0.9rem;
-    color: #aaa;
-}
-
-input[type="text"] {
-    padding: 12px 15px;
-    font-size: 1rem;
-    border: 1px solid #555;
-    border-radius: 8px;
-    background-color: #333;
-    color: #f0f0f0;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-/* il browser rompeva il cazzo e ho dovuto usare !important per forzare lo stile */ 
-
-input[type="text"]:focus,
-input[type="text"]:focus-visible {
-    outline: none !important;
-    border-color: #d946ff !important; /* viola neon acceso */
-    box-shadow: 0 0 12px 2px rgba(217, 70, 255, 0.9) !important; /* alone viola neon */
-}
-
-/* --- Stile Messaggio di Errore --- */
-.error-message {
-    color: #ff6b6b; /* Rosso per errori */
-    background-color: rgba(255, 107, 107, 0.1);
-    padding: 10px;
-    border-radius: 5px;
-    text-align: center;
-    font-size: 0.9rem;
-    border: 1px solid #ff6b6b;
-}
-
-/* --- Classe generica per i Pulsanti --- */
-.btn {
-    padding: 12px 20px;
-    font-size: 1rem;
+.registration-container .form-group label {
+    font-size: 0.75rem;
+    color: #bbb;
+    margin-bottom: 5px;
+    text-transform: uppercase;
+    letter-spacing: 2px;
     font-weight: 600;
+}
+
+/* --- INPUT (Specifico) --- */
+.registration-container input[type="text"] {
+    width: 100%; 
+    padding: 12px;
+    font-size: 1.1rem;
+    border: 1px solid #555;
+    border-radius: 30px; 
+    background-color: #2a2a2a;
+    color: #f0f0f0;
+    text-align: center;
+    transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+    margin-bottom: 10px;
+}
+
+.registration-container input[type="text"]:focus {
+    outline: none;
+    border-color: #d946ff;
+    width: 120%; 
+    box-shadow: 0 0 20px rgba(217, 70, 255, 0.6);
+    background-color: #1f1f1f;
+}
+
+.registration-container input[type="text"]:focus::placeholder {
+    color: transparent;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.registration-container input[type="text"]::placeholder {
+    color: #666;
+    font-style: italic;
+    transition: opacity 0.2s ease;
+}
+
+/* --- BOTTONE (Specifico) --- */
+.registration-container .btn {
+    padding: 12px 35px;
+    font-size: 1rem;
+    font-weight: bold;
     border: none;
-    border-radius: 8px;
+    border-radius: 50px;
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-}
-
-.btn:active {
-    transform: translateY(1px);
-}
-
-/* --- Pulsante Submit (Registrazione) --- */
-.btn-submit {
-    background-color: #a600ff; /* Viola */
+    background-color: #a600ff;
     color: white;
+    margin-top: 5px;
+    transition: transform 0.1s;
+    letter-spacing: 1px;
+    width: auto;
+    min-width: 140px;
 }
 
-.btn-submit:hover {
+.registration-container .btn:hover {
     background-color: #d249ff;
+    box-shadow: 0 0 20px rgba(166, 0, 255, 0.6);
 }
 
+.registration-container .btn:active {
+    transform: scale(0.95);
+}
 
+/* --- ERRORE --- */
+.registration-container .error-message {
+    font-size: 0.75rem;
+    color: #ff6b6b;
+    position: absolute;
+    bottom: 8%; 
+    text-align: center;
+    width: 80%;
+}
+
+/* =========================================
+   REGOLE CELLULARE
+   ========================================= */
+@media (max-width: 600px) {
+
+    .registration-container {
+        justify-content: space-between; 
+        padding-top: 3rem;
+        padding-bottom: 3rem;
+    }
+
+    .registration-container h1 {
+        margin-top: 0;
+        margin-bottom: 0;
+        font-size: 2rem;
+    }
+
+    .registration-container form {
+        margin-top: 0;
+        margin-bottom: 10px;
+        gap: 0.2rem;
+    }
+
+    .registration-container .form-group {
+        width: 100%; 
+    }
+
+    .registration-container .form-group label {
+        font-size: 0.7rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: #d946ff;
+        font-weight: 700;
+        margin-bottom: 2px;
+        opacity: 0.8;
+        white-space: nowrap; 
+    }
+
+    .registration-container input[type="text"] {
+        width: 80%;      
+        padding: 10px;
+        font-size: 1rem;
+        margin-bottom: 8px;
+        transition: width 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    
+    .registration-container input[type="text"]:focus {
+        width: 120%;
+    }
+
+    .registration-container .btn {
+        margin-top: 0;
+        padding: 10px 30px;
+        width: auto;
+    }
+    
+    .registration-container .error-message {
+        bottom: 5px;
+        font-size: 0.7rem;
+    }
+}
