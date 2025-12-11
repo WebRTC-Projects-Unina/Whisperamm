@@ -27,15 +27,8 @@ import adapter from 'webrtc-adapter';
  */
 
 // eslint-disable-next-line no-unused-vars
-var Janus = (function (factory) {
-    if (typeof define === 'function' && define.amd) {
-        define(factory);
-    } else if (typeof module === 'object' && module.exports) {
-        module.exports = factory();
-    } else if (typeof window === 'object') {
-        return factory();
-    }
-}(function () {
+// eslint-disable-next-line no-unused-vars
+var Janus = (function () {
 
     // List of sessions
     Janus.sessions = new Map();
@@ -3205,6 +3198,6 @@ var Janus = (function (factory) {
 
     return Janus;
 
-}));
+})();
 
 export default Janus;

@@ -104,78 +104,66 @@ const Home = () => {
         return <p>Errore: utente non trovato. Ritorna alla pagina di login.</p>
     }
 
-    // SCENA "CREA PARTITA"
+    // --- SCENA "CREA PARTITA" ---
     if (isCreating) {
         return (
-        //Usa il contenitore definito in Home.css
-            <div className="home-container">
-                <h3>Crea la tua Partita</h3>
-                {error && (
-                    <div className="form-error-message">
-                        {error}
-                    </div>
-                )}
-                <form onSubmit={handleSubmitNewGame}>
-                    <div className="form-group">
-                        {/*Nome stanza */}
-                        <label htmlFor='lobbyName'>Nome Stanza</label>
-                        <input type='text'
-                               id="lobbyName"
-                               value={lobbyName}
-                               onChange={(e) => setLobbyName(e.target.value)}
-                               placeholder='Es. La Partita del cuore'
-                               autoFocus
-                        />
+            <div className="home-wrapper">
+                <div className="home-container giant-circle">
+                    <h3>Crea Partita</h3> {/* Titolo accorciato per estetica cerchio */}
+                    
+                    <form onSubmit={handleSubmitNewGame}>
+                        <div className="form-group scrollable-group">
+                            {/* Nome stanza */}
+                            <label htmlFor='lobbyName'>NOME STANZA</label>
+                            <input type='text'
+                                id="lobbyName"
+                                value={lobbyName}
+                                onChange={(e) => setLobbyName(e.target.value)}
+                                placeholder='Es. Partita Cuore'
+                                // autoFocus rimosso
+                            />
 
-                        {/* Numero di giocatori */}
-                        <label htmlFor='maxPlayers'>Numero di giocatori</label>
-                        <select
-                            id="maxPlayers"
-                            value={maxPlayers}
-                            onChange={(e) => setMaxPlayers(e.target.value)}
-                            required
-                            className="select-placeholder"
-                        >
-                            <option value="" disabled>Seleziona (da 2 a 12)</option>
-                            {
-                                // Crea un array da 2 a 11
-                                Array.from({ length: 10 }, (_, i) => i + 2).map(num => (
-                                    <option key={num} value={num}>
-                                        {num} giocatori
-                                    </option>
-                                ))
-                            }
-                        </select>
+                            {/* Numero di giocatori */}
+                            <label htmlFor='maxPlayers'>GIOCATORI</label>
+                            <select
+                                id="maxPlayers"
+                                value={maxPlayers}
+                                onChange={(e) => setMaxPlayers(e.target.value)}
+                                required
+                                className="select-placeholder"
+                            >
+                                <option value="" disabled>Seleziona</option>
+                                {Array.from({ length: 10 }, (_, i) => i + 2).map(num => (
+                                    <option key={num} value={num}>{num} giocatori</option>
+                                ))}
+                            </select>
 
-                        {/* Numero rounds */}
-                        <label htmlFor='rounds'>Numero di round</label>
-                        <select
-                            id="rounds"
-                            value={rounds}
-                            onChange={(e) => setRounds(e.target.value)}
-                            required
-                            className="select-placeholder"
-                        >
-                            <option value="" disabled>Seleziona (da 1 a 10)</option>
-                            {
-                                // Crea un array da 1 a 10
-                                Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                                    <option key={num} value={num}>
-                                        {num} {num === 1 ? 'round' : 'rounds'}
-                                    </option>
-                                ))
-                            }
-                        </select>
-                    </div>
+                            {/* Numero rounds */}
+                            <label htmlFor='rounds'>ROUNDS</label>
+                            <select
+                                id="rounds"
+                                value={rounds}
+                                onChange={(e) => setRounds(e.target.value)}
+                                required
+                                className="select-placeholder"
+                            >
+                                <option value="" disabled>Seleziona</option>
+                                {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                    <option key={num} value={num}>{num} {num === 1 ? 'round' : 'rounds'}</option>
+                                ))}
+                            </select>
+                        </div>
+                        
+                        {error && <div className="form-error-message">{error}</div>}
 
-                    {/*Le classi per i bottoni (rimane invariato)*/}
-                    <div className="form-button-group">
-                        <button type="submit" className='btn btn-primary'>Conferma</button>
-                        <button type="button" className="btn btn-secondary" onClick={() => setIsCreating(false)}>
-                            Annulla
-                        </button>
-                    </div>
-                </form>
+                        <div className="form-button-group">
+                            <button type="submit" className='btn btn-primary'>Conferma</button>
+                            <button type="button" className="btn btn-secondary" onClick={() => setIsCreating(false)}>
+                                Annulla
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         )
     }
@@ -183,48 +171,48 @@ const Home = () => {
     // --- SCENA "UNISCITI A PARTITA" ---
     if (isJoining) {
         return (
-            <div className="home-container">
-                <h3>Entra in una Stanza</h3>
-                {error && (
-                    <div className="form-error-message">
-                        {error}
-                    </div>
-                )}
-                <form onSubmit={handleSubmitJoinGame}>
-                    <div className="form-group">
-                        <label htmlFor='roomId'>ID Stanza</label>
-                        <input type='text'
-                               id="roomId"
-                               value={roomId}
-                               onChange={(e) => setRoomId(e.target.value)}
-                               placeholder='Es. C2929'
-                               autoFocus
-                        />
-                    </div>
+            <div className="home-wrapper">
+                <div className="home-container">
+                    <h3>Unisciti</h3>
+                    
+                    <form onSubmit={handleSubmitJoinGame}>
+                        <div className="form-group">
+                            <label htmlFor='roomId'>ID STANZA</label>
+                            <input type='text'
+                                   id="roomId"
+                                   value={roomId}
+                                   onChange={(e) => setRoomId(e.target.value)}
+                                   placeholder='Es. C1CC10'
+                            />
+                        </div>
 
-                    <div className="form-button-group">
-                        <button type="submit" className='btn btn-primary'>Conferma</button>
-                        <button type="button" className="btn btn-secondary" onClick={() => setIsJoining(false)}>
-                            Annulla
-                        </button>
-                    </div>
-                </form>
+                        {error && <div className="form-error-message">{error}</div>}
+
+                        <div className="form-button-group">
+                            <button type="submit" className='btn btn-primary'>Conferma</button>
+                            <button type="button" className="btn btn-secondary" onClick={() => setIsJoining(false)}>
+                                Annulla
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         )
     }
 
-    // ---Menu---
+    // --- MENU PRINCIPALE ---
     return (
-        <div className="home-container">
-            <h2>Ciao, {user.username}!</h2>
-            <p>Cosa vuoi fare?</p>
-            <div className="lobby-options">
-                <button className="btn btn-primary" onClick={handleShowCreate}>
-                    Crea Partita
-                </button>
-                <button className="btn btn-secondary" onClick={handleShowJoin}>
-                    Unisciti a una partita
-                </button>
+        <div className="home-wrapper">
+            <div className="home-container main-menu">
+                <h2>Ciao {user.username}!</h2>
+                <div className="lobby-options">
+                    <button className="btn btn-primary" onClick={handleShowCreate}>
+                        Crea Partita
+                    </button>
+                    <button className="btn btn-primary" onClick={handleShowJoin}>
+                        Unisciti
+                    </button>
+                </div>
             </div>
         </div>
     );
