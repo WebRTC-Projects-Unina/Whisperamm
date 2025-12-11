@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import '../style/Lobby.css';
+import '../style/Registrazione.css';
 const MiniForm = ({ roomId, onUserCreated, error: externalError }) => {
     const [usernameInput, setUsernameInput] = useState('');
     const [error, setError] = useState(externalError || null);
     const [loading, setLoading] = useState(false);
+
+    // Stato per l'animazione di uscita (come in Registrazione)
+    const [isExiting, setIsExiting] = useState(false);
 
     const handleJoinRegister = async (e) => {
         e.preventDefault();
@@ -25,8 +28,13 @@ const MiniForm = ({ roomId, onUserCreated, error: externalError }) => {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Errore');
             
-            // Callback al parent (Lobby)
-            onUserCreated(data.user);
+            // 1. Avvia l'animazione di uscita
+            setIsExiting(true);
+
+            // 2. Aspetta che finisca l'animazione (800ms) prima di passare i dati al padre
+            setTimeout(() => {
+                onUserCreated(data.user);
+            }, 800);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -35,25 +43,43 @@ const MiniForm = ({ roomId, onUserCreated, error: externalError }) => {
     };
 
     return (
-        <div className="lobby-page mini-form-page">
-            <div className="lobby-card">
-                <h1 className="lobby-title">Unisciti alla partita!</h1>
-                <p className="lobby-room-code">{roomId}</p>
-                <form className="chat-input-form" onSubmit={handleJoinRegister}>
-                    <input 
-                        type="text" 
-                        className="chat-input" 
-                        placeholder="Es. Pippozzo" 
-                        value={usernameInput} 
-                        onChange={(e) => setUsernameInput(e.target.value)} 
-                        autoFocus
-                        disabled={loading}
-                    />
-                    <button type="submit" className="chat-send-btn" disabled={loading}>
-                        {loading ? 'Caricamento...' : 'Entra'}
+        // Wrapper esterno con classe condizionale per l'uscita
+        <div className={`registration-wrapper ${isExiting ? 'exiting' : ''}`}>
+            <div className="registration-container">
+                
+                {/* Titolo stile Registrazione */}
+                <h1>Benvenuto a<br />Whisperam</h1>
+                
+                {/* Mostriamo il codice stanza in stile sottotitolo/codice */}
+                <div className="room-code-subtitle">
+                    {roomId}
+                </div>
+
+                <form onSubmit={handleJoinRegister}>
+                    <div className="form-group">
+                        <label htmlFor="username">Inserisci il tuo nickname</label>
+                        <input 
+                            type="text"
+                            id="username"
+                            className="chat-input" // O usa lo stile standard se preferisci
+                            placeholder="Es. Pippozzo" 
+                            value={usernameInput} 
+                            onChange={(e) => setUsernameInput(e.target.value)} 
+                            disabled={isExiting}
+                            autoComplete="off"
+                        />
+                    </div>
+
+                    <button 
+                        type="submit" 
+                        className="btn btn-submit" 
+                        disabled={isExiting}
+                    >
+                        {isExiting ? '...' : 'ENTRA IN STANZA'}
                     </button>
+                    
+                    {error && <p className="error-message">{error}</p>}
                 </form>
-                {error && <p style={{ color: 'red' }}>{error}</p>}
             </div>
         </div>
     );

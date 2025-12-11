@@ -6,11 +6,6 @@
     width: 100%;
     height: 100%;
     
-    /* GIF di sfondo come in Registrazione */
-    background: 
-        linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
-        url('../imgs/Loop.gif') center/cover no-repeat;
-    
     color: #f0f0f0;
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
     

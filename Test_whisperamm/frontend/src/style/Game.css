@@ -40,7 +40,7 @@
     border-bottom: 1px solid #333;
     background: 
         linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
-        url('../imgs/Loop.gif') center/cover no-repeat;
+        url('/Loop.gif') center/cover no-repeat;
     border-bottom: 2px solid #ff9800;
     border-radius: 8px 8px 0 0;
     flex-shrink: 0;
@@ -610,6 +610,23 @@
 .is-dead-mode .sidebar-player.me {
     background: rgba(50, 0, 0, 0.3);
     border-color: #555;
+}
+
+/* ==================================================
+   ECCEZIONE SPECIFICA PER IL TASTO HOME
+   ================================================== */
+
+/* Rende il tasto "Torna alla Home" cliccabile e visibile anche se sei morto */
+.is-dead-mode .btn-home {
+    pointer-events: auto !important; /* Riabilita il click */
+    opacity: 1 !important;           /* Rende il bottone totalmente visibile */
+    display: inline-block !important; /* Assicura che non sia nascosto (display: none) */
+    filter: none !important;         /* Rimuove il grigio */
+    cursor: pointer !important;      /* Torna la manina del mouse */
+    
+    /* Opzionale: Se vuoi evidenziarlo ancora di più per i morti */
+    background-color: #a600ff !important; 
+    box-shadow: 0 0 10px rgba(166, 0, 255, 0.5);
 }
 
 /* =========================================

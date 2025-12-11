@@ -174,7 +174,7 @@ const Lobby = () => {
 
     return (
         <div className="lobby-page">
-            {/* BANNER ERRORE JANUS }
+            {/* BANNER ERRORE JANUS */}
             {janusError && (
             <div className="janus-error-overlay">
                 <div className="janus-error-popup">
@@ -183,18 +183,18 @@ const Lobby = () => {
                     </div>
                     <div className="popup-body">
                         <p className="error-message">{janusError}</p>
-                        <p className="instruction">Ops, c'è un problema con audio e microfono verrai reindirizzato.</p>
+                        <p className="instruction">Ops, c'è un problema con audio e microfono </p>
                     </div>
 
-                    {/* Opzionale: Bottone per ricaricare la pagina se necessario }
+                    {/* Opzionale: Bottone per ricaricare la pagina se necessario */}
                     <button className="popup-btn" onClick={handleBackHome}>
                         Continua
                     </button>
                 </div>
             </div>
-            )}      */}  
+            )}      
 
-            {/* --- POPUP DIVERTENTE "WHAT?" --- */}
+            {/* --- POPUP "WHAT?" --- */}
             {showExitPopup && (
                 <div className="pixel-overlay">
                     <div className="pixel-bubble">

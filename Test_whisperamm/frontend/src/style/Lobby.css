@@ -433,6 +433,134 @@
 }
 
 /* =========================================
+   RETRO ERROR POPUP (Windows 95/98 Style)
+   ========================================= */
+
+/* 1. L'Overlay che blocca lo schermo */
+.janus-error-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.4); /* Sfondo leggermente oscurato */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 100000; /* Altissimo livello */
+}
+
+/* 2. La Finestra Grigia (Il Box) */
+.janus-error-popup {
+    background-color: #c0c0c0; /* Il classico grigio Windows */
+    width: min(400px, 90vw);
+    
+    /* EFFETTO 3D RETRO (Bordi) */
+    border-top: 2px solid #dfdfdf;
+    border-left: 2px solid #dfdfdf;
+    border-right: 2px solid #000000;
+    border-bottom: 2px solid #000000;
+    box-shadow: 2px 2px 0 #808080; /* Doppia ombra per profondità */
+    
+    padding: 3px; /* Spazio per incorniciare la barra blu */
+    display: flex;
+    flex-direction: column;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; /* Font sistema */
+}
+
+/* 3. La Barra del Titolo Blu */
+.popup-header {
+    background: linear-gradient(90deg, #000080, #1084d0); /* Gradiente blu Windows 98 */
+    color: white;
+    padding: 4px 6px;
+    font-size: 14px;
+    font-weight: bold;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    letter-spacing: 0.5px;
+}
+
+/* 4. Il corpo del messaggio */
+.popup-body {
+    padding: 20px 15px;
+    color: black;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    align-items: flex-start; /* Allinea a sinistra */
+    
+    /* Aggiungiamo l'icona ERRORE ROSSA (Il cerchio con la X bianca) */
+    position: relative;
+    padding-left: 60px; /* Spazio per l'icona */
+    min-height: 50px;
+}
+
+/* Creiamo l'icona rossa via CSS */
+.popup-body::before {
+    content: "✖"; /* X bianca */
+    position: absolute;
+    left: 15px;
+    top: 20px;
+    width: 32px;
+    height: 32px;
+    background-color: #ff0000; /* Rosso Errore */
+    border-radius: 50%;
+    color: white;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    border: 2px solid #800000; /* Bordo rosso scuro */
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+}
+
+.error-message {
+    font-size: 0.95rem;
+    margin: 0;
+    font-weight: bold;
+}
+
+.instruction {
+    font-size: 0.85rem;
+    margin: 0;
+    color: #333;
+}
+
+/* 5. Il Bottone "Continua" (Stile Retro) */
+.popup-btn {
+    align-self: center;
+    background-color: #c0c0c0;
+    color: black;
+    font-size: 14px;
+    padding: 6px 25px;
+    margin-bottom: 10px;
+    cursor: pointer;
+    
+    /* BORDI 3D PER IL BOTTONE */
+    border-top: 2px solid #fff;
+    border-left: 2px solid #fff;
+    border-right: 2px solid #000;
+    border-bottom: 2px solid #000;
+    outline: 1px solid transparent; /* Rimuove outline moderni */
+    font-family: inherit;
+}
+
+/* Effetto premuto */
+.popup-btn:active {
+    border-top: 2px solid #000;
+    border-left: 2px solid #000;
+    border-right: 2px solid #fff;
+    border-bottom: 2px solid #fff;
+    transform: translate(1px, 1px);
+}
+
+.popup-btn:hover {
+    box-shadow: inset 1px 1px 0 #fff;
+}
+
+/* =========================================
    MEDIA QUERY MOBILE (EFFETTO APP / FULL SCREEN)
    ========================================= */
 @media (max-width: 900px) {

@@ -52,7 +52,7 @@ body {
   /* background-attachment: fixed aiuta su mobile per evitare che l'immagine salti quando scorri */
   background:         
         linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
-        url('../../Loop.gif') center/cover no-repeat fixed !important;
+        url('/Loop.gif') center/cover no-repeat fixed !important;
 
   overscroll-behavior-x: none; /* Disabilita effetto rimbalzo su mobile */
 }
