@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import DiceArena from './subgame/DiceArena'; 
 import RollingDiceIcon from './subgame/RollingDiceIcon'; 
 import VideoPlayer from '../VideoPlayer'; // Assicurati del percorso
+import '../../style/PhaseDice.css';
 
 const PhaseDice = ({ 
     gameState, 

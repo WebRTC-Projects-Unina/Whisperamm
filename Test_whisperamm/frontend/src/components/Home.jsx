@@ -43,7 +43,7 @@ const Home = () => {
 
         try {
             
-            const response = await fetch('/api/createGame', {
+            const response = await fetch('/api/createRoom', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ roomName: lobbyName, user: user, maxPlayers: maxPlayers, rounds: rounds })

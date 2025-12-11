@@ -3,11 +3,10 @@ import * as THREE from "three";
 import * as CANNON from "cannon-es";
 import { mergeVertices } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 
-// Aggiungiamo la prop onRollComplete
 const DiceArena = ({ activeRolls = [], onRollComplete }) => {
   const canvasRef = useRef(null);
   const processedRolls = useRef(new Set());
-  const finishedRolls = useRef(new Set()); // Per non chiamare la callback 100 volte
+  const finishedRolls = useRef(new Set());
   
   const animatedObjects = useRef([]);
   const diceGeometryRef = useRef(null);
@@ -45,13 +44,8 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
                 obj.currentFrame++;
             } else {
                 // --- ANIMAZIONE FINITA ---
-                
-                // Controlliamo se dobbiamo notificare il Game
                 if (!finishedRolls.current.has(obj.rollId) && onRollComplete) {
                     finishedRolls.current.add(obj.rollId);
-                    
-                    // Chiamiamo la funzione passata da Game.jsx!
-                    // Passiamo ID, Username e il Totale
                     onRollComplete(obj.rollId, obj.username, obj.totalValue);
                 }
 
@@ -71,33 +65,84 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
     animate();
 
     return () => cancelAnimationFrame(animationId);
-  }, [activeRolls, onRollComplete]); // Aggiunto onRollComplete alle dipendenze
+  }, [activeRolls, onRollComplete]);
 
-  // ... (TUTTE LE FUNZIONI DI INIT RESTANO IDENTICHE A PRIMA) ...
-  // ... Copia initScene, initPhysics, getDiceMesh, ecc. ...
-  
-  // UNICA MODIFICA A SPAWN: Salvare username e totale nell'oggetto animato
+  // --- MODIFICA 1: Spawn da punti casuali sparsi ---
   function spawnDicePair(roll) {
-      const limitX = Math.max(1, tableBounds.current.x - 3);
-      const startX = (Math.random() - 0.5) * limitX; 
-      
-      const data1 = simulateAndRecord(roll.dice1, startX - 1.2);
-      const data2 = simulateAndRecord(roll.dice2, startX + 1.2);
+      // Limiti entro cui generare i dadi (un po' meno dei bordi per non uscire subito)
+      const rangeX = (tableBounds.current.x || 9) - 2;
+      const rangeZ = (tableBounds.current.z || 6) - 2;
 
-      // Usiamo il colore passato dall'oggetto roll, oppure un default
+      // Generiamo coordinate casuali per il primo dado
+      const startPos1 = {
+          x: (Math.random() - 0.5) * 2 * rangeX,
+          y: 6 + Math.random() * 2, // Altezza variabile
+          z: (Math.random() - 0.5) * 2 * rangeZ
+      };
+
+      // Coordinate casuali per il secondo dado (indipendenti)
+      const startPos2 = {
+          x: (Math.random() - 0.5) * 2 * rangeX,
+          y: 6 + Math.random() * 2,
+          z: (Math.random() - 0.5) * 2 * rangeZ
+      };
+      
+      const data1 = simulateAndRecord(roll.dice1, startPos1);
+      const data2 = simulateAndRecord(roll.dice2, startPos2);
+
       const diceColor = roll.color || 0xfffbf0;
 
       if (data1 && data2) {
-          // Passiamo il colore come 4° argomento
           addVisualDice(data1, roll, roll.dice1 + roll.dice2, diceColor);
           addVisualDice(data2, roll, roll.dice1 + roll.dice2, diceColor);
       }
   }
 
+  // --- MODIFICA 2: Simulazione accetta oggetto startPos e lancia verso il centro ---
+  function simulateAndRecord(targetNum, startPos) {
+      const TOTAL_FRAMES = 150; 
+      const simWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, -100, 0), allowSleep: true });
+      const mat = new CANNON.Material();
+      const contact = new CANNON.ContactMaterial(mat, mat, { friction: 0.3, restitution: 0.5 });
+      simWorld.addContactMaterial(contact);
+      addBoundariesToWorld(simWorld, mat, tableBounds.current.x || 9, tableBounds.current.z || 6);
+
+      let attempts = 0;
+      while (attempts < 1000) { 
+          attempts++;
+          const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5)), material: mat });
+          simWorld.addBody(body);
+          
+          // Posizionamento nel punto casuale scelto
+          body.position.set(startPos.x, startPos.y, startPos.z);
+          body.quaternion.setFromEuler(Math.random()*6, Math.random()*6, Math.random()*6);
+          
+          // IMPULSO: Spingiamo verso il centro (0,0,0) per evitare che escano subito
+          // Aggiungiamo un po' di "rumore" (random) per non farli andare dritti
+          const dirX = -startPos.x * 0.5 + (Math.random() - 0.5) * 5;
+          const dirZ = -startPos.z * 0.5 + (Math.random() - 0.5) * 5;
+
+          const impulse = new CANNON.Vec3(dirX, 5, dirZ);
+          const spin = new CANNON.Vec3((Math.random()-0.5)*20, (Math.random()-0.5)*20, (Math.random()-0.5)*20);
+          
+          body.angularVelocity.copy(spin);
+          body.applyImpulse(impulse, new CANNON.Vec3(0,0,0));
+
+          const recording = [];
+          let isValid = true;
+          for (let i = 0; i < TOTAL_FRAMES; i++) {
+              simWorld.step(1/60);
+              recording.push({ pos: body.position.clone(), quat: body.quaternion.clone() });
+              if (Math.abs(body.position.x) > (tableBounds.current.x || 9) || Math.abs(body.position.z) > (tableBounds.current.z || 6)) { isValid = false; break; }
+          }
+          if (isValid && checkDieResultVector(body.quaternion) === targetNum) return recording;
+          simWorld.removeBody(body);
+      }
+      return null;
+  }
+
   function addVisualDice(animationData, roll, totalValue, color) {
-      // Passiamo il colore alla funzione che crea la mesh
       const mesh = getDiceMesh(color).clone(); 
-      
       mesh.position.copy(animationData[0].pos);
       mesh.quaternion.copy(animationData[0].quat);
       sceneRef.current.add(mesh);
@@ -112,13 +157,7 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
       });
   }
 
-  // ... (RESTO DEL CODICE UGUALE: simulateAndRecord, checkDieResultVector, ecc.) ...
-  
-  // INCOLLA QUI SOTTO TUTTE LE FUNZIONI HELPER CHE AVEVI NEL CODICE PRECEDENTE
-  // (initScene, initPhysics, getDiceMesh, createComplexDiceGeometry, simulateAndRecord, etc.)
-  // Assicurati che siano definite.
-  
-  // --- HELPERS (Per completezza del copia incolla rapido, ecco le vitali) ---
+  // --- HELPERS ORIGINALI (Intatti) ---
   
   function initScene() {
       const w = canvasRef.current.clientWidth;
@@ -133,7 +172,7 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
       cameraRef.current = new THREE.PerspectiveCamera(40, w/h, 0.1, 100);
       cameraRef.current.position.set(0, CAMERA_HEIGHT, 8); 
       cameraRef.current.lookAt(0, 0, 0);
-      // ... Calcolo bounds e luci come prima ...
+
       const vFOV = (cameraRef.current.fov * Math.PI) / 180;
       const heightVisible = 2 * Math.tan(vFOV / 2) * CAMERA_HEIGHT;
       const widthVisible = heightVisible * (w / h);
@@ -154,27 +193,21 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
   }
 
   function getDiceMesh(colorHex) {
-      // 1. La geometria complessa viene calcolata SOLO UNA VOLTA e salvata nel ref
       if (!diceGeometryRef.current) diceGeometryRef.current = createComplexDiceGeometry();
       
-      // 2. Creiamo il materiale con il colore del giocatore
-      // Three.js è intelligente: se passi una stringa hex (es "#ff0000"), lui capisce.
       const materialOuter = new THREE.MeshStandardMaterial({ 
-          color: colorHex || 0xfffbf0, // Usa il colore passato o il crema di default
+          color: colorHex || 0xfffbf0, 
           roughness: 0.1,
           metalness: 0.1
       });
 
-      // Il materiale interno (i buchi) lo lasciamo scuro
       const materialInner = new THREE.MeshStandardMaterial({ 
           color: 0x222222, 
           roughness: 0.8 
       });
 
       const g = new THREE.Group();
-      // Mesh Interna (nera/scura)
       const innerMesh = new THREE.Mesh(new THREE.BoxGeometry(0.88, 0.88, 0.88), materialInner);
-      // Mesh Esterna (colorata)
       const outerMesh = new THREE.Mesh(diceGeometryRef.current, materialOuter);
     
       outerMesh.castShadow = true;
@@ -184,41 +217,6 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
       g.scale.set(1.2, 1.2, 1.2); 
       
       return g;
-  }
-
-  function simulateAndRecord(targetNum, startX) {
-      // PARAMETRI VELOCI
-      const TOTAL_FRAMES = 150; 
-      const WALL_DISTANCE = 9;
-      const simWorld = new CANNON.World({ gravity: new CANNON.Vec3(0, -100, 0), allowSleep: true });
-      const mat = new CANNON.Material();
-      const contact = new CANNON.ContactMaterial(mat, mat, { friction: 0.3, restitution: 0.5 });
-      simWorld.addContactMaterial(contact);
-      addBoundariesToWorld(simWorld, mat, tableBounds.current.x || 9, tableBounds.current.z || 6);
-
-      let attempts = 0;
-      while (attempts < 1000) { 
-          attempts++;
-          const body = new CANNON.Body({ mass: 1, shape: new CANNON.Box(new CANNON.Vec3(0.5,0.5,0.5)), material: mat });
-          simWorld.addBody(body);
-          body.position.set(startX, 4, (Math.random() - 0.5) * 3);
-          body.quaternion.setFromEuler(Math.random()*6, Math.random()*6, Math.random()*6);
-          const impulse = new CANNON.Vec3((Math.random() - 0.5) * 8, 5 + Math.random() * 5, (Math.random() - 0.5) * 8);
-          const spin = new CANNON.Vec3((Math.random()-0.5)*20, (Math.random()-0.5)*20, (Math.random()-0.5)*20);
-          body.angularVelocity.copy(spin);
-          body.applyImpulse(impulse, new CANNON.Vec3(0,0,0));
-
-          const recording = [];
-          let isValid = true;
-          for (let i = 0; i < TOTAL_FRAMES; i++) {
-              simWorld.step(1/60);
-              recording.push({ pos: body.position.clone(), quat: body.quaternion.clone() });
-              if (Math.abs(body.position.x) > (tableBounds.current.x || 9) || Math.abs(body.position.z) > (tableBounds.current.z || 6)) { isValid = false; break; }
-          }
-          if (isValid && checkDieResultVector(body.quaternion) === targetNum) return recording;
-          simWorld.removeBody(body);
-      }
-      return null;
   }
 
   function checkDieResultVector(q) {
@@ -242,7 +240,6 @@ const DiceArena = ({ activeRolls = [], onRollComplete }) => {
   }
 
   function createComplexDiceGeometry() {
-        // ... (usa la versione completa data in precedenza) ...
         const params = { segments: 40, edgeRadius: 0.09, notchRadius: 0.14, notchDepth: 0.15 };
         let boxGeometry = new THREE.BoxGeometry(1, 1, 1, params.segments, params.segments, params.segments);
         const positionAttr = boxGeometry.attributes.position;

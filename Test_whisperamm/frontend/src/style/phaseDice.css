@@ -1,0 +1,79 @@
+/* =========================================
+   PHASE DICE: STILI SPECIFICI
+   ========================================= */
+
+/* --- TIMER CONTO ALLA ROVESCIA (In alto) --- */
+.dice-phase-timer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 10px;
+    margin-top: -5px; /* Tira un po' su per risparmiare spazio */
+    flex-shrink: 0;
+    width: 100%;
+}
+
+.dice-phase-timer p {
+    margin: 0 0 5px 0;
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    color: #aaa;
+    letter-spacing: 1px;
+    font-weight: 600;
+}
+
+.timer-display {
+    font-size: 1.5rem;
+    font-weight: 800;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 5px 20px;
+    border-radius: 20px;
+    border: 2px solid #d249ff;
+    box-shadow: 0 0 10px rgba(210, 73, 255, 0.3);
+    transition: all 0.3s ease;
+    min-width: 80px;
+    text-align: center;
+}
+
+/* Effetto Urgenza (Rosso) quando mancano 5 secondi */
+.timer-display.urgent {
+    color: #ff4444;
+    border-color: #ff4444;
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.6);
+    animation: pulse-urgent 0.8s infinite alternate;
+}
+
+@keyframes pulse-urgent {
+    from { transform: scale(1); box-shadow: 0 0 10px rgba(255, 68, 68, 0.4); }
+    to { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 68, 68, 0.8); }
+}
+
+/* --- ARENA OVERLAY --- */
+/* Assicura che il canvas dei dadi stia sopra al tavolo verde ma sotto all'interfaccia */
+.dice-arena-overlay {
+    position: absolute;
+    top: 0; 
+    left: 0; 
+    width: 100%; 
+    height: 100%;
+    z-index: 5; 
+    pointer-events: none; 
+}
+
+/* --- ICONA DADO CHE ROTOLA (Nella sidebar) --- */
+.rolling-dice-anim {
+    display: inline-block;
+    font-size: 1.3rem;
+    color: #d249ff;
+    animation: dice-tumble 0.6s infinite linear;
+}
+
+@keyframes dice-tumble {
+    0% { transform: rotate(0deg) translateY(0); }
+    25% { transform: rotate(15deg) translateY(-2px); }
+    50% { transform: rotate(0deg) translateY(0); }
+    75% { transform: rotate(-15deg) translateY(2px); }
+    100% { transform: rotate(0deg) translateY(0); }
+}

@@ -1,7 +1,7 @@
 // controllers/roomController.js
 const RoomService = require('../services/roomService');
 
-exports.createGame = async (req, res) => {
+exports.createRoom = async (req, res) => {
     try {
         const { roomName, user, maxPlayers, rounds } = req.body;
         

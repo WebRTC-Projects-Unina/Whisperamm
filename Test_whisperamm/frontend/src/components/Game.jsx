@@ -43,6 +43,8 @@ const Game = () => {
     const gameStateRef = useRef(gameState);
     const hasJoinedJanus = useRef(false);
 
+    const [showExitPopup, setShowExitPopup] = useState(false);
+
     useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
 
     const myPlayer = gameState?.players?.find(p => p.username === user.username);
@@ -119,12 +121,13 @@ const Game = () => {
     }, [socket, navigate, roomId]);
 
     const handleLeaveGame = () => {
-        if (window.confirm("Uscire?")) { 
             disconnectSocket(); 
             cleanupJanus(); 
             navigate(`/`); 
-        }
     };
+
+    const onExitClick = () => setShowExitPopup(true);
+    const confirmExit = () => { setShowExitPopup(false); handleLeaveGame(); };
 
     const handleDiceRoll = () => { 
         if (!amIAlive) return; 
@@ -183,16 +186,38 @@ const Game = () => {
 
     return (
         <div className={`game-page ${!amIAlive ? 'is-dead-mode' : ''}`}>
+
+            {/* POPUP PIXEL ART "WHAT?" (Copiato dalla Lobby) */}
+            {showExitPopup && (
+                <div className="pixel-overlay">
+                    <div className="pixel-bubble">
+                        <h1 className="pixel-title">WHAT?</h1>
+                        <p className="pixel-subtitle">Abbandoni la partita?</p>
+                        <div className="pixel-buttons">
+                            <button className="pixel-btn yes" onClick={confirmExit}>Sì, Addio</button>
+                            <button className="pixel-btn no" onClick={() => setShowExitPopup(false)}>No, Resto!</button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="game-card">
                 <header className="game-header">
                     <div className="game-header-left">
-                        <h1 className="game-title">Round {gameState.currentRound || 1}</h1>
-                        <p className="game-subtitle">Fase: <span style={{color: '#ff9800'}}>{gameState.phase}</span></p>
+                        <h1 className="game-room-id">
+                            {roomId}
+                        </h1>
+                        <div className="game-header-sub">
+                            <h2 className="game-round-title">
+                                Round {gameState.currentRound || 1}
+                            </h2>
+                        </div>
                     </div>
                     <div className="game-header-right">
                         {!amIAlive && <div className="dead-status-badge">💀 SEI ELIMINATO</div>}
-                        <div className="game-room-badge">{roomId}</div>
-                        <button className="game-btn-danger btn-small" onClick={handleLeaveGame}>Esci</button>
+                        <button className="lobby-main-btn exit-btn btn-small-exit" onClick={onExitClick} aria-label="Esci">
+                            Esci
+                        </button>
                     </div>
                 </header>
                 

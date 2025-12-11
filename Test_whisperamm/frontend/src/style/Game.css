@@ -1,133 +1,181 @@
-/* src/style/Game.css */
-
 /* =========================================
-   1. LAYOUT BASE
+   1. LAYOUT BASE (FIX COPERTURA TOTALE)
    ========================================= */
 
 .game-page {
-    width: 100vw;
-    height: 100vh;
-    background: #120220;
+    /* POSIZIONAMENTO FISSO: Si incolla allo schermo */
+    position: fixed; 
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    
+    /* DIMENSIONI E SFONDO */
+    width: 100%;
+    height: 100%;
+    background: #120220; /* Sfondo solido: COPRE la gif sotto */
+    
+    /* LAYOUT INTERNO */
     display: flex;
-    justify-content: center;
+    flex-direction: column; /* Assicura che i figli stiano in colonna */
     align-items: center;
+    justify-content: center;
+    
+    /* RESET VARI */
     padding: 0;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
     box-sizing: border-box;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    
+    /* Z-INDEX: Stiamo sopra a tutto quello che c'è in index.html */
+    z-index: 999; 
+    
+    /* BLOCCO SCROLL: Evita che trascinando la pagina si veda sotto */
+    overflow: hidden; 
 }
 
 .game-card {
     background: #120220;
     width: 100%;
     height: 100%;
-    padding: 20px; 
+    padding: 0; 
     display: flex;
-    flex-direction: column; /* Header in alto, Contenuto al centro, Footer in basso */
+    flex-direction: column; 
     box-sizing: border-box;
+    position: relative;
+}
+
+/* Contenitore interno con padding, sotto l'header */
+.game-card > .phase-content-wrapper {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 20px 20px 20px; /* Padding laterale e inferiore */
+    overflow: hidden; /* Evita scroll indesiderati */
 }
 
 /* =========================================
-   2. HEADER (Resiliente)
+   2. HEADER LINEARE
    ========================================= */
 
 .game-header {
-    display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    align-items: center; 
-    gap: 0rem;
-    padding: 1.5rem;
-    padding-bottom: 5px;
-    border-bottom: 1px solid #333;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    
+    padding: 15px 30px;
+    
     background: 
-        linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
+        linear-gradient(rgba(18, 2, 32, 0.75), rgba(18, 2, 32, 0.85)), 
         url('/Loop.gif') center/cover no-repeat;
-    border-bottom: 2px solid #ff9800;
-    border-radius: 8px 8px 0 0;
+        
+    border-bottom: 2px solid #d249ff;
+    
+    width: 100%; /* O puoi mettere 95% e border-radius se lo vuoi "fluttuante" */
     flex-shrink: 0;
     z-index: 10;
     
-    /* FIX CRUCIALE: Permette di andare a capo se lo schermo è stretto */
-    flex-wrap: wrap; 
+    /* --- MODIFICA QUI: Spazio sopra --- */
+    margin-top: 20px;  /* Questo lo abbassa */
+    margin-bottom: 10px;
+    
+    box-sizing: border-box;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.6);
+    
+    /* Opzionale: se lo vuoi staccato anche dai lati come una "card" */
+    /* border-radius: 12px; */
+    /* width: 95%; */
 }
 
-/* Gruppo Titolo (Sinistra) */
 .game-header-left {
-    grid-column: 1;
     display: flex;
     flex-direction: column;
-    align-items: flex-start;
-}
-
-.game-header-center {
-    grid-column: 2;
-    display: flex;
     justify-content: center;
-    align-items: center;
+    gap: 2px;
 }
 
-.game-header-right {
-    grid-column: 3;
-    display: flex;
-    justify-content: flex-end;
-    align-items: center;
-}
-
-.game-title {
-    font-size: clamp(1.5rem, 4vw, 2.2rem); /* Scala il font in base alla larghezza */
+.game-room-id {
+    font-size: 1.8rem;
     color: #ffffff;
     margin: 0;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1px;
-    line-height: 1.1;
+    line-height: 1;
 }
 
-/* Gruppo Badge + Esci (Destra) */
+.game-header-sub {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.game-round-title {
+    color: #ff9800;
+    font-weight: bold;
+    text-transform: uppercase;
+    font-size: 1rem;
+    margin: 0;
+}
+
 .game-header-right {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 20px;
 }
 
-.game-room-badge {
-    background-color: rgba(255, 255, 255, 0.05);
-    color: #d249ff;
-    padding: 6px 12px;
-    border-radius: 30px;
-    font-size: 0.9rem;
-    font-weight: bold;
-    border: 1px solid #d249ff;
-    white-space: nowrap; /* Impedisce al testo di andare a capo dentro il badge */
+/* --- BOTTONE ESCI (Stile Richiesto) --- */
+.game-btn-exit {
+    width: 140px;
+    font-size: 1.2rem;
+    background-color: #ff4444;
+    color: white;
+    opacity: 0.8;
+    
+    border: none;
+    padding: 8px 0;
+    border-radius: 50px;
+    font-weight: 700;
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 0 #b30000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
-/* Bottone Esci piccolo nell'header */
-.btn-small {
-    padding: 6px 15px !important;
-    font-size: 0.8rem !important;
-    margin: 0 !important; /* Rimuove margini strani */
+.game-btn-exit:hover {
+    opacity: 1;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 0 #b30000;
+}
+
+.game-btn-exit:active {
+    transform: translateY(2px);
+    box-shadow: 0 2px 0 #b30000;
 }
 
 /* =========================================
-   3. SEZIONE SEGRETA
+   3. SEZIONE SEGRETA (IDENTITY)
    ========================================= */
-/* 1. Il contenitore padre deve avere position relative per fare da ancora */
 .game-secret-section {
-    position: relative; /* Fondamentale per posizionare il figlio absolute */
+    position: relative; 
     display: flex;
     justify-content: center;
-    margin: 10px 0;
-    z-index: 200; /* Deve stare sopra al tavolo */
+    margin: 5px 0 15px 0;
+    z-index: 200; 
+    flex-shrink: 0;
 }
 
-/* 2. Il bottone (Restyle opzionale per coerenza) */
 .secret-toggle {
     background: #1a1a1a;
     color: #d249ff;
-    padding: 8px 25px;
+    padding: 6px 20px;
     border-radius: 20px;
     cursor: pointer;
     font-weight: 700;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     border: 1px solid #d249ff;
     transition: all 0.2s;
     box-shadow: 0 4px 10px rgba(0,0,0,0.3);
@@ -136,94 +184,47 @@
 .secret-toggle:hover {
     background: #333;
     transform: translateY(-2px);
-    box-shadow: 0 6px 15px rgba(210, 73, 255, 0.4);
 }
 
-/* 3. La finestra che compare (POPUP SCURO) */
 .secret-content.revealed {
-    /* POSIZIONAMENTO */
     position: absolute;
-    top: 100%; /* Si posiziona esattamente alla fine del contenitore padre (sotto il bottone) */
+    top: 100%; 
     left: 50%;
-    transform: translateX(-50%); /* Si centra orizzontalmente */
-    margin-top: 15px; /* Aggiunge un po' di aria tra bottone e finestra */
-    
-    /* STILE SCURO E SOLIDO */
-    background-color: #050505; /* Nero profondo, niente trasparenze */
-    border: 1px solid #333;    /* Bordo grigio scuro sottile */
-    border-bottom: 3px solid #d249ff; /* Bordo colorato sotto per stile */
+    transform: translateX(-50%);
+    margin-top: 10px;
+    background-color: #050505; 
+    border: 1px solid #333;    
+    border-bottom: 3px solid #d249ff; 
     border-radius: 12px;
-    padding: 20px 30px;
-    
-    /* OMBRA PROFONDA per staccarlo dallo sfondo */
+    padding: 15px 25px;
     box-shadow: 0 20px 50px rgba(0, 0, 0, 1); 
-    
-    z-index: 300; /* Altissimo, deve coprire tutto */
-    
-    /* ANIMAZIONE */
+    z-index: 300; 
     animation: slideDownFade 0.2s ease-out forwards;
-    
-    /* DIMENSIONI */
     min-width: 200px;
-    width: max-content;
-    max-width: 90vw; /* Su mobile non esce dallo schermo */
     text-align: center;
 }
 
-/* Animazione di entrata più carina */
 @keyframes slideDownFade {
-    from {
-        opacity: 0;
-        transform: translate(-50%, -10px); /* Parte leggermente più in alto */
-    }
-    to {
-        opacity: 1;
-        transform: translate(-50%, 0); /* Arriva alla posizione finale */
-    }
+    from { opacity: 0; transform: translate(-50%, -10px); }
+    to { opacity: 1; transform: translate(-50%, 0); }
 }
 
-/* Stili interni del testo */
-.secret-content p {
-    margin: 8px 0;
-    font-size: 1.1rem;
-    color: #ccc;
-}
-
-.secret-content span {
-    color: #fff;
-    font-weight: bold;
-    font-size: 1.2rem;
-    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-}
-
-.secret-content .role-impostor { 
-    color: #ff4444 !important; /* !important per sicurezza estrema, o basta la specificità */
-    font-weight: 800; 
-    text-transform: uppercase; 
-}
-
-.secret-content .role-civilian { 
-    color: #44ff44 !important; 
-    font-weight: 800; 
-    text-transform: uppercase; 
-}
+.secret-content p { margin: 5px 0; font-size: 1rem; color: #ccc; }
+.secret-content span { color: #fff; font-weight: bold; font-size: 1.1rem; }
+.secret-content .role-impostor { color: #ff4444 !important; font-weight: 800; text-transform: uppercase; }
+.secret-content .role-civilian { color: #44ff44 !important; font-weight: 800; text-transform: uppercase; }
 
 /* =========================================
    4. AREA CENTRALE (GRIGLIA: TAVOLO + SIDEBAR)
    ========================================= */
 .game-content-row {
     display: grid;
-    grid-template-columns: 1fr 300px; 
+    grid-template-columns: 1fr 300px; /* Tavolo grande, Sidebar fissa */
     gap: 20px;
-    
     flex-grow: 1; 
-    /* MODIFICA: Limita l'altezza massima per non schiacciare i bottoni */
-    max-height: 75vh; 
-    
-    /* MODIFICA: Aggiungi margine sotto per staccarlo dai bottoni */
-    margin: 10px 0 30px 0; 
-    
-    min-height: 0;
+    max-height: 65vh; /* Controlla l'altezza per non sbordare */
+    margin-bottom: 20px; 
+    min-height: 0; /* Importante per Grid overflow */
 }
 
 /* --- TAVOLO (Colonna Sinistra) --- */
@@ -232,51 +233,31 @@
     background-image: radial-gradient(circle, #2d6a4f 0%, #153823 100%);
     border: 8px solid #2a2a2a;
     border-radius: 15px;
-    padding: 0;
-    
     position: relative;
     overflow: hidden;
     box-shadow: inset 0 0 100px rgba(0,0,0,0.8), 0 10px 30px rgba(0,0,0,0.3);
-    
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    
     width: 100%;
     height: 100%; 
 }
 
-.dice-arena-overlay {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    z-index: 5; pointer-events: none; 
-}
-
-.players-grid { display: none !important; }
-
 /* --- SIDEBAR (Colonna Destra) --- */
 .game-sidebar {
-    /* Non è più absolute! Sta nella sua colonna della griglia */
     width: 100%; 
     height: 100%;
-    
     background: rgba(20, 2, 35, 0.4); 
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
-    
     border: 1px solid rgba(255, 255, 255, 0.1);
     border-radius: 16px;
     padding: 15px;
-    
     display: flex;
     flex-direction: column;
-    overflow-y: auto; /* Scroll interno se la lista è lunga */
+    overflow-y: auto; 
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-    
     scrollbar-width: thin;
     scrollbar-color: rgba(210, 73, 255, 0.5) transparent;
 }
 
-/* Stili interni Sidebar */
 .game-sidebar .sidebar-title {
     font-size: 1rem;
     font-weight: 800;
@@ -298,16 +279,11 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: rgba(255, 255, 255, 0.03);
     border-radius: 8px;
     border: 1px solid transparent;
     transition: all 0.2s;
-}
-
-.game-sidebar .sidebar-player:hover {
-    background: rgba(255, 255, 255, 0.1);
-    border-color: rgba(210, 73, 255, 0.4);
 }
 
 .game-sidebar .sidebar-player-me {
@@ -321,24 +297,20 @@
     background: #d249ff; color: #120220;
     display: flex; align-items: center; justify-content: center;
     font-weight: 900; font-size: 0.9rem;
-    margin-right: 12px; flex-shrink: 0;
+    margin-right: 10px; flex-shrink: 0;
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
 .game-sidebar .sidebar-player-name {
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     color: #eee;
     font-weight: 600;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    flex-grow: 1;
-    min-width: 0;
 }
 
-/* =========================================
-   5. STATI DI GIOCO & ANIMAZIONI
-   ========================================= */
+/* Badge Stati Generici (Usati in Dice, Order, Voting) */
 .status-done {
     display: flex; align-items: center; gap: 8px;
     animation: popIn 0.3s ease-out;
@@ -346,10 +318,10 @@
 
 .dice-value-small {
     background: white; color: #333; font-weight: 800;
-    width: 26px; height: 26px;
+    width: 24px; height: 24px;
     border-radius: 50%;
     display: flex; justify-content: center; align-items: center;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.3);
 }
 
@@ -360,33 +332,21 @@
     opacity: 0.7; color: #ddd; font-size: 0.85rem;
 }
 
-.rolling-dice-anim {
-    display: inline-block; font-size: 1.3rem; 
-    color: #d249ff; animation: dice-tumble 0.5s infinite linear;
-}
-
-.waiting-text { font-style: italic; animation: pulse-text 1.5s infinite ease-in-out; }
-
 @keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
-@keyframes dice-tumble { 0% { transform: rotate(0deg) translateY(0); } 25% { transform: rotate(15deg) translateY(-2px); } 50% { transform: rotate(0deg) translateY(0); } 75% { transform: rotate(-15deg) translateY(2px); } 100% { transform: rotate(0deg) translateY(0); } }
-@keyframes pulse-text { 0%, 100% { opacity: 0.5; } 50% { opacity: 1; } }
 
 /* =========================================
-   6. FOOTER E BOTTONI
+   5. FOOTER E BOTTONI
    ========================================= */
 .game-footer {
     display: flex;
     justify-content: center;
     gap: 20px;
     flex-shrink: 0;
-    padding-top: 10px;
-    padding-bottom: 5px;
+    padding-top: 5px;
+    padding-bottom: 20px; /* Stacca dal fondo */
     z-index: 20;
-    
-    /* FIX STABILITÀ: Altezza fissa per evitare salti */
-    height: 80px;      /* Altezza fissa sufficiente per il bottone */
-    min-height: 80px;  /* Impedisce di schiacciarsi */
-    align-items: center; /* Centra verticalmente il contenuto */
+    height: 70px;      
+    align-items: center;
 }
 
 .game-buttons {
@@ -395,60 +355,35 @@
     justify-content: center;
     gap: 20px;
     align-items: center;
-    
-    /* MODIFICA: Assicuriamo che i bottoni abbiano il loro spazio vitale */
-    padding-bottom: 20px; /* Stacca dal bordo inferiore dello schermo */
-    flex-shrink: 0;       /* Impedisce che vengano schiacciati */
-    height: auto;
-    min-height: 60px;
-    z-index: 20;
 }
 
-/* Status Text ("Hai già lanciato") */
 .status-text {
     font-size: 1rem; 
     color: #d249ff;
     font-weight: 600;
     font-style: italic;
     background: #222;
-    /* Match padding del bottone per altezza simile */
     padding: 10px 30px; 
     border-radius: 30px;
     border: 2px solid #d249ff;
-    box-shadow: 0 0 10px rgba(210, 73, 255, 0.2);
-    
-    /* Centrare il testo */
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%; /* Occupa l'altezza del contenitore se necessario */
-    box-sizing: border-box; /* Include il bordo nel calcolo */
 }
 
-/* Bottone Lancia - VERSIONE COMPATTA */
+/* Bottone Lancia / Azione */
 .game-btn-action {
     background: linear-gradient(to bottom, #d249ff, #9b24ff);
     color: white;
-    
-    /* MODIFICA: Font più piccolo */
     font-size: 1.1rem; 
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: 1px;
-    
-    /* MODIFICA: Padding molto più stretto */
-    padding: 10px 30px; 
-    
+    padding: 12px 40px; 
     border: none;
     border-radius: 50px;
     cursor: pointer;
     box-shadow: 0 0 15px rgba(166, 0, 255, 0.4), 0 4px 0 #6a0080;
     transition: all 0.1s;
-    
-    /* MODIFICA: Larghezza minima ridotta */
-    min-width: 180px;
+    min-width: 200px;
 }
-
 
 .game-btn-action:hover {
     transform: translateY(-2px);
@@ -457,7 +392,7 @@
 }
 
 .game-btn-action:active {
-    transform: translateY(3px); /* Movimento ridotto per matchare l'ombra */
+    transform: translateY(3px); 
     box-shadow: 0 2px 0 #6a0080;
 }
 
@@ -469,107 +404,12 @@
     transform: none;
 }
 
-/* Bottone Abbandona */
-.game-btn-danger {
-    background: transparent;
-    border: 2px solid #e74c3c;
-    color: #e74c3c;
-    font-size: 0.9rem; /* Più piccolo dell'azione */
-    font-weight: 800;
-    text-transform: uppercase;
-    padding: 10px 25px; /* Più compatto */
-    border-radius: 50px;
-    cursor: pointer;
-    transition: all 0.2s;
-    align-self: center;
-}
+/* =========================================
+   6. MODALITÀ MORTO (SPETTATORE)
+   ========================================= */
+.is-dead-mode .game-card { border: 4px solid #444; }
+.is-dead-mode .game-page { background: linear-gradient(135deg, #1a0505 0%, #222 100%); }
 
-.game-btn-danger:hover {
-    background: #e74c3c;
-    color: white;
-    box-shadow: 0 0 15px rgba(231, 76, 60, 0.4);
-}
-
-/* TIMER FASE DADI */
-.dice-phase-timer {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 10px;
-    margin-top: -5px; /* Tira un po' su per risparmiare spazio */
-    flex-shrink: 0;
-}
-
-.dice-phase-timer p {
-    margin: 0 0 5px 0;
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    color: #aaa;
-    letter-spacing: 1px;
-}
-
-.timer-display {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 5px 15px;
-    border-radius: 20px;
-    border: 2px solid #d249ff;
-    box-shadow: 0 0 10px rgba(210, 73, 255, 0.3);
-    margin: 0 0 0px 0; 
-    transition: all 0.3s ease;
-}
-
-/* Effetto Urgenza (Rosso) quando mancano 5 secondi */
-.timer-display.urgent {
-    color: #ff4444;
-    border-color: #ff4444;
-    box-shadow: 0 0 15px rgba(255, 68, 68, 0.6);
-    animation: pulse-urgent 0.8s infinite alternate;
-}
-
-.phase-order-timer-display {
-    font-size: 1.5rem;
-    font-weight: 800;
-    color: #fff;
-    background: rgba(255, 255, 255, 0.1);
-    padding: 5px 20px;
-    border-radius: 20px;
-    border: 2px solid #d249ff;
-    box-shadow: 0 0 10px rgba(210, 73, 255, 0.3);
-    margin: 0 0 15px 0; 
-    transition: all 0.3s ease;
-}
-
-.phase-order-timer-display.urgent {
-    color: #ff4444;
-    border-color: #ff4444;
-    box-shadow: 0 0 15px rgba(255, 68, 68, 0.6);
-    animation: pulse-urgent 0.8s infinite alternate;
-}
-
-
-
-@keyframes pulse-urgent {
-    from { transform: scale(1); }
-    to { transform: scale(1.1); }
-}
-
-/* --- MODALITÀ SPETTATORE (MORTO) --- */
-
-/* 1. Feedback Visivo Globale */
-.is-dead-mode .game-card {
-    border: 4px solid #444; /* Bordo grigio morto */
-}
-
-.is-dead-mode .game-page {
-    /* Sfondo leggermente desaturato o rosso scuro */
-    background: linear-gradient(135deg, #1a0505 0%, #222 100%); 
-}
-
-/* 2. Badge "SEI ELIMINATO" nell'header */
 .dead-status-badge {
     background-color: #ff4444;
     color: white;
@@ -579,79 +419,101 @@
     margin-right: 10px;
     animation: pulse 2s infinite;
     box-shadow: 0 0 15px rgba(255, 0, 0, 0.5);
+    font-size: 0.9rem;
 }
 
-/* 3. DISABILITAZIONE AZIONI (Il cuore della logica) */
-
-/* Nascondi o disabilita TUTTI i bottoni di azione principali */
-.is-dead-mode .game-btn-action,
-.is-dead-mode .btn-confirm-word,
-.is-dead-mode .btn-vote,
-.is-dead-mode .btn-abstain {
-    opacity: 0.3;
-    pointer-events: none; /* IMPOSSIBILE CLICCARE */
-    filter: grayscale(100%);
-    cursor: not-allowed;
-    display: none; /* O li nascondiamo del tutto se preferisci */
+/* Disabilita azioni per i morti */
+.is-dead-mode .game-btn-action {
+    opacity: 0.3; pointer-events: none; filter: grayscale(100%); cursor: not-allowed; display: none;
 }
 
-/* 4. Alterazione del contenuto */
-.is-dead-mode .phase-content-wrapper {
-    opacity: 0.8; /* Contenuto un po' più spento */
-}
-
-/* Eccezione: Il bottone "Esci" e "Identità" devono funzionare */
-.game-btn-danger, .secret-toggle {
-    pointer-events: auto !important;
-    opacity: 1 !important;
-}
-
-/* Sidebar: Tu appari morto anche a te stesso */
-.is-dead-mode .sidebar-player.me {
-    background: rgba(50, 0, 0, 0.3);
-    border-color: #555;
-}
-
-/* ==================================================
-   ECCEZIONE SPECIFICA PER IL TASTO HOME
-   ================================================== */
-
-/* Rende il tasto "Torna alla Home" cliccabile e visibile anche se sei morto */
-.is-dead-mode .btn-home {
-    pointer-events: auto !important; /* Riabilita il click */
-    opacity: 1 !important;           /* Rende il bottone totalmente visibile */
-    display: inline-block !important; /* Assicura che non sia nascosto (display: none) */
-    filter: none !important;         /* Rimuove il grigio */
-    cursor: pointer !important;      /* Torna la manina del mouse */
-    
-    /* Opzionale: Se vuoi evidenziarlo ancora di più per i morti */
-    background-color: #a600ff !important; 
-    box-shadow: 0 0 10px rgba(166, 0, 255, 0.5);
-}
+/* Eccezioni per i morti */
+.game-btn-exit, .secret-toggle { pointer-events: auto !important; opacity: 1 !important; }
 
 /* =========================================
-   7. MEDIA QUERIES (MOBILE)
+   7. MEDIA QUERIES (MOBILE OPTIMIZATION)
    ========================================= */
 @media (max-width: 768px) {
-    /* Su schermi stretti, impila tutto verticalmente e centra */
-    .game-header {
+    
+    /* Riorganizza il contenitore principale */
+    .game-page {
+        height: 100vh;
+        overflow: hidden; /* Blocca scroll pagina, scrolliamo dentro i div */
+    }
+
+    .game-card {
+        height: 100%;
+        display: flex;
         flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 10px;
     }
 
-    .game-header-left {
-        align-items: center; /* Centra il titolo */
-    }
-
-    .game-header-right {
+    .game-header {
+        margin-top: 0; /* Su mobile lo riattacchiamo in alto */
+        border-radius: 0;
         width: 100%;
-        justify-content: center; /* Centra badge e bottone */
     }
     
-    /* Assicuriamoci che il bottone identità non venga coperto */
-    .game-secret-section {
-        margin-top: 15px; 
+    .game-room-id { font-size: 1.4rem; }
+    .game-btn-exit { width: 100px; font-size: 0.9rem; padding: 6px 0; }
+
+    /* --- LAYOUT GRIGLIA MOBILE --- */
+    .game-content-row {
+        /* Cambia da colonne a righe */
+        grid-template-columns: 1fr; 
+        
+        /* RIGA 1 (Tavolo): 45% dell'altezza disponibile (Bello grande)
+           RIGA 2 (Sidebar): 1fr (Tutto il resto dello spazio)
+        */
+        grid-template-rows: 45vh 1fr; 
+        
+        gap: 10px;
+        margin-bottom: 10px;
+        padding: 0 10px; /* Meno padding laterale */
+        max-height: none; /* Rimuovi limiti desktop */
+        height: 100%; /* Occupa tutto lo spazio tra header e footer */
+        overflow: hidden;
+    }
+
+    /* TAVOLO (Sopra) */
+    .game-table-area {
+        width: 100%;
+        height: 100%; /* Prende tutto il 45vh definito nella griglia */
+        border-width: 4px; /* Bordo più sottile su mobile */
+        border-radius: 10px;
+        /* Assicura che il canvas 3D non sbordi */
+        min-height: 250px; 
+    }
+
+    /* SIDEBAR (Sotto) */
+    .game-sidebar {
+        width: 100%;
+        height: 100%; /* Prende tutto l'1fr rimanente */
+        border-radius: 10px;
+        padding: 10px;
+        
+        /* Gestione scroll se ci sono tanti player */
+        overflow-y: auto; 
+    }
+    
+    /* Player nella lista più compatti su mobile */
+    .game-sidebar .sidebar-player {
+        padding: 6px 8px;
+    }
+    
+    .game-sidebar .sidebar-player-avatar {
+        width: 28px; height: 28px; font-size: 0.8rem;
+    }
+
+    /* Footer più compatto */
+    .game-footer {
+        height: 60px;
+        padding-bottom: 10px;
+        padding-top: 0;
+    }
+    
+    .game-btn-action {
+        padding: 10px 30px;
+        font-size: 1rem;
+        width: 80%; /* Bottone largo su mobile */
     }
 }

@@ -16,6 +16,7 @@ class RoomService {
         const trimmedName = roomName.trim();
         if (trimmedName.length < 3) throw new Error('ROOM_NAME_TOO_SHORT');
         if (maxPlayers < 2 || maxPlayers > 10) throw new Error('INVALID_MAX_PLAYERS');
+        if (rounds < 2 || rounds > 11) throw new Error('INVALID_ROUNDS');
         
         const hostExists = await UserService.userExists(hostUsername);
         if (!hostExists) throw new Error('HOST_NOT_FOUND');
