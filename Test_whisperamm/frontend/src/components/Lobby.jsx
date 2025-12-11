@@ -9,7 +9,6 @@ import { useLobbyHandlers } from '../hooks/useLobbyHandlers';
 import '../style/Lobby.css';
 import MiniForm from './MiniForm';
 import Game from './Game';
-
 import VideoPlayer from './VideoPlayer';
 
 const Lobby = () => {
@@ -55,6 +54,9 @@ const Lobby = () => {
     const [adminPlayer, setAdminPlayer] = useState(null); 
     const [isAdmin, setIsAdmin] = useState(false); 
     const [canStartGame, setCanStartGame] = useState(false); 
+
+    // --- NUOVO STATO PER IL POPUP "WHAT?" ---
+    const [showExitPopup, setShowExitPopup] = useState(false);
 
     // --- LOGICA DERIVATA ---
     
@@ -152,6 +154,17 @@ const Lobby = () => {
         user
     );
    
+    // Funzione intermedia: Clicco icona -> Apro Popup
+    const onExitClick = () => {
+        setShowExitPopup(true);
+    };
+
+    // Funzione finale: Confermo nel popup -> Esco davvero
+    const confirmExit = () => {
+        setShowExitPopup(false);
+        handleBackHome(); // Richiama la tua vecchia funzione di uscita
+    };
+
     // --- RENDER ---
 
     if (gameLoading) return <Game />; 
@@ -161,7 +174,7 @@ const Lobby = () => {
 
     return (
         <div className="lobby-page">
-            {/* BANNER ERRORE JANUS */}
+            {/* BANNER ERRORE JANUS }
             {janusError && (
             <div className="janus-error-overlay">
                 <div className="janus-error-popup">
@@ -173,18 +186,100 @@ const Lobby = () => {
                         <p className="instruction">Ops, c'è un problema con audio e microfono verrai reindirizzato.</p>
                     </div>
 
-                    {/* Opzionale: Bottone per ricaricare la pagina se necessario */}
+                    {/* Opzionale: Bottone per ricaricare la pagina se necessario }
                     <button className="popup-btn" onClick={handleBackHome}>
                         Continua
                     </button>
                 </div>
             </div>
-            )}            
+            )}      */}  
+
+            {/* --- POPUP DIVERTENTE "WHAT?" --- */}
+            {showExitPopup && (
+                <div className="pixel-overlay">
+                    <div className="pixel-bubble">
+                        <h1 className="pixel-title">WHAT?</h1>
+                        <p className="pixel-subtitle">Te ne vai già?</p>
+                        
+                        <div className="pixel-buttons">
+                            {/* Tasto SI (Rosso, perché è l'azione distruttiva) */}
+                            <button className="pixel-btn yes" onClick={confirmExit}>
+                                Addio
+                            </button>
+                            {/* Tasto NO (Verde, resta in gioco) */}
+                            <button className="pixel-btn no" onClick={() => setShowExitPopup(false)}>
+                                No!
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* -------------------------------- */}
+
             <div className="lobby-layout">
-                {/* COLONNA SINISTRA: CHAT */}
+                {/* 0. TITOLO ESTERNO (FUORI DAL BLOCCO) */}
+                <div className="lobby-header-external">
+                    LOBBY DI GIOCO
+                </div>
+                {/* 1. ZONA SUPERIORE: INFO E BOTTONI */}
+                <div className="lobby-card">
+                    
+                    <div className="lobby-info-group">
+                        <h1 className="room-name-display">{roomName}</h1>
+                        <p className="room-code-line">
+                            Il codice della stanza è: <span className="code-highlight">{roomId}</span>
+                        </p>
+                    </div>
+                    
+                    {/* Ho rimosso il div Ruolo*/}
+                    
+                    <div className="lobby-buttons">
+                        {isAdmin ? (
+                            <button 
+                                className="lobby-main-btn admin-btn" 
+                                onClick={() => handleStartGame(canStartGame)}
+                                disabled={!canStartGame}
+                                style={{ opacity: canStartGame ? 1 : 0.5, cursor: canStartGame ? 'pointer' : 'not-allowed' }}
+                            >
+                                {canStartGame ? 'Inizia Partita' : 'Attendi i Giocatori'}
+                            </button>
+                        ) : (
+                            <button 
+                                className={`lobby-main-btn player-btn ${isReady ? 'ready' : ''}`}
+                                onClick={handleReady}
+                            >
+                                {isReady ? 'Pronto' : 'Pronto'}
+                            </button>
+                        )}
+                        <button className="lobby-main-btn exit-btn" onClick={onExitClick} aria-label="Esci"> Esci </button>
+                    </div>      
+                </div>
+
+                {/* 2. ZONA INTERMEDIA: STATO STANZA */}
+                <div className="lobby-status-bar">
+                    <p className="lobby-subtitle">{roomFull}</p>
+                </div>
+
+                {/* 3. COLONNA SINISTRA: PLAYERS */}
+                <aside className="lobby-sidebar">
+                    <h2 className="sidebar-title">Giocatori ({players.length}/{maxPlayers})</h2>
+                    <div className="sidebar-players">
+                        {players.map((p, idx) => (
+                            <div key={idx} className={`sidebar-player ${p === user.username ? 'sidebar-player-me' : ''}`}>
+                                <span className="sidebar-player-avatar">{p?.[0]?.toUpperCase()}</span>
+                                <span className="sidebar-player-name">
+                                    {p} {p === user.username && '(tu)'} {p === adminPlayer && '👑'}
+                                    {readyStates[p] && p !== adminPlayer && <span className="ready-check"> ✅</span>}    
+                                </span>
+                            </div>
+                        ))}
+                    </div>
+                </aside>
+
+                {/* 4. COLONNA DESTRA: CHAT */}
                 <div className="lobby-chat-column">
                     <div className="chat-container">
-                        <h2 className="chat-title">Chat lobby</h2>
+                        <h2 className="chat-title">Chat</h2>
                         <div className="chat-messages">
                             {messages.length === 0 && <p className="chat-empty">Nessun messaggio.</p>}
                             {messages.map((m, idx) => (
@@ -201,65 +296,27 @@ const Lobby = () => {
                                 placeholder="Scrivi..."
                                 value={newMessage}
                                 onChange={(e) => setNewMessage(e.target.value)}
+
+                                /* 1. FOCUS: Cancella la scritta */
+                                onFocus={(e) => {
+                                    e.target.placeholder = "";
+                                }}
+
+                                /* 2. BLUR: Rimette la scritta e RIALLINEA LA PAGINA */
+                                onBlur={(e) => {
+                                    e.target.placeholder = "Scrivi...";
+                                    
+                                    setTimeout(() => {
+                                        // INVECE DI SCROLLARE IN FONDO, RESETTIAMO LA VISTA IN ALTO A SINISTRA
+                                        // Questo elimina lo spazio bianco della tastiera senza spostarti giù.
+                                        window.scrollTo(0, 0); 
+                                    }, 100);
+                                }}
                             />
                             <button type="submit" className="chat-send-btn">Invia</button>
                         </form>
                     </div>
                 </div>
-
-                {/* COLONNA CENTRALE */}
-                <div className="lobby-card">
-                    <h1 className="lobby-title">Lobby partita</h1>
-                    <div className="lobby-info">
-                        <p className="lobby-label">Stanza: {roomName}</p>
-                        <p className="lobby-room-code">{roomId}</p>
-                    </div>
-                    <p className="lobby-subtitle">{roomFull}</p>
-                    
-                    <div>
-                        Ruolo: <span className={isAdmin ? 'lobby-role-admin' : 'lobby-role-player'}>
-                            {isAdmin ? 'Admin' : 'Player'}
-                        </span>
-                    </div>
-                    
-                    <div className="lobby-buttons">
-                        {isAdmin ? (
-                            <button 
-                                className="lobby-main-btn admin-btn" 
-                                onClick={() => handleStartGame(canStartGame)}
-                                disabled={!canStartGame}
-                                style={{ opacity: canStartGame ? 1 : 0.5, cursor: canStartGame ? 'pointer' : 'not-allowed' }}
-                            >
-                                {canStartGame ? '✅ Inizia Partita' : '⏳ Attesa Giocatori'}
-                            </button>
-                        ) : (
-                            <button 
-                                className={`lobby-main-btn player-btn ${isReady ? 'ready' : ''}`}
-                                onClick={handleReady}
-                            >
-                                {isReady ? '✅ Pronto' : 'Pronto'}
-                            </button>
-                        )}
-                        <button className="lobby-main-btn" onClick={handleBackHome}>Esci</button>
-                    </div>
-                </div>
-
-                {/* COLONNA DESTRA: PLAYERS */}
-                <aside className="lobby-sidebar">
-                    <h2 className="sidebar-title">Giocatori ({players.length}/{maxPlayers})</h2>
-                    <div className="sidebar-players">
-                        {players.map((p, idx) => (
-                            <div key={idx} className={`sidebar-player ${p === user.username ? 'sidebar-player-me' : ''}`}>
-                                <span className="sidebar-player-avatar">{p?.[0]?.toUpperCase()}</span>
-                                <span className="sidebar-player-name">
-                                    {p} {p === user.username && '(tu)'} {p === adminPlayer && '👑'}
-                                    {/* Mostra spunta verde se pronto (host escluso visualmente o incluso) */}
-                                    {readyStates[p] && p !== adminPlayer && <span className="ready-check"> ✅</span>}    
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-                </aside>
             </div>
         </div>
     );

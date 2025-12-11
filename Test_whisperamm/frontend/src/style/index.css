@@ -20,6 +20,13 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html, body {
+  /* Blocca comportamenti elastici e zoom standard */
+  touch-action: pan-x pan-y;
+  -webkit-text-size-adjust: 100%;
+  overscroll-behavior: none;
+}
+
 html {
   height: 100%;
   width: 100%;
@@ -45,7 +52,7 @@ body {
   /* background-attachment: fixed aiuta su mobile per evitare che l'immagine salti quando scorri */
   background:         
         linear-gradient(rgba(18, 2, 32, 0.7), rgba(18, 2, 32, 0.7)),
-        url('/Loop.gif') center/cover no-repeat fixed !important;
+        url('../../Loop.gif') center/cover no-repeat fixed !important;
 
   overscroll-behavior-x: none; /* Disabilita effetto rimbalzo su mobile */
 }
@@ -74,6 +81,9 @@ h1 {
   
   body {
     padding: 15px; /* Un po' meno padding su schermi piccoli */
+  }
+  input, select, textarea {
+    font-size: 16px !important;
   }
 }
 

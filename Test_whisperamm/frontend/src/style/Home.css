@@ -267,6 +267,40 @@
     text-align: center;
 }
 
+/* --- TITOLI DEI BLOCCHI INFERIORI --- */
+
+/* Titolo "Giocatori (x/y)" */
+.sidebar-title {
+  font-size: 1.1rem;
+  margin: 0 0 1rem 0; /* Spazio sotto il titolo */
+  color: #ffffff;
+  
+  /* CENTRATURA */
+  text-align: center; 
+  width: 100%;
+  
+  /* Stile extra opzionale per renderlo più carino */
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+/* Titolo "Chat" */
+.chat-title {
+  font-size: 1.1rem;
+  margin: 0 0 1rem 0; /* Spazio sotto il titolo */
+  color: #ffffff;
+  
+  /* CENTRATURA */
+  text-align: center;
+  width: 100%;
+  
+  /* Stile extra */
+  font-weight: bold;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 /* --- BOTTONI (Conferma / Annulla) --- */
 .form-button-group {
     width: 100%;

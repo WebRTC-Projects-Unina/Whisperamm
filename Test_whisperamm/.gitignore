@@ -26,4 +26,3 @@ node_modules
 #node modules da escludere 
 backend/node_modules
 node_modules
-backend/dist
