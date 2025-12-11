@@ -171,7 +171,7 @@ const Game = () => {
             case 'DISCUSSION': case 'discussione':
                 return <PhaseDiscussion gameState={gameState} user={user} socket={socket} {...audioProps} />;
             case 'VOTING': case 'votazione':
-                return <PhaseVoting gameState={gameState} user={user} socket={socket} />;
+                return <PhaseVoting gameState={gameState} user={user} socket={socket} {...audioProps}/>;
             case 'RESULTS': case 'risultati':
                 return <PhaseResults gameState={gameState} user={user} />;
             case 'FINISH': case 'finita':

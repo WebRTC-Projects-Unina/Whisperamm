@@ -5,12 +5,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    /* padding: 20px; Rimosso padding eccessivo */
     width: 100%;
     max-width: 800px;
     margin: 0 auto;
     animation: fadeIn 0.5s ease-out;
-    overflow-y: auto; /* Permette scroll se la lista è lunga */
+    overflow-y: auto; 
+    padding-bottom: 20px;
 }
 
 /* --- STILE TIMER --- */
@@ -35,7 +35,7 @@
     width: 70px;
     height: 70px;
     border-radius: 50%;
-    border: 3px solid #d249ff; /* Bordo viola neon */
+    border: 3px solid #d249ff;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -44,10 +44,9 @@
     color: #fff;
     background: rgba(255, 255, 255, 0.05);
     box-shadow: 0 0 20px rgba(210, 73, 255, 0.3);
-    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Effetto rimbalzo */
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
 }
 
-/* Effetto Urgenza (Ultimi 5 secondi) */
 .timer-display-large.urgent {
     border-color: #ff4444;
     color: #ff4444;
@@ -64,26 +63,12 @@
 
 /* --- TITOLI --- */
 .phase-title {
-    font-size: 1.5rem; /* Ridotto leggermente per stare meglio */
-    color: #fff;
-    text-transform: uppercase;
-    margin: 0 0 20px 0;
-    text-shadow: 0 0 10px rgba(210, 73, 255, 0.5);
-    text-align: center;
-}
-
-.phase-title {
     font-size: 2rem;
     color: #fff;
     text-transform: uppercase;
-    margin-bottom: 5px;
+    margin-bottom: 20px;
     text-shadow: 0 0 10px rgba(210, 73, 255, 0.5);
-}
-
-.phase-subtitle {
-    color: #aaa;
-    margin-bottom: 30px;
-    font-style: italic;
+    text-align: center;
 }
 
 /* Lista verticale */
@@ -99,7 +84,7 @@
     display: flex;
     align-items: center;
     background: rgba(255, 255, 255, 0.05);
-    border: 2px solid #444; /* Default border */
+    border: 2px solid #444; 
     border-radius: 12px;
     padding: 15px 20px;
     transition: transform 0.2s, background 0.2s;
@@ -131,23 +116,38 @@
     box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
 
-/* Avatar Grande */
+/* --- AVATAR GRANDE (VIDEO) --- */
 .player-avatar-large {
-    width: 50px;
-    height: 50px;
+    width: 65px;  /* Aumentato per vedere meglio la faccia */
+    height: 65px;
     border-radius: 50%;
+    
     display: flex;
     justify-content: center;
     align-items: center;
-    font-size: 1.5rem;
+    
+    font-size: 1.8rem;
     font-weight: bold;
     color: white;
     margin-right: 20px;
     text-shadow: 0 2px 4px rgba(0,0,0,0.5);
     border: 2px solid rgba(255,255,255,0.2);
+    
+    /* GESTIONE VIDEO ROTONDO */
+    overflow: hidden; /* Taglia gli spigoli del video */
+    background: #222; /* Sfondo scuro durante il caricamento */
+    position: relative;
 }
 
-/* Testi */
+/* Forza il tag video interno a riempire il cerchio */
+.player-avatar-large video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Zooma per coprire tutto il cerchio */
+    border-radius: 50%;
+}
+
+/* Info Testuali */
 .player-info-large {
     display: flex;
     flex-direction: column;
@@ -191,22 +191,17 @@
     opacity: 0;
 }
 
+/* Stili per morti */
 .ranked-card.dead {
     background: rgba(0, 0, 0, 0.3);
     border-color: #333 !important;
-    filter: grayscale(1); /* Toglie tutti i colori */
+    filter: grayscale(1);
 }
 
-.ranked-card.dead:hover {
-    transform: none; /* Non si muove all'hover */
-    background: rgba(0, 0, 0, 0.3);
-}
+.ranked-card.dead:hover { transform: none; }
+.ranked-card.dead .player-name-large { color: #777; }
 
-.ranked-card.dead .player-name-large {
-    color: #777;
-}
-
-/* Ritardi progressivi per effetto cascata */
+/* Delay animazioni */
 .ranked-card:nth-child(1) { animation-delay: 0.1s; }
 .ranked-card:nth-child(2) { animation-delay: 0.2s; }
 .ranked-card:nth-child(3) { animation-delay: 0.3s; }
@@ -215,14 +210,8 @@
 .ranked-card:nth-child(6) { animation-delay: 0.6s; }
 
 @keyframes slideInRank {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes fadeIn {
@@ -230,14 +219,9 @@
     to { opacity: 1; }
 }
 
-/* Mobile */
 @media (max-width: 600px) {
-    .ranked-card {
-        padding: 10px;
-    }
-    .player-avatar-large {
-        width: 40px; height: 40px; font-size: 1.2rem; margin-right: 10px;
-    }
+    .ranked-card { padding: 10px; }
+    .player-avatar-large { width: 50px; height: 50px; font-size: 1.2rem; margin-right: 15px; }
     .player-name-large { font-size: 1.1rem; }
     .rank-badge { width: 30px; height: 30px; font-size: 1rem; margin-right: 10px; }
 }
