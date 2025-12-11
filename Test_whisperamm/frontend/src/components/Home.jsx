@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthProvider';
 import '../style/Home.css';
@@ -16,8 +16,9 @@ const Home = () => {
     const [roomId, setRoomId] = useState('');
     const [maxPlayers, setMaxPlayers] = useState('');
     const [rounds, setRounds] = useState('');
-
     const [error, setError] = useState(null); // Stato per gli errori
+
+    const [openMenu, setOpenMenu] = useState(null);
 
     const navigate = useNavigate();
 
@@ -98,6 +99,35 @@ const Home = () => {
         }
     };
 
+    // Funzione helper per chiudere i menu se clicchi fuori (opzionale ma utile)
+    const toggleMenu = (menuName) => {
+        if (openMenu === menuName) {
+            setOpenMenu(null); // Chiudi se è già aperto
+        } else {
+            setOpenMenu(menuName); // Apri quello cliccato
+        }
+    };
+
+    // Questo effetto ascolta ogni click sulla pagina.
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            // Se c'è un menu aperto...
+            if (openMenu) {
+                // ...e il punto cliccato NON è dentro un nostro menu a tendina...
+                if (!event.target.closest('.custom-select-wrapper')) {
+                    setOpenMenu(null); // ...allora chiudi il menu!
+                }
+            }
+        };
+
+        // Attiva l'ascoltatore
+        document.addEventListener('mousedown', handleClickOutside);
+        
+        // Disattiva quando cambi pagina (pulizia)
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+        };
+    }, [openMenu]);
 
     // AGGIUNGIAMO UN CONTROLLO DI SICUREZZA
     if (!user) {
@@ -109,49 +139,78 @@ const Home = () => {
         return (
             <div className="home-wrapper">
                 <div className="home-container giant-circle">
-                    <h3>Crea Partita</h3> {/* Titolo accorciato per estetica cerchio */}
+                    <h3>Crea Partita</h3>
                     
                     <form onSubmit={handleSubmitNewGame}>
                         <div className="form-group scrollable-group">
-                            {/* Nome stanza */}
+                            
+                            {/* INPUT NOME (Resta uguale) */}
                             <label htmlFor='lobbyName'>NOME STANZA</label>
                             <input type='text'
                                 id="lobbyName"
                                 value={lobbyName}
                                 onChange={(e) => setLobbyName(e.target.value)}
-                                placeholder='Es. Partita Cuore'
-                                // autoFocus rimosso
+                                placeholder='Es. Partita del Cuore'
                             />
 
-                            {/* Numero di giocatori */}
-                            <label htmlFor='maxPlayers'>GIOCATORI</label>
-                            <select
-                                id="maxPlayers"
-                                value={maxPlayers}
-                                onChange={(e) => setMaxPlayers(e.target.value)}
-                                required
-                                className="select-placeholder"
-                            >
-                                <option value="" disabled>Seleziona</option>
-                                {Array.from({ length: 10 }, (_, i) => i + 2).map(num => (
-                                    <option key={num} value={num}>{num} giocatori</option>
-                                ))}
-                            </select>
+                            {/* --- MENU PERSONALIZZATO: GIOCATORI --- */}
+                            <label>GIOCATORI</label>
+                            <div className="custom-select-wrapper">
+                                {/* Il "Bottone" che mostra cosa hai scelto */}
+                                <div 
+                                    className={`select-trigger ${openMenu === 'players' ? 'open' : ''}`}
+                                    onClick={() => toggleMenu('players')}
+                                >
+                                    {maxPlayers ? `${maxPlayers} giocatori` : "Seleziona"}
+                                </div>
 
-                            {/* Numero rounds */}
-                            <label htmlFor='rounds'>ROUNDS</label>
-                            <select
-                                id="rounds"
-                                value={rounds}
-                                onChange={(e) => setRounds(e.target.value)}
-                                required
-                                className="select-placeholder"
-                            >
-                                <option value="" disabled>Seleziona</option>
-                                {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
-                                    <option key={num} value={num}>{num} {num === 1 ? 'round' : 'rounds'}</option>
-                                ))}
-                            </select>
+                                {/* La Lista che appare solo se aperta */}
+                                {openMenu === 'players' && (
+                                    <div className="options-list">
+                                        {Array.from({ length: 10 }, (_, i) => i + 2).map(num => (
+                                            <div 
+                                                key={num} 
+                                                className={`option-item ${maxPlayers == num ? 'selected' : ''}`}
+                                                onClick={() => {
+                                                    setMaxPlayers(num);
+                                                    setOpenMenu(null); // Chiude il menu dopo la scelta
+                                                }}
+                                            >
+                                                {num} giocatori
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* --- MENU PERSONALIZZATO: ROUNDS --- */}
+                            <label>ROUNDS</label>
+                            <div className="custom-select-wrapper">
+                                <div 
+                                    className={`select-trigger ${openMenu === 'rounds' ? 'open' : ''}`}
+                                    onClick={() => toggleMenu('rounds')}
+                                >
+                                    {rounds ? `${rounds} ${rounds == 1 ? 'round' : 'rounds'}` : "Seleziona"}
+                                </div>
+
+                                {openMenu === 'rounds' && (
+                                    <div className="options-list">
+                                        {Array.from({ length: 10 }, (_, i) => i + 1).map(num => (
+                                            <div 
+                                                key={num} 
+                                                className={`option-item ${rounds == num ? 'selected' : ''}`}
+                                                onClick={() => {
+                                                    setRounds(num);
+                                                    setOpenMenu(null);
+                                                }}
+                                            >
+                                                {num} {num === 1 ? 'round' : 'rounds'}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
                         </div>
                         
                         {error && <div className="form-error-message">{error}</div>}

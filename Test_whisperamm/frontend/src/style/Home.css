@@ -49,12 +49,29 @@
 }
 
 /* --- TITOLI E TESTI --- */
+.registration-container h1 {
+    font-size: clamp(1.8rem, 6vw, 2.5rem); 
+    line-height: 1.1;
+    text-align: center;
+    margin-top: 15%; 
+    margin-bottom: auto; 
+    background: -webkit-linear-gradient(45deg, #ffffff, #d946ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));
+}
 .home-container h2 {
     font-size: 2rem;
     white-space: nowrap; /* Tutto su una riga */
     
     /* MODIFICA QUI: Aumento il margine per spingerlo giù */
     margin-top: 25%;     /* Prima era 10%, ora è molto più in basso */
+    background: -webkit-linear-gradient(45deg, #ffffff, #d946ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));
 }
 
 .home-container h3 {
@@ -63,7 +80,11 @@
     margin-top: 10%; /* Spazio dall'alto */
     margin-bottom: 0.5rem;
     color: #ffffff;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    background: -webkit-linear-gradient(45deg, #ffffff, #d946ff);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    filter: drop-shadow(0px 2px 4px rgba(0,0,0,0.5));
 }
 
 .home-container p {
@@ -182,42 +203,68 @@
 /* --- INPUT E SELECT --- */
 .home-container input[type="text"],
 .home-container select {
-    width: 100%;
-    padding: 10px;
+    width: 80%;
+    padding: 12px;
     font-size: 1rem;
     border: 1px solid #555;
-    border-radius: 30px; /* Pillola */
+    border-radius: 30px; 
     background-color: #2a2a2a;
     color: #f0f0f0;
-    text-align: center;
-    transition: width 0.3s, box-shadow 0.3s;
+    text-align: center; /* Testo centrato per tutti */
+    transition: width 0.3s, box-shadow 0.3s, border-color 0.3s;
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
-    
-    /* Fix per le select su mobile */
-    appearance: none; 
-    -webkit-appearance: none;
 }
 
-/* Animazione Zoom al focus */
+/* 2. STILE SOLO PER SELECT (Giocatori e Rounds) - QUI METTIAMO LA FRECCIA */
+.home-container select {
+    /* Rimuoviamo la freccia brutta di sistema */
+    appearance: none; 
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    
+    /* FRECCETTA VIOLA NEON (Solo qui!) */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d946ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    
+    background-repeat: no-repeat;
+    background-position: right 15px center; /* La posizioniamo a destra */
+    background-size: 16px; 
+    
+    /* Padding asimmetrico per fare spazio alla freccia a destra */
+    padding-left: 15px; 
+    padding-right: 40px; 
+    
+    text-align-last: center; /* Forza centratura testo su mobile */
+    cursor: pointer;
+}
+
+/* 4. FOCUS (Quando clicchi) */
 .home-container input[type="text"]:focus,
 .home-container select:focus {
     outline: none;
     border-color: #d946ff;
-    width: 110%; /* Si allarga un po' */
+    width: 110%; 
     box-shadow: 0 0 15px rgba(217, 70, 255, 0.6);
     background-color: #1f1f1f;
 }
 
-/* Placeholder */
+/* 5. PLACEHOLDER CHE SCOMPARE AL CLICK */
 .home-container input::placeholder {
     color: #666;
     font-style: italic;
+    opacity: 1;
+    transition: opacity 0.2s ease;
 }
 
-/* Stile Opzioni Select */
+.home-container input:focus::placeholder {
+    color: transparent;
+    opacity: 0;
+}
+
+/* 6. OPZIONI DEL MENU */
 .home-container select option {
     background-color: #1a1a1a;
     color: white;
+    text-align: center;
 }
 
 /* --- BOTTONI (Conferma / Annulla) --- */
@@ -278,6 +325,90 @@
     text-align: center;
     margin-top: 5px;
     text-shadow: 0 1px 2px black;
+}
+
+/* =========================================
+   MENU A TENDINA PERSONALIZZATO (Custom Select)
+   ========================================= */
+
+/* Il contenitore che tiene tutto fermo */
+.custom-select-wrapper {
+    position: relative; /* Fondamentale per posizionare la lista sotto */
+    width: 100%;
+}
+
+/* Il "bottone" che sembra un input (quello che clicchi per aprire) */
+.select-trigger {
+    width: 100%;
+    padding: 12px;
+    font-size: 1rem;
+    border: 1px solid #555;
+    border-radius: 30px;
+    background-color: #2a2a2a;
+    color: #f0f0f0;
+    text-align: center;
+    cursor: pointer;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
+    transition: all 0.3s;
+    
+    /* Freccetta Viola (disegnata con CSS) */
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d946ff' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 16px;
+}
+
+/* Effetto quando il menu è aperto */
+.select-trigger.open {
+    border-color: #d946ff;
+    border-bottom-left-radius: 0; /* Squadra gli angoli sotto */
+    border-bottom-right-radius: 0;
+    box-shadow: 0 0 15px rgba(217, 70, 255, 0.4);
+}
+
+/* LA LISTA SCROLLABILE (Quella che volevi!) */
+.options-list {
+    position: absolute; /* Galleggia sopra il resto */
+    top: 70%; /* Si attacca esattamente sotto il trigger */
+    left: 0;
+    width: 100%;
+    
+    /* QUI C'È LA MAGIA DEL "4 ELEMENTI" */
+    max-height: 155px; /* Altezza fissa per farcene stare circa 4 */
+    overflow-y: auto;  /* Scroll se ce ne sono di più */
+    
+    background-color: #1f1f1f;
+    border: 1px solid #d946ff;
+    border-top: none; /* Unisce visivamente al trigger */
+    border-bottom-left-radius: 20px;
+    border-bottom-right-radius: 20px;
+    z-index: 50; /* Assicura che stia sopra i bottoni sotto */
+    box-shadow: 0 10px 20px rgba(0,0,0,0.5);
+}
+
+/* La singola opzione nella lista */
+.option-item {
+    padding: 3px;
+    text-align: center;
+    cursor: pointer;
+    border-bottom: 1px solid #333;
+    color: #ccc;
+    transition: background 0.2s;
+}
+
+.option-item:last-child {
+    border-bottom: none;
+}
+
+.option-item:hover {
+    background-color: #333;
+    color: white;
+}
+
+.option-item.selected {
+    background-color: rgba(217, 70, 255, 0.2);
+    color: #d946ff;
+    font-weight: bold;
 }
 
 /* =========================================
