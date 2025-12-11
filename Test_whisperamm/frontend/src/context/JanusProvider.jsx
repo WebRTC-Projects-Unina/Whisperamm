@@ -263,48 +263,73 @@ export const JanusProvider = ({ children }) => {
     };
 
     //Meccanismo che ci consente di vedere e sentire gli altri 
-    //Per gli altri in room va creato un handler per ogni persona!
     const subscribeToRemoteFeed = useCallback((id, display, room) => {
         if (remoteFeedsRef.current[id]) return; 
-        //Dato che spesso Janus manda notifiche ripetute, spesso 
-        //viene chiamata questa funzione anche se non servirebbe, dunque return.
-        
-        // Uso janusRef.current (l'istanza creata) per fare attach
-        janusRef.current.attach({ //Qui avviene un pò la magia, è un metodo che sta proprio in janus.js, attivabile solo su un'istanza di connessione!
-            //creo la strada verso il server e la salvo in janusRef
+      
+        //Quello che facciamo è ottenere nuovi handle, uno per ogni nuovo RTCPeerConnection da creare
+        //In questo caso, abbiamo usato un approccio legacy, dunque tanti RTCPeerConnection quanti sono i flussi che il server ci deve inviare
+        janusRef.current.attach({  
             plugin: "janus.plugin.videoroom",
             opaqueId: opaqueId.current,
-            //Creiamo un nuovo plugin handle, non lo stesso che sta già trasmettendo il nostro video
-            // ma specifico per ricevere il video dell'utente id.
-            success: (pluginHandle) => {
-                //Creo il nuovo "figlio" di janusRef, la connessione totale, handle specifico per quel video
+            success: (pluginHandle) => { 
+                // Janus ha creato:
+        // 1. Un Handle ID sul server (es: 8472947294)
+        // 2. Un oggetto pluginHandle nel browser
+        // 3. pluginHandle.webrtcStuff = { pc: null, myStream: null, ... }
                 remoteFeedsRef.current[id] = pluginHandle; //Lo salviamo nella mappa degli handler
-                pluginHandle.send({ 
+                pluginHandle.send({  //Queste connessioni semplicemente vogliono entrare da subscriber
                     message: { request: "join", room: room, ptype: "subscriber", feed: id } 
                 });
-                //Appena è pronto facciamo una richiesta di subscribe al feed di id-user!
+                //Al momento non stiamo ancora parlando di RTCPeerConnection..
+                //Io, questo handle, voglio ricevere lo stream del publisher con ID X
             },
 
-            //E' come creare un nuovo canale
+//L'ultima send è una POST, dunque il Janus Server la riceve, riceverà un ACK immediato il browser, e avvia una Long Poll in backGround
+//Dunque il server elabora preparando l'SDP e riceve risposta ottenendo indietro l'offer SDP.
+//Dunque, janus.js appena riceve la risposta fa handleEvent(event); e questa funzione prende l'handleID, lo cerca nella Map[handleID], ne estrae 
+//i dati, dunque msg e jsep e chiama la callback onmessage, che abbiamo passato noi nella definizione dell'attach!
             error: (err) => console.error("❌ Errore attach subscriber:", err),
             onmessage: (msg, jsep) => { 
-                //Qui il server webRTC ribalta la situazione, non creo io l'offerta come in publishOwnFeed
-                //ma devo creare una risposta!
+                console.log("📨 Evento asincrono ricevuto (Long Poll):", msg);
+                //Dunque accade il contrario, è l'RTCPeerConnection del server ad avviare la negoziazione
                 if (jsep) {
-                    remoteFeedsRef.current[id].createAnswer({ //Dunque creo un nuovo RTCPeerConnection qui!
-                        //creo la risposta su quello stesso canale.
+                    remoteFeedsRef.current[id].createAnswer({ //RTCPeerConnection dunque il setRemote, crea l'sdp e fa setLocalDescription
+                        //dunque poi lo manda indietro al peer chiamante
                         jsep: jsep,
                         media: { audioSend: false, videoSend: false },
-
-                        //Il serer mi ha mandato l'offerta JSEP, ora con createAnswer scriviamo
-                        // una risposta tecnica SDP answer compatibile, senza ancora spedirlo.
-                        success: (jsep) => {
-                            remoteFeedsRef.current[id].send({ //qui avviene la vera e propria risposta
-                             
+                        success: (jsep) => { //La creazione dell'SDP è asincrona, se va tutto ok va rimandata
+                            remoteFeedsRef.current[id].send({ 
                                 message: { request: "start", room: room }, 
                                 jsep: jsep //Mandiamo anche il jsep appena creato
                             });
-                            //Timeout per ispezionare manualmente se ci siamo persi l'evento che è arrivato lo stream.
+                             // A questo punto:
+                                // - RTCPeerConnection esiste ✅
+                                // - Ma NON ha ancora stream ❌
+                                // - Stato: "connecting", dato che devono partire i candidati ICE ecc..
+
+                            //Ad un certo punto si stabilirà la connessione, iceConnectionState= "connected, e arrivano i pacchetti SRTP sulla rete"
+                            //Dopo aver mandato l'answer, lo stream arriva automaticamente tramite il callback ontrack.    
+
+                            /*
+                                1. RETE
+                                   Pacchetti SRTP arrivano via UDP
+                                   ↓
+                                2. BROWSER (Stack WebRTC in C++)
+                                   - Decifra SRTP
+                                   - Decodifica video (H.264/VP8)
+                                   - Crea MediaStreamTrack
+                                   - SCATTA EVENTO: pc.ontrack ⚡
+                                   ↓
+                                3. JANUS.JS
+                                   Cattura pc.ontrack nativo
+                                   Chiama la tua callback
+                                   ↓
+                                4. TUO CODICE
+                                   ontrack: (track) => { ... } viene eseguito
+                            */
+
+                            //Serve solo come fallBack nel caso in cui ho browser vecchi che non fanno ontrack
+                            //oppure onTrack magari arriva prima di aver registrato la callback effettiva ontrack all'handle
                             setTimeout(() => forceStreamUpdate(remoteFeedsRef.current[id], id, display, setRemoteStreams), 1500); 
                             setTimeout(() => forceStreamUpdate(remoteFeedsRef.current[id], id, display, setRemoteStreams), 3000); 
                         },
@@ -351,12 +376,12 @@ export const JanusProvider = ({ children }) => {
 
     //Funzione helper per la gestione dello stato React degli stream remoti, implementando una logica di upsert
     const gestisciStream = (stream, id, display, setter) => {
-        const updateState = setter || setRemoteStreams;
-        updateState(prev => {
-            const index = prev.findIndex(p => p.id === id);
-            if (index !== -1) {
-                const newArr = [...prev];
-                newArr[index] = { id, display, stream }; 
+        const updateState = setter || setRemoteStreams; //Di default setRemoteStreams, ma se voglio usarlo per un'altra lista..
+        updateState(prev => { //Accedo allo stato corrente
+            const index = prev.findIndex(p => p.id === id); //Verifica se già c'è qualcuno con questo ID
+            if (index !== -1) { //Se non lo trova index =-1
+                const newArr = [...prev]; 
+                newArr[index] = { id, display, stream }; //Update con questo nuovo array a cui aggiungiamo nuovo stream
                 return newArr;
             }
             return [...prev, { id, display, stream }];
@@ -374,9 +399,8 @@ export const JanusProvider = ({ children }) => {
                 publisherIdRef.current = msg["id"]; //Server assegna al publisher un id numerico univoco
                 setStatus('joined'); 
 
-
-                //QUI DOBBIAMO TOCCARE SICURO
-                publishOwnFeed(true);  //True è il parametro che viene mandato, audio true praticamente avvia l'audio semplicemente però penso a sto punt sempre (?)
+                publishOwnFeed(true);  //True è il parametro che viene mandato
+                //Cioè inizialmente tutti possono parlare
         
                 if (msg["publishers"]) {
                     for (let f of msg["publishers"]) subscribeToRemoteFeed(f["id"], f["display"], msg["room"]);
@@ -544,10 +568,39 @@ export const JanusProvider = ({ children }) => {
         });
     }, [isJanusReady, createJanusSession]);
 
+
+        const toggleAudio = useCallback((shouldEnable) => {
+            if (!videoroomHandleRef.current) return;
+            
+            // Se stiamo attivando l'audio, assicuriamoci che la traccia locale sia attiva
+            if (localStream) {
+                const audioTrack = localStream.getAudioTracks()[0];
+                if (audioTrack) audioTrack.enabled = shouldEnable;
+            }
+        
+            // COMANDO AL SERVER JANUS
+            // Diciamo a Janus di processare o ignorare il nostro audio
+            const configureRequest = {
+                request: "configure",
+                audio: shouldEnable // true = Parla, false = Muto
+            };
+            
+            // Diciamo a Janus: "Ignora qualsiasi audio ti arrivi da me".
+            videoroomHandleRef.current.send({ 
+                message: configureRequest,
+                success: (result) => {
+                    console.log(`🎤 Audio impostato su: ${shouldEnable ? "ON" : "OFF"}`);
+                },
+                error: (err) => {
+                    console.error("Errore cambio stato audio:", err);
+                }
+            });
+        }, [localStream]);
+
     useEffect(() => { return () => cleanup(); }, [cleanup]);
 
     const value = {
-        isJanusReady, status, error, localStream, remoteStreams, initializeJanus, joinRoom, cleanup
+        isJanusReady, status, error, localStream, remoteStreams, initializeJanus, joinRoom, cleanup,toggleAudio
     };
 
     return (

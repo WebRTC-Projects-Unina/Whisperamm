@@ -6,7 +6,8 @@ const PhaseDiscussion = ({
     gameState, 
     user,
     localStream,    // <--- Props audio/video
-    remoteStreams 
+    remoteStreams,
+    toggleAudio // <--- 1. RICEVI LA FUNZIONE
 }) => {
     
     // 1. Calcolo tempo rimanente
@@ -29,6 +30,20 @@ const PhaseDiscussion = ({
         }, 500);
         return () => clearInterval(interval);
     }, [gameState.endTime]);
+
+    // --- 2. ATTIVA AUDIO PER TUTTI ALL'INGRESSO ---
+    useEffect(() => {
+        // Appena inizia la fase discussione, accendi il mic!
+        if (toggleAudio) {
+            console.log("🗣️ Inizio Discussione: Audio ON");
+            toggleAudio(true);
+        }
+
+        // Quando finisce la discussione (unmount), spegni il mic
+        return () => {
+            if (toggleAudio) toggleAudio(false);
+        };
+    }, [toggleAudio]);
 
     return (
         <div className="phase-discussion-container">

@@ -8,7 +8,8 @@ const PhaseWord = ({
     user, 
     socket,
     localStream,    // <--- Props ricevute
-    remoteStreams 
+    remoteStreams,
+    toggleAudio //Funzione aggiunta oggi
 }) => {
     
     // 1. RECUPERO DATI
@@ -18,6 +19,18 @@ const PhaseWord = ({
     
     // 2. CONTROLLO TURNO
     const isMyTurn = currentPlayer && currentPlayer.username === user.username;
+
+    // --- 3. EFFETTO PER GESTIRE L'AUDIO AUTOMATICO ---
+    useEffect(() => {
+        // Se è il mio turno -> Audio ON (true)
+        // Se NON è il mio turno -> Audio OFF (false)
+            toggleAudio(isMyTurn);
+
+        // Cleanup: quando cambia fase o smonto, muto per sicurezza
+        return () => {
+            if (toggleAudio) toggleAudio(false);
+        };
+    }, [isMyTurn, toggleAudio]);
 
     // --- LOGICA STREAM CORRENTE (AVATAR GIGANTE) ---
     // Determiniamo lo stream del giocatore attivo
