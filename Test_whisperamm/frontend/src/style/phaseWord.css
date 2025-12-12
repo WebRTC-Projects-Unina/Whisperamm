@@ -9,22 +9,18 @@
     justify-content: center;
     align-items: center;
     animation: fadeIn 0.5s ease-out;
-    /* Assicura che non ci siano scrollbar inutili a questo livello */
     box-sizing: border-box;
 }
 
 /* Griglia Principale: Sinistra (Turno) | Destra (Lista) */
 .word-content-grid {
     display: grid;
-    /* La colonna destra è fissa a 300px, la sinistra si adatta */
     grid-template-columns: 1fr 300px; 
     gap: 20px;
-    
     width: 100%;
     max-width: 1200px; 
     height: 100%;
-    max-height: 70vh; /* Altezza contenuta per non schiacciare l'header */
-    
+    max-height: 70vh; 
     align-items: stretch;
 }
 
@@ -34,35 +30,20 @@
     border-radius: 20px;
     border: 2px solid #444;
     box-shadow: inset 0 0 80px rgba(0,0,0,0.5);
-    
-    /* LAYOUT INTERNO */
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    
-    /* SPAZIATURA CRUCIALE per non tagliare l'avatar */
     padding: 40px 20px; 
     position: relative;
-    
-    /* IMPORTANTE: Permette agli effetti di luce di uscire dal box */
     overflow: visible; 
 }
 
 .turn-header {
-    position: absolute;
-    top: 20px;
-    width: 100%;
-    text-align: center;
+    position: absolute; top: 20px; width: 100%; text-align: center;
 }
-
 .turn-label {
-    color: #aaa;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    margin: 0;
+    color: #aaa; text-transform: uppercase; letter-spacing: 2px; font-size: 0.9rem; font-weight: 600; margin: 0;
 }
 
 /* --- AVATAR E DISPLAY --- */
@@ -77,10 +58,13 @@
     z-index: 2;
 }
 
+/* --- MODIFICA: AVATAR RETTANGOLARE --- */
 .player-avatar-huge {
-    width: 150px;
-    height: 150px;
-    border-radius: 50%;
+    /* Dimensioni rettangolari */
+    width: 240px;
+    aspect-ratio: 4 / 3; /* Proporzione video */
+    border-radius: 15px; /* Angoli arrotondati */
+    
     display: flex;
     justify-content: center;
     align-items: center;
@@ -93,6 +77,14 @@
     border: 5px solid rgba(255,255,255,0.15);
     background-clip: padding-box;
     transition: all 0.3s ease;
+    overflow: hidden; /* Per tagliare il video */
+}
+
+/* Forza il video a riempire il rettangolo */
+.player-avatar-huge video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
 }
 
 /* --- EFFETTO RADAR (QUANDO TOCCA A TE) --- */
@@ -114,7 +106,8 @@
         box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
     }
     70% {
-        box-shadow: 0 0 0 25px rgba(255, 215, 0, 0); /* Onda che si allarga e svanisce */
+        /* Onda rettangolare arrotondata */
+        box-shadow: 0 0 0 25px rgba(255, 215, 0, 0); 
     }
     100% {
         box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
@@ -122,202 +115,66 @@
 }
 
 /* Info Testuali */
-.player-turn-info {
-    text-align: center;
-    z-index: 2;
-}
-
+.player-turn-info { text-align: center; z-index: 2; }
 .current-player-name {
-    font-size: 2.5rem;
-    color: #fff;
-    margin: 0;
-    text-shadow: 0 4px 10px rgba(0,0,0,0.8);
-    font-weight: 800;
+    font-size: 2.5rem; color: #fff; margin: 0; text-shadow: 0 4px 10px rgba(0,0,0,0.8); font-weight: 800;
 }
-
 .turn-instruction {
-    font-size: 1.1rem;
-    color: #ccc;
-    margin-top: 10px;
-    font-style: italic;
+    font-size: 1.1rem; color: #ccc; margin-top: 10px; font-style: italic;
 }
-
 .turn-instruction.me {
-    color: #ffd700;
-    font-weight: 800;
-    font-style: normal;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-    
-    /* Margine extra per non attaccarsi al nome */
-    margin-top: 15px; 
-    animation: text-pulse 1.5s infinite ease-in-out;
+    color: #ffd700; font-weight: 800; font-style: normal; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 0 10px rgba(255, 215, 0, 0.3); margin-top: 15px; animation: text-pulse 1.5s infinite ease-in-out;
 }
 
 /* --- TIMER E BOTTONI --- */
 .word-actions {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 15px;
-    width: 100%;
-    max-width: 350px;
-    z-index: 2;
+    display: flex; flex-direction: column; align-items: center; gap: 15px; width: 100%; max-width: 350px; z-index: 2;
 }
-
 .word-timer {
-    display: flex;
-    align-items: baseline;
-    gap: 5px;
-    background: rgba(255, 255, 255, 0.05);
-    padding: 8px 25px;
-    border-radius: 30px;
-    border: 1px solid #555;
-    transition: all 0.3s;
+    display: flex; align-items: baseline; gap: 5px; background: rgba(255, 255, 255, 0.05); padding: 8px 25px; border-radius: 30px; border: 1px solid #555; transition: all 0.3s;
 }
-
 .word-timer.urgent {
-    border-color: #ff4444;
-    color: #ff4444;
-    background: rgba(255, 68, 68, 0.1);
-    animation: pulse-urgent 0.8s infinite;
+    border-color: #ff4444; color: #ff4444; background: rgba(255, 68, 68, 0.1); animation: pulse-urgent 0.8s infinite;
 }
-
-.timer-value {
-    font-size: 2rem;
-    font-weight: 800;
-    color: inherit; /* Eredita colore (bianco o rosso) */
-    font-variant-numeric: tabular-nums;
-}
-
-.timer-unit {
-    font-size: 1rem;
-    color: inherit;
-    opacity: 0.7;
-}
+.timer-value { font-size: 2rem; font-weight: 800; color: inherit; font-variant-numeric: tabular-nums; }
+.timer-unit { font-size: 1rem; color: inherit; opacity: 0.7; }
 
 .btn-confirm-word {
-    background: linear-gradient(to bottom, #27ae60, #2ecc71);
-    border: none;
-    padding: 15px 0;
-    width: 100%;
-    font-size: 1.2rem;
-    font-weight: bold;
-    color: white;
-    border-radius: 50px;
-    cursor: pointer;
-    box-shadow: 0 0 20px rgba(46, 204, 113, 0.4);
-    transition: transform 0.1s, filter 0.2s;
+    background: linear-gradient(to bottom, #27ae60, #2ecc71); border: none; padding: 15px 0; width: 100%; font-size: 1.2rem; font-weight: bold; color: white; border-radius: 50px; cursor: pointer; box-shadow: 0 0 20px rgba(46, 204, 113, 0.4); transition: transform 0.1s, filter 0.2s;
 }
-
-.btn-confirm-word:hover {
-    filter: brightness(1.1);
-    transform: translateY(-2px);
-}
-
-.btn-confirm-word:active {
-    transform: scale(0.98);
-}
-
-.wait-message {
-    color: #666;
-    font-style: italic;
-    font-size: 0.9rem;
-    margin-top: 10px;
-}
+.btn-confirm-word:hover { filter: brightness(1.1); transform: translateY(-2px); }
+.btn-confirm-word:active { transform: scale(0.98); }
+.wait-message { color: #666; font-style: italic; font-size: 0.9rem; margin-top: 10px; }
 
 /* --- COLONNA DESTRA: LISTA --- */
 .word-players-section {
-    background: rgba(20, 2, 35, 0.6);
-    backdrop-filter: blur(10px);
-    border-radius: 16px;
-    padding: 20px;
-    display: flex;
-    flex-direction: column;
-    border: 1px solid #444;
-    height: 100%;
-    overflow: hidden;
+    background: rgba(20, 2, 35, 0.6); backdrop-filter: blur(10px); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; border: 1px solid #444; height: 100%; overflow: hidden;
 }
-
 .list-title {
-    font-size: 0.9rem;
-    color: #fff;
-    text-transform: uppercase;
-    margin: 0 0 15px 0;
-    padding-bottom: 10px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    letter-spacing: 1px;
-    text-align: center;
+    font-size: 0.9rem; color: #fff; text-transform: uppercase; margin: 0 0 15px 0; padding-bottom: 10px; border-bottom: 1px solid rgba(255,255,255,0.1); letter-spacing: 1px; text-align: center;
 }
-
 .players-order-scroll {
-    overflow-y: auto;
-    flex-grow: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding-right: 5px;
-    
-    scrollbar-width: thin;
-    scrollbar-color: #d249ff #222;
+    overflow-y: auto; flex-grow: 1; display: flex; flex-direction: column; gap: 10px; padding-right: 5px; scrollbar-width: thin; scrollbar-color: #d249ff #222;
 }
 
 /* Card Giocatore nella lista */
 .order-card {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 10px 15px;
-    background: rgba(255, 255, 255, 0.03);
-    border-radius: 8px;
-    border-left: 4px solid #ccc; 
-    transition: all 0.3s;
+    display: flex; align-items: center; justify-content: space-between; padding: 10px 15px; background: rgba(255, 255, 255, 0.03); border-radius: 8px; border-left: 4px solid #ccc; transition: all 0.3s;
 }
-
 .order-card.current {
-    background: rgba(255, 255, 255, 0.1);
-    transform: scale(1.02);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-    border-right: 4px solid transparent;
+    background: rgba(255, 255, 255, 0.1); transform: scale(1.02); box-shadow: 0 4px 15px rgba(0,0,0,0.3); border-right: 4px solid transparent;
 }
+.order-card.done { opacity: 0.5; background: transparent; border-left-color: #555 !important; }
 
-.order-card.done {
-    opacity: 0.5;
-    background: transparent;
-    border-left-color: #555 !important;
-}
-
-.order-info {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
+.order-info { display: flex; align-items: center; gap: 12px; }
 .order-number {
-    color: #aaa;
-    font-weight: bold;
-    font-size: 0.8rem;
-    background: rgba(0,0,0,0.3);
-    width: 24px; height: 24px;
-    display: flex; justify-content: center; align-items: center;
-    border-radius: 50%;
+    color: #aaa; font-weight: bold; font-size: 0.8rem; background: rgba(0,0,0,0.3); width: 24px; height: 24px; display: flex; justify-content: center; align-items: center; border-radius: 50%;
 }
-
 .order-name {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: #eee;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 110px;
+    font-size: 0.95rem; font-weight: 600; color: #eee; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px;
 }
-
 .order-status-icon { font-size: 1.2rem; }
-
 .mic-icon { animation: bounce 1s infinite; display: inline-block; }
-
 .wait-dot { color: #444; font-size: 2rem; line-height: 0; position: relative; top: -3px; }
 
 /* --- ANIMAZIONI UTILI --- */
@@ -329,24 +186,15 @@
 /* --- RESPONSIVE --- */
 @media (max-width: 900px) {
     .word-content-grid {
-        grid-template-columns: 1fr;
-        grid-template-rows: 1fr auto; /* Turno sopra, Lista sotto */
-        max-height: none; /* Togli limite altezza su mobile */
-        overflow-y: auto; /* Abilita scroll pagina */
+        grid-template-columns: 1fr; grid-template-rows: auto 1fr; max-height: none; overflow-y: auto;
     }
+    .word-turn-section { min-height: auto; padding: 30px 20px; }
     
-    .word-turn-section {
-        min-height: 400px;
-        padding: 20px;
-    }
-    
+    /* Avatar rettangolare più piccolo su mobile */
     .player-avatar-huge {
-        width: 100px; height: 100px; font-size: 3rem;
+        width: 160px; font-size: 3rem;
     }
     
     .current-player-name { font-size: 1.8rem; }
-    
-    .word-players-section {
-        max-height: 250px; /* Lista piccola sotto */
-    }
+    .word-players-section { max-height: none; height: auto; flex-grow: 1; min-height: 200px; }
 }

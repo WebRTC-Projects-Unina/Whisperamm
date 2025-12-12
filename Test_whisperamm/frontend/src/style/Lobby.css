@@ -567,13 +567,16 @@
   
   /* 1. Blocchiamo il contenitore generale */
   .lobby-page {
-    height: 100dvh; /* Usa dynamic viewport height per mobile */
-    overflow: hidden; /* VIETATO lo scroll della pagina generale */
-    align-items: flex-start; /* Allinea in alto */
-    padding: 0; /* Niente bordi laterali */
+    /* Su mobile usiamo height fissa viewport per evitare che la barra indirizzi crei scroll strani */
+    height: 100dvh; 
+    width: 100vw;
+    overflow: hidden; /* Niente scroll sulla pagina "madre" */
+    align-items: flex-start;
+    padding: 0;
+    background-color: #120220; /* Colore di sicurezza se l'immagine tarda */
   }
 
-  /* 2. Il Layout diventa una colonna flessibile che occupa tutto lo schermo */
+  /* 2. Il Layout diventa una colonna flessibile */
   .lobby-layout {
     display: flex;
     flex-direction: column;
@@ -583,34 +586,37 @@
     border-radius: 0;
     border: none;
     box-shadow: none;
-    padding: 10px; /* Un po' di margine interno */
-    gap: 10px;
-    overflow: hidden; /* Fondamentale per far scrollare solo i figli */
+    padding: 10px; 
+    gap: 8px; /* Gap ridotto leggermente per guadagnare spazio */
+    
+    /* Questo permette lo scroll interno se i contenuti sborano */
+    overflow-y: auto; 
+    overflow-x: hidden;
   }
 
   /* 3. ORDINE DEGLI ELEMENTI */
   
-  /* A. Titolo Esterno */
+  /* A. Titolo Esterno (Piccolo in alto) */
   .lobby-header-external {
-      margin-top: 5px;
+      margin-top: 2px;
       margin-bottom: 0;
       font-size: 0.7rem;
-      flex-shrink: 0; /* Non si rimpicciolisce */
+      flex-shrink: 0; 
   }
 
-  /* B. Card Info e Bottoni (Fissa in alto) */
+  /* B. Card Info e Bottoni (Compatta in alto) */
   .lobby-card {
     grid-column: auto;
     display: flex;
     flex-direction: column;
-    align-items: center; /* Centrato */
-    gap: 0.8rem;
+    align-items: center;
+    gap: 0.5rem; /* Meno spazio tra gli elementi */
     order: 1; 
     
     background-color: transparent;
     border: none;
-    padding: 0.5rem;
-    flex-shrink: 0; /* Non deve schiacciarsi */
+    padding: 0.5rem 0; /* Padding verticale ridotto */
+    flex-shrink: 0; 
   }
   
   .lobby-info-group {
@@ -618,70 +624,120 @@
       text-align: center;
   }
   
-  .room-name-display { font-size: 1.8rem; white-space: normal; }
+  .room-name-display { font-size: 1.6rem; margin-bottom: 2px; }
   .lobby-room-code-container { justify-content: center; }
 
-  /* Bottoni larghi */
-  .lobby-buttons { flex-direction: column; width: 100%; gap: 10px; }
+  /* Bottoni: una riga se ci stanno, altrimenti colonna */
+  .lobby-buttons { 
+      flex-direction: row; 
+      width: 100%; 
+      gap: 10px; 
+      justify-content: center; 
+  }
+  
+  /* Bottoni più compatti in altezza */
   .lobby-main-btn, 
   .lobby-main-btn.player-btn, 
-  .lobby-main-btn.admin-btn, 
-  .lobby-main-btn.exit-btn { width: 100%; height: 45px; }
+  .lobby-main-btn.admin-btn { 
+      width: 100%; 
+      height: 48px; /* Altezza dito comoda */
+      font-size: 1rem;
+  }
+  
+  .lobby-main-btn.exit-btn {
+      width: auto; /* L'exit button si adatta o diventa icona se vuoi */
+      min-width: 80px;
+      flex-shrink: 0;
+  }
 
-  /* C. Barra Status (Fissa) */
+  /* C. Barra Status (Sottile) */
   .lobby-status-bar {
       order: 2;
       flex-shrink: 0;
-      margin: 0;
       padding: 0;
+      min-height: 20px;
   }
+  
+  .lobby-subtitle { font-size: 0.9rem; }
 
-  /* D. Sidebar Giocatori (Limitata in altezza) */
+  /* D. Sidebar Giocatori (Espansa) */
   .lobby-sidebar {
     grid-column: auto;
     order: 3;
     background-color: #1f2022;
-    padding: 8px; /* Padding leggermente ridotto */
+    padding: 10px;
     
-    /* MODIFICA FONDAMENTALE: */
-    /* Invece di pixel fissi, usiamo una percentuale dell'altezza schermo */
-    min-height: 150px;  /* Assicura che si vedano almeno 3-4 giocatori sempre */
-    max-height: 25vh;   /* Occupa massimo il 25% dell'altezza della finestra */
+    /* MODIFICA: Altezza fissa minima garantita per vedere ~4 giocatori */
+    min-height: 180px; 
     
-    flex-shrink: 0; 
+    /* Non la facciamo crescere troppo a discapito della chat */
+    flex-grow: 0; 
+    flex-shrink: 0;
     
     display: flex;
     flex-direction: column;
     border: 1px solid #333;
+    border-radius: 8px;
   }
   
+  .sidebar-players {
+      /* Forza la comparsa della scrollbar se superi i 4 giocatori */
+      max-height: 160px; 
+      overflow-y: auto;
+  }
+  
+  /* Player leggermente più compatti */
+  .sidebar-player { padding: 8px; margin-bottom: 6px; }
 
-  /* E. CHAT (Occupa tutto lo spazio rimanente) */
+  /* E. CHAT (Dominante in basso) */
   .lobby-chat-column {
     grid-column: auto;
     order: 4;
     
-    /* FLEX MAGIC */
-    flex: 1;          /* "Prenditi tutto lo spazio che avanza" */
-    min-height: 0;    /* Necessario per far funzionare lo scroll interno su flex */
+    /* FLEX MAGIC: Prende tutto lo spazio rimanente */
+    flex: 1;          
     display: flex;
     flex-direction: column;
-    padding-bottom: 5px;
+    
+    /* Altezza minima garantita per vedere ~5 messaggi */
+    min-height: 250px; 
+    
+    /* Margine inferiore per staccare dal bordo schermo (gestures iOS) */
+    margin-bottom: 10px; 
   }
   
   .chat-container {
-      height: 100%; /* Riempie la colonna */
+      height: 100%; 
       padding: 10px;
+      display: flex;
+      flex-direction: column;
+      border: 1px solid #444;
   }
 
-  /* F. Area Messaggi (Scrollabile) */
+  /* F. Area Messaggi (Scrollabile ed Espansa) */
   .chat-messages {
-      flex: 1;         /* Spinge l'input in fondo */
-      max-height: none;/* Rimuoviamo limiti fissi */
-      overflow-y: auto;/* Scrolla qui dentro! */
+      flex: 1;         
+      height: 100%;    /* Forza l'altezza */
+      min-height: 0;   /* Fix per flexbox scroll */
+      overflow-y: auto;
   }
   
   .chat-input-form {
-      flex-shrink: 0; /* L'input non deve sparire */
+      margin-top: 10px;
+      flex-shrink: 0;
+  }
+  
+  /* Input chat più facile da tappare */
+  .chat-input {
+      height: 45px;
+      font-size: 16px; /* Evita zoom automatico su iOS */
+  }
+  
+  .chat-send-btn {
+      width: 50px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
   }
 }

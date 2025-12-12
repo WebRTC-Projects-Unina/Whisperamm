@@ -431,14 +431,14 @@
 .game-btn-exit, .secret-toggle { pointer-events: auto !important; opacity: 1 !important; }
 
 /* =========================================
-   7. MEDIA QUERIES (MOBILE OPTIMIZATION)
+   7. MEDIA QUERIES (MOBILE OPTIMIZATION - FIX SCROLL)
    ========================================= */
 @media (max-width: 768px) {
     
-    /* Riorganizza il contenitore principale */
+    /* 1. Blocchiamo lo scroll della pagina intera */
     .game-page {
         height: 100vh;
-        overflow: hidden; /* Blocca scroll pagina, scrolliamo dentro i div */
+        overflow: hidden; 
     }
 
     .game-card {
@@ -447,73 +447,72 @@
         flex-direction: column;
     }
 
+    /* 2. Header riattaccato in alto */
     .game-header {
-        margin-top: 0; /* Su mobile lo riattacchiamo in alto */
+        margin-top: 0; 
         border-radius: 0;
         width: 100%;
+        padding: 10px 15px;
     }
     
     .game-room-id { font-size: 1.4rem; }
     .game-btn-exit { width: 100px; font-size: 0.9rem; padding: 6px 0; }
 
-    /* --- LAYOUT GRIGLIA MOBILE --- */
+    /* 3. LAYOUT FLEX VERTICALE (Più solido del Grid per lo scroll) */
     .game-content-row {
-        /* Cambia da colonne a righe */
-        grid-template-columns: 1fr; 
+        display: flex;          /* Usiamo Flex invece di Grid */
+        flex-direction: column; /* Uno sotto l'altro */
         
-        /* RIGA 1 (Tavolo): 45% dell'altezza disponibile (Bello grande)
-           RIGA 2 (Sidebar): 1fr (Tutto il resto dello spazio)
-        */
-        grid-template-rows: 45vh 1fr; 
+        height: 100%;           /* Occupa tutto lo spazio tra header e footer */
+        overflow: hidden;       /* Non far scrollare questo contenitore */
         
         gap: 10px;
-        margin-bottom: 10px;
-        padding: 0 10px; /* Meno padding laterale */
-        max-height: none; /* Rimuovi limiti desktop */
-        height: 100%; /* Occupa tutto lo spazio tra header e footer */
-        overflow: hidden;
+        padding: 0 10px;
+        margin-bottom: 0;
+        max-height: none;
     }
 
-    /* TAVOLO (Sopra) */
+    /* TAVOLO (Sopra - Altezza Fissa) */
     .game-table-area {
         width: 100%;
-        height: 100%; /* Prende tutto il 45vh definito nella griglia */
-        border-width: 4px; /* Bordo più sottile su mobile */
+        height: 42vh;     /* 42% dell'altezza schermo */
+        flex-shrink: 0;   /* VIETATO rimpicciolirsi */
+        
+        border-width: 4px;
         border-radius: 10px;
-        /* Assicura che il canvas 3D non sbordi */
         min-height: 250px; 
     }
 
-    /* SIDEBAR (Sotto) */
+    /* SIDEBAR (Sotto - Scrollabile) */
     .game-sidebar {
         width: 100%;
-        height: 100%; /* Prende tutto l'1fr rimanente */
+        
+        /* MAGIA FLEXBOX PER LO SCROLL: */
+        flex: 1;          /* "Prenditi tutto lo spazio che avanza" */
+        min-height: 0;    /* FONDAMENTALE: Permette al flex item di accorciarsi per attivare lo scroll */
+        
+        overflow-y: auto; /* Scrolla QUI DENTRO se i player sono tanti */
+        
         border-radius: 10px;
         padding: 10px;
-        
-        /* Gestione scroll se ci sono tanti player */
-        overflow-y: auto; 
+        margin-bottom: 5px;
     }
     
-    /* Player nella lista più compatti su mobile */
-    .game-sidebar .sidebar-player {
-        padding: 6px 8px;
-    }
-    
-    .game-sidebar .sidebar-player-avatar {
-        width: 28px; height: 28px; font-size: 0.8rem;
-    }
+    /* Stili interni player mobile */
+    .game-sidebar .sidebar-player { padding: 8px; }
+    .game-sidebar .sidebar-player-avatar { width: 30px; height: 30px; font-size: 0.8rem; }
 
-    /* Footer più compatto */
+    /* Footer compatto */
     .game-footer {
         height: 60px;
         padding-bottom: 10px;
         padding-top: 0;
+        flex-shrink: 0;
     }
     
     .game-btn-action {
         padding: 10px 30px;
         font-size: 1rem;
-        width: 80%; /* Bottone largo su mobile */
+        width: 80%;
     }
 }

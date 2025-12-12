@@ -6,127 +6,206 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding-top: 30px;
+    padding: 10px 0;
     animation: fadeIn 1s ease-out;
+    overflow: hidden; 
 }
 
 /* HEADER */
 .finish-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 15px;
     flex-shrink: 0;
+    padding: 0 15px;
+    z-index: 10;
 }
 
-.winner-icon { font-size: 4rem; margin-bottom: 10px; display: block; }
-.winner-title { font-size: 2.5rem; font-weight: 900; margin: 0; text-transform: uppercase; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
-.winner-subtitle { font-size: 1.1rem; opacity: 0.8; margin-top: 5px; }
+.winner-icon { font-size: 2.5rem; display: block; margin-bottom: 5px; animation: bounce 1s infinite alternate; }
+.winner-title { 
+    font-size: 1.8rem; font-weight: 900; margin: 0; 
+    text-transform: uppercase; text-shadow: 0 0 20px rgba(0,0,0,0.6); 
+    line-height: 1.1;
+}
+.winner-subtitle { font-size: 0.9rem; opacity: 0.8; margin-top: 5px; }
 
 /* GRIGLIA RIEPILOGO */
 .finish-players-grid {
     display: grid;
-    /* Card larghe almeno 240px */
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 30px;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
     
     width: 100%;
     max-width: 1200px;
     
-    overflow-y: auto; /* Scroll se ci sono tanti giocatori */
-    padding: 20px;
-    margin-bottom: 20px;
-    flex-grow: 1; /* Occupa lo spazio disponibile */
+    overflow-y: auto; 
+    padding: 10px 20px;
+    flex-grow: 1; 
+    
+    justify-content: center; 
+    align-content: center;   
 }
 
-/* CARD GIOCATORE (Layout Verticale) */
+/* === CARD GIOCATORE (Con Cornice) === */
 .finish-card {
+    /* CORNICE: Spazio interno (padding) uguale alla votazione */
+    padding: 6px; 
+    background: rgba(0, 0, 0, 0.6); /* Sfondo cornice scuro */
+    
+    border: 3px solid #444; 
+    border-radius: 12px;
+    
+    aspect-ratio: 4 / 3;
+    max-width: 350px; 
+    width: 100%;
+    justify-self: center;
+    
+    position: relative;
+    /* overflow: hidden; -> RIMOSSO per far uscire eventuali badge se servisse, gestiamo l'overflow nel container interno */
+    
     display: flex;
-    flex-direction: column; /* Impila gli elementi verticalmente */
-    align-items: center;
-    justify-content: space-between;
-    
-    padding: 25px;
-    background: rgba(20, 20, 30, 0.7);
-    border-radius: 20px;
-    border: 3px solid #444;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-    
-    min-height: 320px; /* Altezza sufficiente per video + info */
+    flex-direction: column;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.3);
     transition: transform 0.3s ease;
 }
 
 .finish-card:hover {
-    transform: translateY(-8px);
-    background: rgba(30, 30, 45, 0.9);
+    transform: scale(1.02);
     z-index: 5;
 }
 
 /* Bordi colorati per ruolo */
-.finish-card.is-impostor { border-color: #ff4444; background: rgba(255, 68, 68, 0.1); }
-.finish-card.is-civilian { border-color: #44ff44; background: rgba(68, 255, 68, 0.1); }
+.finish-card.is-impostor { border-color: #ff4444; box-shadow: 0 0 15px rgba(255, 68, 68, 0.15); }
+.finish-card.is-civilian { border-color: #44ff44; box-shadow: 0 0 15px rgba(68, 255, 68, 0.15); }
 .finish-card.me { border-style: dashed; }
 
-/* AVATAR GIGANTE (Contenitore Video) */
-.player-avatar-large-finish {
-    width: 180px; 
-    height: 180px;
-    border-radius: 50%; /* Video rotondo */
-    background: #333;
-    
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 4rem;
-    font-weight: 900;
-    color: white;
-    
-    margin-bottom: 20px;
-    border: 5px solid rgba(255,255,255,0.15);
-    box-shadow: 0 5px 20px rgba(0,0,0,0.5);
-    
-    position: relative;
-    overflow: hidden; /* Taglia il video se esce */
+/* === STILE MORTO === */
+.finish-card.is-dead {
+    border-color: #555 !important; /* Bordo grigio spento (opzionale: se vuoi mantenere il colore ruolo, togli questa riga) */
+    opacity: 0.9;
 }
 
-/* INFO TESTUALI */
-.finish-info { 
-    text-align: center;
+/* Filtro sul contenuto video del morto */
+.finish-card.is-dead .finish-video-container {
+    filter: grayscale(100%) brightness(0.6);
+}
+
+/* La "X" Rossa gigante */
+.dead-overlay-x {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    font-size: 5rem;
+    color: #ff3333;
+    font-weight: 900;
+    
+    text-shadow: 0 0 10px black;
+    opacity: 0.8;
+    z-index: 10;
+    pointer-events: none; /* Permette click sotto (se servisse) */
+}
+
+/* === CONTENITORE VIDEO INTERNO (Gestisce il taglio e sfondo) === */
+.finish-video-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: 6px; /* Radius interno */
+    overflow: hidden;
+    background: #222;
+}
+
+.finish-video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; 
+}
+
+/* Fallback Lettera */
+.finish-fallback {
+    font-size: 4rem;
+    font-weight: 800;
+    color: rgba(255,255,255,0.1);
+    width: 100%; height: 100%;
+    display: flex; justify-content: center; align-items: center;
+}
+
+/* OVERLAY INFO */
+.finish-info-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 8px 12px;
+    
+    background: linear-gradient(to top, rgba(0,0,0,0.95), transparent);
+    
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    z-index: 2;
+}
+
+.finish-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px black;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     width: 100%;
 }
 
-.finish-name { 
-    font-size: 1.5rem; 
-    font-weight: 800; 
-    color: white; 
-    margin-bottom: 5px;
-    text-shadow: 0 2px 4px rgba(0,0,0,0.8);
+.finish-details {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    margin-top: 2px;
 }
 
-.finish-role { 
-    font-size: 1rem; 
-    font-weight: 700; 
-    text-transform: uppercase;
-    letter-spacing: 1px;
+.finish-role {
+    font-size: 0.8rem; font-weight: 700; text-transform: uppercase;
 }
-.is-impostor .finish-role { color: #ff6666; }
-.is-civilian .finish-role { color: #66ff66; }
+.is-impostor .finish-role { color: #ff8888; }
+.is-civilian .finish-role { color: #88ff88; }
 
-.finish-status {
-    margin-top: 15px;
-    font-size: 0.9rem;
-    color: #eee;
-    background: rgba(0,0,0,0.5);
-    padding: 6px 15px;
-    border-radius: 20px;
+.finish-status-badge {
+    font-size: 0.75rem;
+    background: rgba(255,255,255,0.2);
+    padding: 1px 6px;
+    border-radius: 4px;
+    color: #ddd;
 }
 
 /* Temi Generali */
 .theme-impostor .winner-title { color: #ff4444; }
 .theme-civilian .winner-title { color: #44ff44; }
+@keyframes bounce { 0% { transform: translateY(0); } 100% { transform: translateY(-10px); } }
 
 /* Footer */
 .finish-footer {
-    padding-bottom: 30px;
-    width: 100%;
-    display: flex;
-    justify-content: center;
+    padding: 15px; width: 100%; display: flex; justify-content: center; flex-shrink: 0; background: rgba(18, 2, 32, 0.8); z-index: 20;
+}
+
+/* MOBILE */
+@media (max-width: 600px) {
+    .phase-finish-container { padding-top: 5px; }
+
+    .finish-players-grid {
+        grid-template-columns: repeat(auto-fit, minmax(105px, 1fr));
+        gap: 8px; padding: 10px; align-content: start;
+    }
+
+    .finish-card {
+        padding: 4px; /* Cornice più sottile su mobile */
+        max-width: none; aspect-ratio: 1 / 1.1; border-radius: 8px; border-width: 2px;
+    }
+
+    .finish-fallback { font-size: 2.5rem; }
+    .dead-overlay-x { font-size: 3.5rem; } /* X più piccola su mobile */
+
+    .finish-info-overlay { padding: 4px 6px; }
+    .finish-name { font-size: 0.85rem; }
+    .finish-role { font-size: 0.65rem; }
+    .finish-status-badge { font-size: 0.6rem; padding: 0 4px; }
 }

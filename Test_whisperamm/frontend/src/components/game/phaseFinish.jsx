@@ -1,14 +1,14 @@
 import React, { useEffect } from 'react';
 import '../../style/phaseFinish.css';
-import VideoPlayer from '../VideoPlayer'; // <--- Assicurati che l'import sia corretto
+import VideoPlayer from '../VideoPlayer'; 
 
 const PhaseFinish = ({ 
     gameState, 
     user, 
     onLeave,
-    localStream,    // <--- Props necessarie per il video
+    localStream,    
     remoteStreams,
-    toggleAudio     // <--- Props per attivare il microfono
+    toggleAudio     
 }) => {
     const winner = gameState.winner;
     const cause = gameState.cause;   
@@ -35,13 +35,13 @@ const PhaseFinish = ({
         if (cause === 'roundsExceeded') {
             return {
                 title: "GLI IMPOSTORI VINCONO",
-                subtitle: "Tempo scaduto (Round esauriti).",
+                subtitle: "Tempo scaduto.",
                 emoji: "⏳"
             };
         }
         return {
             title: "GLI IMPOSTORI HANNO VINTO",
-            subtitle: "I civili sono stati eliminati.",
+            subtitle: "Sabotaggio riuscito.",
             emoji: "🔪"
         };
     };
@@ -63,49 +63,57 @@ const PhaseFinish = ({
                     const pRole = p.role || 'CIVILIAN'; 
                     const isPImpostor = pRole === 'IMPOSTOR';
                     
-                    // 1. Trova lo stream video corretto
+                    // Controlliamo se è vivo
+                    const isDead = !p.isAlive;
+                    
                     const remote = remoteStreams ? remoteStreams.find(r => r.display === p.username) : null;
                     const streamToRender = isMe ? localStream : (remote ? remote.stream : null);
 
                     return (
                         <div 
                             key={p.username} 
-                            className={`finish-card ${isMe ? 'me' : ''} ${isPImpostor ? 'is-impostor' : 'is-civilian'}`}
+                            className={`
+                                finish-card 
+                                ${isMe ? 'me' : ''} 
+                                ${isPImpostor ? 'is-impostor' : 'is-civilian'}
+                                ${isDead ? 'is-dead' : ''} 
+                            `}
                         >
-                            {/* 2. AVATAR / VIDEO GIGANTE */}
-                            <div 
-                                className="player-avatar-large-finish" 
-                                style={{ 
-                                    backgroundColor: p.color || '#777',
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                {/* Fallback Iniziale (Lettera) */}
-                                {!streamToRender && p.username.charAt(0).toUpperCase()}
-
-                                {/* VIDEO PLAYER REALE */}
-                                {streamToRender && (
+                            {/* 1. CONTENITORE VIDEO (DENTRO LA CORNICE) */}
+                            <div className="finish-video-container" style={{ backgroundColor: p.color || '#333' }}>
+                                {streamToRender ? (
                                     <VideoPlayer 
                                         stream={streamToRender} 
                                         isLocal={isMe} 
                                         display={p.username}
-                                        audioOnly={false} // Mostra il video!
+                                        audioOnly={false} 
                                     />
+                                ) : (
+                                    <div className="finish-fallback">
+                                        {p.username.charAt(0).toUpperCase()}
+                                    </div>
                                 )}
                             </div>
+
+                            {/* 2. OVERLAY MORTO (LA X) */}
+                            {isDead && (
+                                <div className="dead-overlay-x">X</div>
+                            )}
                             
-                            <div className="finish-info">
+                            {/* 3. INFO OVERLAY */}
+                            <div className="finish-info-overlay">
                                 <div className="finish-name">
                                     {p.username} {isMe && "(Tu)"}
                                 </div>
-                                <div className="finish-role">
-                                    {isPImpostor ? "IMPOSTORE" : "CIVILE"}
+                                
+                                <div className="finish-details">
+                                    <span className="finish-role">
+                                        {isPImpostor ? "Impostore" : "Civile"}
+                                    </span>
+                                    <span className="finish-status-badge">
+                                        {isDead ? "MORTO" : "VIVO"}
+                                    </span>
                                 </div>
-                            </div>
-
-                            <div className="finish-status">
-                                {p.isAlive ? "🏆 Vivo" : "💀 Morto"}
                             </div>
                         </div>
                     );

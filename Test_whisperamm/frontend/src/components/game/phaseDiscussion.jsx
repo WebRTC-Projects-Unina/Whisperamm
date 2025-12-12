@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import '../../style/phaseDiscussion.css';
-import VideoPlayer from '../VideoPlayer'; // <--- IMPORTA IL PLAYER
+import VideoPlayer from '../VideoPlayer'; 
 
 const PhaseDiscussion = ({ 
     gameState, 
     user,
-    localStream,    // <--- Props audio/video
+    localStream,    
     remoteStreams,
-    toggleAudio // <--- 1. RICEVI LA FUNZIONE
+    toggleAudio 
 }) => {
     
     // 1. Calcolo tempo rimanente
@@ -31,15 +31,12 @@ const PhaseDiscussion = ({
         return () => clearInterval(interval);
     }, [gameState.endTime]);
 
-    // --- 2. ATTIVA AUDIO PER TUTTI ALL'INGRESSO ---
+    // 3. Audio Control
     useEffect(() => {
-        // Appena inizia la fase discussione, accendi il mic!
         if (toggleAudio) {
-            console.log("🗣️ Inizio Discussione: Audio ON");
+            // console.log("🗣️ Inizio Discussione: Audio ON"); // Debug opzionale
             toggleAudio(true);
         }
-
-        // Quando finisce la discussione (unmount), spegni il mic
         return () => {
             if (toggleAudio) toggleAudio(false);
         };
@@ -48,25 +45,24 @@ const PhaseDiscussion = ({
     return (
         <div className="phase-discussion-container">
             <div className="discussion-header">
-                <h2 className="phase-title">Discussione in corso</h2>
-                <p className="phase-subtitle">Cercate di trovare l'impostore!</p>
+                <h2 className="phase-title">Discussione</h2>
+                <p className="phase-subtitle">Trovate l'impostore!</p>
             </div>
 
             {/* Timer Centrale */}
             <div className="discussion-timer-wrapper">
-                <p>Tempo rimanente</p>
+                <span className="timer-label">Tempo Rimanente</span>
                 <div className={`timer-display ${timeLeft <= 10 ? 'urgent' : ''}`}>
                     {timeLeft}s
                 </div>
             </div>
             
-            {/* Griglia Giocatori (Tutti visibili) */}
+            {/* Griglia Giocatori "Gallery View" */}
             <div className="discussion-players-container">
                 {players.map((player) => {
                     const isMe = player.username === user.username;
-                    const isDead = player.isAlive === false; // Se uno muore, magari lo mostriamo spento o barrato
+                    const isDead = player.isAlive === false; 
 
-                    // --- LOGICA STREAM ---
                     const remote = remoteStreams ? remoteStreams.find(r => r.display === player.username) : null;
                     const streamToRender = isMe ? localStream : (remote ? remote.stream : null);
 
@@ -74,39 +70,44 @@ const PhaseDiscussion = ({
                         <div 
                             key={player.username}
                             className={`discussion-player-card ${isMe ? 'me' : ''} ${isDead ? 'dead' : ''}`}
+                            // Il colore del giocatore definisce il bordo della cornice (se vivo)
                             style={{ 
-                                borderColor: isDead ? '#444' : (player.color || '#ccc'),
-                                boxShadow: isMe ? `0 0 15px ${player.color}40` : 'none',
-                                opacity: isDead ? 0.6 : 1
+                                borderColor: isDead ? '#444' : (player.color || '#ccc')
                             }}
                         >
-                            {/* AVATAR + VIDEO PLAYER */}
-                            <div 
-                                className="discussion-player-avatar-large" 
-                                style={{ 
-                                    backgroundColor: isDead ? '#333' : (player.color || '#777'),
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                {/* Fallback iniziale */}
-                                {!streamToRender && player.username.charAt(0).toUpperCase()}
-
-                                {/* VIDEO PLAYER: Mostriamo video e audio per TUTTI (se vivi) */}
-                                {streamToRender && !isDead && (
+                            {/* CONTENITORE VIDEO (DENTRO LA CORNICE) */}
+                            <div className="discussion-video-container" style={{ backgroundColor: player.color || '#222' }}>
+                                
+                                {/* Mostriamo il video ANCHE SE MORTO (il CSS lo renderà B/N) */}
+                                {streamToRender ? (
                                     <VideoPlayer 
                                         stream={streamToRender} 
                                         isLocal={isMe} 
                                         display={player.username}
-                                        audioOnly={false} // <--- VIDEO ATTIVO!
+                                        audioOnly={false} 
                                     />
+                                ) : (
+                                    /* Fallback Iniziale */
+                                    <div className="discussion-fallback">
+                                        {player.username.charAt(0).toUpperCase()}
+                                    </div>
                                 )}
-                            </div>
 
-                            <div className="player-info-large">
-                                <span className="player-name-large" style={{ textDecoration: isDead ? 'line-through' : 'none' }}>
-                                    {player.username} {isMe && <span className="me-tag">(Tu)</span>}
-                                </span>
+                                {/* OVERLAY LA X SE MORTO */}
+                                {isDead && (
+                                    <div className="discussion-dead-x">X</div>
+                                )}
+
+                                {/* OVERLAY INFO (Nome in basso) */}
+                                <div className="discussion-info-overlay">
+                                    <span 
+                                        className="player-name-overlay" 
+                                        // Rimosso line-through, la X è sufficiente
+                                        style={{ opacity: isDead ? 0.8 : 1 }} 
+                                    >
+                                        {player.username} {isMe && "(Tu)"}
+                                    </span>
+                                </div>
                             </div>
                         </div>
                     );

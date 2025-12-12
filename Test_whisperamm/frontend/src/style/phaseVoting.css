@@ -6,240 +6,278 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    animation: fadeIn 0.5s ease-out;
+    padding: 10px 0;
     position: relative;
-    padding-bottom: 20px;
+    overflow: hidden;
 }
 
 /* HEADER */
 .voting-header {
     text-align: center;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
     flex-shrink: 0;
+    padding: 0 10px;
+    z-index: 10;
 }
 
 .phase-title {
-    font-size: 2rem;
+    font-size: 1.8rem;
     color: #ff4444; 
     text-transform: uppercase;
     margin: 0;
+    font-weight: 800;
     text-shadow: 0 0 15px rgba(255, 68, 68, 0.4);
 }
 
 .phase-subtitle {
+    font-size: 0.9rem;
     color: #aaa;
-    margin: 5px 0 15px 0;
-    font-style: italic;
+    margin: 2px 0 8px 0;
 }
 
 .voting-timer {
-    background: rgba(255, 68, 68, 0.1);
     border: 2px solid #ff4444;
     color: #ff4444;
-    padding: 5px 20px;
-    border-radius: 30px;
-    font-weight: 900;
-    font-size: 1.5rem;
+    padding: 2px 15px;
+    border-radius: 20px;
+    font-weight: 800;
+    font-size: 1.2rem;
     display: inline-flex;
     align-items: center;
-    gap: 10px;
-    box-shadow: 0 0 10px rgba(255, 68, 68, 0.2);
-    font-variant-numeric: tabular-nums;
+    gap: 8px;
+    background: rgba(0,0,0,0.4);
 }
-
 .voting-timer.urgent {
     animation: pulse-red 0.5s infinite alternate;
     background: rgba(255, 68, 68, 0.3);
 }
 
-/* --- GRIGLIA VOTAZIONE (LARGE) --- */
+/* GRIGLIA FLUIDA */
 .voting-grid {
     display: grid;
-    /* Minimo 220px: questo garantisce card grandi */
     grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 25px;
+    gap: 20px;
     
     width: 100%;
     max-width: 1200px;
     
     overflow-y: auto; 
-    padding: 20px;
-    flex-grow: 1; /* Occupa tutto lo spazio centrale */
+    padding: 10px 20px;
+    flex-grow: 1; 
+    
+    justify-content: center; 
+    align-content: center;   
 }
 
-/* --- CARTA GIOCATORE --- */
+/* === CARD GIOCATORE === */
 .voting-card {
-    background: rgba(255, 255, 255, 0.05);
-    border: 3px solid #444; 
-    border-radius: 20px;
-    padding: 20px;
+    padding: 6px; 
+    background: rgba(0, 0, 0, 0.5);
     
-    /* Layout Verticale */
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-start;
+    border: 2px solid #555; 
+    border-radius: 12px;
     
-    cursor: pointer;
-    transition: all 0.2s ease;
+    aspect-ratio: 4 / 3;
+    max-width: 380px; 
+    width: 100%;
+    justify-self: center;
+    
     position: relative;
     
-    /* Altezza minima per stare comodi col video */
-    min-height: 280px; 
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    display: flex;
+    flex-direction: column;
 }
 
 .voting-card:hover {
-    transform: translateY(-8px);
-    background: rgba(255, 255, 255, 0.1);
-    border-color: #aaa;
+    transform: scale(1.02);
+    z-index: 5;
+    box-shadow: 0 0 15px rgba(255,255,255,0.1); 
 }
 
-/* STATI CARD */
+/* STATO SELEZIONATO */
 .voting-card.selected {
-    background: rgba(255, 68, 68, 0.15);
-    transform: scale(1.05);
-    box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
     border-color: #ff4444 !important;
+    background: rgba(255, 68, 68, 0.2);
+    box-shadow: 0 0 25px rgba(255, 68, 68, 0.6);
+    transform: scale(1.04);
+    z-index: 10;
 }
 
-.voting-card.locked {
-    opacity: 0.5;
-    pointer-events: none;
-    filter: grayscale(0.8);
-}
+.voting-card.locked { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
+.voting-card.me { border-style: dashed; }
 
-.voting-card.me {
-    border-style: dashed;
+/* === STATO MORTO (NUOVO) === */
+.voting-card.dead {
+    border-color: #444 !important; /* Bordo spento */
     opacity: 0.9;
+    cursor: not-allowed; /* Cursore di divieto */
 }
 
-/* --- AVATAR VIDEO (NUOVO STILE GRANDE) --- */
-.player-avatar-voting-large {
-    width: 170px;  /* Dimensione generosa */
-    height: 170px;
-    border-radius: 50%; /* Rotondo */
-    background: #333;
-    
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    font-size: 4rem; /* Lettera grande se manca video */
-    font-weight: 900;
-    color: white;
-    
-    border: 4px solid rgba(255,255,255,0.2);
-    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    
-    margin-bottom: 15px;
-    overflow: hidden; /* Taglia il video rettangolare in cerchio */
-    position: relative;
-}
-
-.voting-name {
-    font-size: 1.3rem;
-    font-weight: 700;
-    margin-top: 5px;
-    color: #fff;
-    text-align: center;
-}
-
-/* Indicatori */
-.target-icon {
-    position: absolute;
-    top: 10px;
-    right: 10px;
-    font-size: 2rem;
-    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    filter: drop-shadow(0 0 5px black);
-}
-
-.voted-badge {
-    margin-top: auto;
-    font-size: 0.8rem;
-    background: #444;
-    padding: 4px 10px;
-    border-radius: 10px;
-    color: #aaa;
-    border: 1px solid #666;
-}
-
-/* FOOTER AZIONI */
-.voting-footer {
-    display: flex;
-    justify-content: center;
-    gap: 20px;
-    width: 100%;
-    margin-top: 20px;
-    flex-shrink: 0;
-    flex-wrap: wrap;
-    padding-bottom: 10px;
-}
-
-.btn-abstain {
-    background: transparent;
-    border: 2px solid #aaa;
-    color: #aaa;
-    padding: 15px 30px;
-    border-radius: 50px;
-    font-weight: 700;
-    text-transform: uppercase;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.btn-abstain:hover {
-    border-color: #fff;
-    color: #fff;
-    background: rgba(255,255,255,0.1);
-}
-
-.btn-confirm-vote {
-    background: linear-gradient(to bottom, #ff4444, #cc0000);
-    box-shadow: 0 0 20px rgba(255, 0, 0, 0.3);
-    min-width: 250px;
-    flex-grow: 1;
-    max-width: 400px;
-    padding: 15px 40px;
-    border-radius: 50px;
-    border: none;
-    color: white;
-    font-weight: 800;
-    font-size: 1.1rem;
-    cursor: pointer;
-    text-transform: uppercase;
-}
-
-.btn-confirm-vote:hover:not(:disabled) {
-    box-shadow: 0 0 30px rgba(255, 0, 0, 0.5);
-    transform: translateY(-2px);
-}
-
-.btn-confirm-vote:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    background: #555;
+.voting-card.dead:hover {
+    transform: none; /* Nessun effetto hover */
     box-shadow: none;
 }
 
-.waiting-others-msg {
-    margin-top: 20px;
-    font-style: italic;
-    color: #ccc;
+/* Filtro B/N sul video del morto */
+.voting-card.dead .voting-video-container {
+    filter: grayscale(100%) brightness(0.6);
+}
+
+/* La X Rossa */
+.voting-dead-x {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    font-size: 5rem;
+    color: #ff3333;
+    font-weight: 900;
+    
+    text-shadow: 0 0 10px black;
+    opacity: 0.9;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* CONTENITORE VIDEO INTERNO */
+.voting-video-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: 6px; 
+    overflow: hidden;   
+    background: #222;   
+}
+
+.voting-video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Fallback Lettera */
+.voting-fallback {
+    font-size: 3rem;
+    font-weight: 800;
+    color: rgba(255,255,255,0.15);
+    width: 100%;
+    height: 100%;
     display: flex;
+    justify-content: center;
     align-items: center;
-    gap: 10px;
-    background: rgba(0,0,0,0.3);
-    padding: 10px 30px;
-    border-radius: 30px;
 }
 
-@keyframes pulse-red {
-    from { transform: scale(1); box-shadow: 0 0 10px rgba(255, 68, 68, 0.2); }
-    to { transform: scale(1.1); box-shadow: 0 0 20px rgba(255, 68, 68, 0.6); }
+/* OVERLAY INFO */
+.voting-info-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 6px 8px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    z-index: 2;
 }
 
-@keyframes popIn {
-    0% { transform: scale(0); } 
-    80% { transform: scale(1.2); } 
-    100% { transform: scale(1); }
+.voting-name {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: white;
+    text-shadow: 0 2px 4px black;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ICONE E BADGE */
+.target-icon {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    font-size: 2rem;
+    filter: drop-shadow(0 2px 4px black);
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    z-index: 10;
+}
+
+.voted-badge {
+    font-size: 0.7rem;
+    background: #444;
+    padding: 2px 8px;
+    border-radius: 4px;
+    color: #ccc;
+    border: 1px solid #666;
+}
+
+/* FOOTER */
+.voting-footer {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    width: 100%;
+    padding: 15px 20px;
+    flex-shrink: 0;
+    background: rgba(18, 2, 32, 0.8);
+    z-index: 20;
+}
+
+.btn-abstain {
+    background: transparent; border: 1px solid #777; color: #aaa;
+    padding: 10px 25px; border-radius: 30px; font-weight: 600; cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-abstain:hover { border-color: white; color: white; background: rgba(255,255,255,0.1); }
+
+.btn-confirm-vote {
+    background: #ff4444; color: white; border: none;
+    padding: 10px 40px; border-radius: 30px; font-weight: 800;
+    font-size: 1rem; text-transform: uppercase; cursor: pointer;
+    box-shadow: 0 0 15px rgba(255, 68, 68, 0.3);
+    flex-grow: 1; max-width: 300px;
+    transition: transform 0.2s;
+}
+.btn-confirm-vote:hover:not(:disabled) { transform: scale(1.05); }
+.btn-confirm-vote:disabled { background: #555; color: #888; box-shadow: none; cursor: not-allowed; }
+
+.waiting-others-msg {
+    margin-top: 10px; font-style: italic; color: #ccc;
+    background: rgba(0,0,0,0.5); padding: 8px 20px; border-radius: 20px;
+}
+
+@keyframes popIn { 0% { transform: scale(0); } 80% { transform: scale(1.2); } 100% { transform: scale(1); } }
+@keyframes pulse-red { from { box-shadow: 0 0 10px rgba(255, 68, 68, 0.2); } to { box-shadow: 0 0 20px rgba(255, 68, 68, 0.6); } }
+
+/* MOBILE */
+@media (max-width: 600px) {
+    .phase-voting-container { padding-bottom: 75px; } 
+    
+    .voting-header { margin-bottom: 5px; }
+    .phase-title { font-size: 1.4rem; }
+    .voting-timer { font-size: 1rem; padding: 2px 10px; }
+    
+    .voting-grid {
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 10px; padding: 10px; align-content: start;
+    }
+    
+    .voting-card {
+        padding: 4px; aspect-ratio: 1 / 1; border-radius: 8px; border-width: 2px;
+    }
+    
+    .voting-fallback { font-size: 2.5rem; }
+    .target-icon { font-size: 1.5rem; top: 2px; right: 2px; }
+    .voting-dead-x { font-size: 3.5rem; } /* X più piccola su mobile */
+
+    .voting-footer {
+        position: absolute; bottom: 0; left: 0;
+        background: rgba(18, 2, 32, 0.95);
+        border-top: 1px solid #333; padding: 10px;
+    }
+    .btn-abstain, .btn-confirm-vote { padding: 10px; font-size: 0.85rem; flex: 1; }
 }

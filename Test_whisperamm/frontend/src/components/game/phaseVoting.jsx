@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import '../../style/phaseVoting.css';
-import VideoPlayer from '../VideoPlayer'; // <--- IMPORTA IL PLAYER
+import VideoPlayer from '../VideoPlayer'; 
 
 const PhaseVoting = ({ 
     gameState, 
     user, 
     socket,
-    localStream,    // <--- RICEVI STREAM DAL GAME
+    localStream,    
     remoteStreams
 }) => {
     
-    // --- 1. LOGICA TIMER ---
     const calculateTimeLeft = () => {
         const endTime = gameState.endTime;
         if (!endTime) return 0;
@@ -22,8 +21,9 @@ const PhaseVoting = ({
     const [selectedPlayer, setSelectedPlayer] = useState(null); 
     const [hasConfirmed, setHasConfirmed] = useState(false);    
 
-    // Info Player
-    const alivePlayers = gameState.players?.filter(p => p.isAlive) || [];
+    // --- MODIFICA 1: PRENDIAMO TUTTI I GIOCATORI (anche i morti) ---
+    const allPlayers = gameState.players || [];
+    
     const myPlayer = gameState.players?.find(p => p.username === user.username);
     const amIAlive = myPlayer?.isAlive;
     const serverSaysIVoted = myPlayer?.hasVoted;
@@ -39,9 +39,11 @@ const PhaseVoting = ({
 
     // --- HANDLERS ---
     const handleSelect = (targetUsername) => {
+        // Logica di blocco: Se sono morto, ho già votato, o il tempo è scaduto
         if (!amIAlive || hasConfirmed || serverSaysIVoted || timeLeft <= 0) return;
+        
         if (selectedPlayer === targetUsername) {
-            setSelectedPlayer(null);
+            setSelectedPlayer(null); 
         } else {
             setSelectedPlayer(targetUsername);
         }
@@ -65,7 +67,7 @@ const PhaseVoting = ({
                     {isInteractionLocked && amIAlive ? "Voto Inviato" : "Chi vuoi eliminare?"}
                 </h2>
                 <p className="phase-subtitle">
-                    {!amIAlive ? "Sei uno spettatore..." : "Scegli un sospettato o astieniti."}
+                    {!amIAlive ? "Sei uno spettatore..." : "Tocca per selezionare."}
                 </p>
                 
                 <div className={`voting-timer ${timeLeft <= 10 ? 'urgent' : ''}`}>
@@ -74,14 +76,16 @@ const PhaseVoting = ({
                 </div>
             </div>
 
-            {/* GRIGLIA GIOCATORI VIVI */}
+            {/* GRIGLIA FLUIDA */}
             <div className="voting-grid">
-                {alivePlayers.map((p) => {
+                {allPlayers.map((p) => {
                     const isMe = p.username === user.username;
                     const isSelected = selectedPlayer === p.username;
                     const hasVotedBadge = p.hasVoted; 
+                    
+                    // Controlla se il giocatore è morto
+                    const isDead = !p.isAlive;
 
-                    // --- RECUPERO LO STREAM ---
                     const remote = remoteStreams ? remoteStreams.find(r => r.display === p.username) : null;
                     const streamToRender = isMe ? localStream : (remote ? remote.stream : null);
 
@@ -92,77 +96,77 @@ const PhaseVoting = ({
                                 ${isSelected ? 'selected' : ''} 
                                 ${isInteractionLocked ? 'locked' : ''}
                                 ${isMe ? 'me' : ''}
+                                ${isDead ? 'dead' : ''} 
                             `}
-                            onClick={() => handleSelect(p.username)}
-                            style={{ borderColor: isSelected ? '#ff4444' : (p.color || '#444') }}
+                            // --- MODIFICA 2: BLOCCA CLICK SE MORTO ---
+                            onClick={() => !isDead && handleSelect(p.username)}
+                            
+                            // Colore cornice: se è morto usiamo un grigio, altrimenti il suo colore
+                            style={{ 
+                                borderColor: isSelected 
+                                    ? '#ff4444' 
+                                    : (isDead ? '#444' : (p.color || '#555')) 
+                            }}
                         >
-                            {/* --- AVATAR / VIDEO GRANDE --- */}
-                            <div 
-                                className="player-avatar-voting-large" 
-                                style={{ 
-                                    backgroundColor: p.color || '#777',
-                                    position: 'relative',
-                                    overflow: 'hidden'
-                                }}
-                            >
-                                {/* Fallback Lettera */}
-                                {!streamToRender && p.username.charAt(0).toUpperCase()}
-
-                                {/* VIDEO ATTIVO */}
-                                {streamToRender && (
+                            {/* CONTENITORE VIDEO */}
+                            <div className="voting-video-container">
+                                {streamToRender ? (
                                     <VideoPlayer 
                                         stream={streamToRender} 
                                         isLocal={isMe} 
                                         display={p.username}
-                                        audioOnly={false} // Vediamo le facce!
-                                        // muted={true} // Scommenta se vuoi silenziarli durante il voto
+                                        audioOnly={false} 
                                     />
+                                ) : (
+                                    <div className="voting-fallback">
+                                        {p.username.charAt(0).toUpperCase()}
+                                    </div>
                                 )}
+                                
+                                {/* --- MODIFICA 3: MOSTRA X SE MORTO --- */}
+                                {isDead && <div className="voting-dead-x">X</div>}
+
+                                {/* OVERLAY INFO */}
+                                <div className="voting-info-overlay">
+                                    <span className="voting-name">
+                                        {p.username} {isMe && "(Tu)"}
+                                    </span>
+                                    {hasVotedBadge && !isMe && <span className="voted-badge">Votato</span>}
+                                </div>
                             </div>
                             
-                            {/* Nome */}
-                            <div className="voting-name">
-                                {p.username} {isMe && "(Tu)"}
-                            </div>
-
-                            {/* Indicatori Stato */}
+                            {/* ICONA TARGET (Solo se selezionato e vivo) */}
                             {isSelected && <div className="target-icon">🎯</div>}
-                            {hasVotedBadge && !isMe && <div className="voted-badge">Ha votato</div>}
                         </div>
                     );
                 })}
             </div>
 
             {/* FOOTER AZIONI */}
-            {!isInteractionLocked && (
-                <div className="voting-footer">
-                    <button 
-                        className="btn-abstain"
-                        onClick={() => submitVote(null)}
-                    >
-                        🤷 ASTIENITI
-                    </button>
+            <div className="voting-footer">
+                {!isInteractionLocked ? (
+                    <>
+                        <button 
+                            className="btn-abstain"
+                            onClick={() => submitVote(null)}
+                        >
+                            ASTIENITI
+                        </button>
 
-                    <button 
-                        className="game-btn-action btn-confirm-vote"
-                        disabled={!selectedPlayer}
-                        onClick={() => submitVote(selectedPlayer)}
-                        style={{ 
-                            opacity: selectedPlayer ? 1 : 0.5,
-                            cursor: selectedPlayer ? 'pointer' : 'not-allowed'
-                        }}
-                    >
-                        {selectedPlayer ? `VOTA ${selectedPlayer.toUpperCase()} 🔪` : "SELEZIONA"}
-                    </button>
-                </div>
-            )}
-
-            {(hasConfirmed || serverSaysIVoted) && (
-                <div className="waiting-others-msg">
-                    <div className="loader-dots"></div>
-                    In attesa degli altri voti...
-                </div>
-            )}
+                        <button 
+                            className="game-btn-action btn-confirm-vote"
+                            disabled={!selectedPlayer}
+                            onClick={() => submitVote(selectedPlayer)}
+                        >
+                            {selectedPlayer ? `ELIMINA ${selectedPlayer.toUpperCase()} 🔪` : "SELEZIONA"}
+                        </button>
+                    </>
+                ) : (
+                    <div className="waiting-others-msg">
+                        In attesa degli altri voti...
+                    </div>
+                )}
+            </div>
         </div>
     );
 };

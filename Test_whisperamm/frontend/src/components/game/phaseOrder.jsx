@@ -14,8 +14,7 @@ const PhaseOrder = ({
         const endTime = gameState.endTime;
         if (!endTime) return null; 
         const now = Date.now();
-        const diff = Math.max(0, Math.ceil((endTime - now) / 1000));
-        return diff;
+        return Math.max(0, Math.ceil((endTime - now) / 1000));
     };
 
     const [timeLeft, setTimeLeft] = useState(calculateTimeLeft());
@@ -31,11 +30,12 @@ const PhaseOrder = ({
     }, [gameState.endTime]);
 
 
-    // ORDINAMENTO ROBUSTO (Morti in fondo, poi per Ordine, poi per Dadi)
+    // ORDINAMENTO ROBUSTO (Morti in fondo, poi per Ordine)
     const sortedPlayers = [...(gameState.players || [])].sort((a, b) => {
         const aliveA = a.isAlive !== false;
         const aliveB = b.isAlive !== false;
 
+        // I vivi prima dei morti
         if (aliveA && !aliveB) return -1; 
         if (!aliveA && aliveB) return 1;  
 
@@ -72,7 +72,6 @@ const PhaseOrder = ({
                     const isMe = p.username === user.username;
                     const isDead = p.isAlive === false; 
                     
-                    // Logica Stream: Trova il video corretto
                     const remote = remoteStreams ? remoteStreams.find(r => r.display === p.username) : null;
                     const streamToRender = isMe ? localStream : (remote ? remote.stream : null);    
 
@@ -83,68 +82,45 @@ const PhaseOrder = ({
                         <div 
                             key={p.username} 
                             className={`ranked-card ${isMe ? 'me' : ''} ${isDead ? 'dead' : ''}`}
-                            style={{ 
-                                borderColor: isDead ? '#444' : (p.color || '#ccc'),
-                                boxShadow: isMe ? `0 0 15px ${p.color}40` : 'none',
-                                opacity: isDead ? 0.6 : 1 
-                            }}
+                            style={!isDead ? { borderColor: p.color || '#444' } : {}}
                         >
-                            {/* Badge Posizione */}
-                            <div className="rank-badge" style={{ backgroundColor: isDead ? '#222' : (p.color || '#444') }}>
-                                {isDead ? '💀' : `#${displayOrder}`}
-                            </div>
-
-                            {/* --- AVATAR CON VIDEO --- */}
-                            <div className="player-avatar-large" style={{ 
-                                backgroundColor: isDead ? '#333' : (p.color || '#777'),
-                                position: 'relative'
-                            }}>
-                                {/* 1. Mostra iniziale SOLO se NON c'è video */}
-                                {!streamToRender && p.username.charAt(0).toUpperCase()}
-
-                                {/* 2. VIDEO PLAYER ATTIVO (audioOnly=false mostra il video) */}
-                                {streamToRender && !isDead && (
+                            {/* --- VIDEO THUMBNAIL (SINISTRA) --- */}
+                            <div className="order-video-thumb">
+                                
+                                {isDead && <div className="dead-overlay-icon">💀</div>}
+                                
+                                {streamToRender ? (
                                     <VideoPlayer 
                                         stream={streamToRender} 
                                         isLocal={isMe} 
                                         display={p.username}
-                                        audioOnly={false} // <--- VIDEO ON!
+                                        audioOnly={false} 
                                     />
-                                )}
-
-                                {/* 3. Pallino verde audio */}
-                                {streamToRender && !isDead && (
-                                    <div style={{
-                                        position: 'absolute',
-                                        bottom: '0',
-                                        right: '0',
-                                        width: '14px',
-                                        height: '14px',
-                                        backgroundColor: '#2ecc71',
-                                        borderRadius: '50%',
-                                        border: '2px solid white',
-                                        zIndex: 10
-                                    }} title="Audio Attivo"/>
+                                ) : (
+                                    <span className="thumb-fallback">
+                                        {p.username.charAt(0).toUpperCase()}
+                                    </span>
                                 )}
                             </div>
                                                             
-                            {/* Info Giocatore */}
-                            <div className="player-info-large">
-                                <span className="player-name-large" style={{ textDecoration: isDead ? 'line-through' : 'none' }}>
-                                    {p.username} {isMe && <span className="me-tag">(Tu)</span>}
-                                </span>
-                                <span className="roll-info">
-                                    {isDead ? (
-                                        <span style={{color: '#ff4444'}}>ELIMINATO</span>
-                                    ) : (
-                                        <>Ha totalizzato: <strong>{totalValue}</strong></>
-                                    )}
-                                </span>
-                            </div>
+                            {/* --- INFO (DESTRA) --- */}
+                            <div className="ranked-info-container">
+                                <div className="player-details">
+                                    <div className="player-name-large">
+                                        {p.username} {isMe && <span className="me-tag">TU</span>}
+                                    </div>
+                                    <div className="roll-info">
+                                        {isDead ? "ELIMINATO" : `Totale Dadi: ${totalValue}`}
+                                    </div>
+                                </div>
 
-                            {/* Indicatore visivo chi inizia */}
-                            <div className="turn-indicator">
-                                {index === 0 && !isDead && <span>👑 Inizia</span>}
+                                {/* Chi Inizia (Corona) */}
+                                {index === 0 && !isDead && <div className="turn-crown">👑</div>}
+
+                                {/* Numero Posizione Sfondo */}
+                                <div className="rank-number">
+                                    {isDead ? '' : `#${displayOrder}`}
+                                </div>
                             </div>
                         </div>
                     );

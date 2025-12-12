@@ -6,98 +6,204 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center; /* Centra tutto verticalmente */
+    padding: 10px 0;
+    position: relative;
+    overflow: hidden;
     animation: fadeIn 0.5s ease-out;
 }
 
+/* HEADER */
 .discussion-header {
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 10px;
+    flex-shrink: 0;
+    z-index: 10;
 }
 
+.phase-title {
+    font-size: 1.8rem;
+    color: #fff;
+    margin: 0;
+    text-transform: uppercase;
+    text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.phase-subtitle {
+    font-size: 0.9rem;
+    color: #aaa;
+    margin-top: 5px;
+}
+
+/* TIMER CENTRALE */
 .discussion-timer-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
-    margin-bottom: 40px;
+    margin-bottom: 15px;
 }
 
-.discussion-timer-wrapper p {
+.timer-label {
     text-transform: uppercase;
     color: #aaa;
     letter-spacing: 2px;
-    font-size: 0.9rem;
-    margin-bottom: 10px;
+    font-size: 0.7rem;
+    margin-bottom: 5px;
 }
 
-/* Riutilizza le classi timer-display che hai già o definiscile qui */
 .timer-display {
-    font-size: 3.5rem;
+    font-size: 2.5rem;
     font-weight: 900;
     color: #fff;
     text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
     font-variant-numeric: tabular-nums;
+    line-height: 1;
 }
 
 .timer-display.urgent {
     color: #ff4444;
     animation: pulse 1s infinite;
 }
+
+/* GRIGLIA GIOCATORI (FLUIDA) */
 .discussion-players-container {
-    display: grid; /* Cambiato da flex a grid per ordine */
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); /* Card larghe */
-    gap: 25px;
+    display: grid;
+    /* Adatta le colonne: minimo 220px */
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    
     width: 100%;
     max-width: 1400px;
-    padding: 20px;
+    padding: 10px 20px;
+    
     overflow-y: auto;
-}
-
-/* Card giocatore Discussion */
-.discussion-player-card {
-    background: rgba(20, 20, 30, 0.6);
-    border: 2px solid #555;
-    border-radius: 16px;
-    padding: 20px;
+    flex-grow: 1;
     
-    /* CAMBIAMENTO CHIAVE: Verticale */
-    display: flex;
-    flex-direction: column; 
-    align-items: center;
     justify-content: center;
-    
-    gap: 15px;
-    min-height: 250px;
-    transition: all 0.2s;
+    align-content: center;
 }
 
-/* Quando parla qualcuno (opzionale se gestisci lo stato "talking") */
-.discussion-player-card.is-talking {
-    border-color: #2ecc71;
-    box-shadow: 0 0 20px rgba(46, 204, 113, 0.3);
-}
-
-.discussion-player-avatar-large {
-    /* Rendiamo il video rettangolare (4:3) per la discussione, più professionale */
-    width: 100%; 
-    aspect-ratio: 4/3; /* Mantiene proporzioni webcam */
-    max-width: 280px;
+/* === CARD GIOCATORE CON CORNICE === */
+.discussion-player-card {
+    padding: 6px; 
+    background: rgba(0, 0, 0, 0.5);
     
+    border: 2px solid #555;
     border-radius: 12px;
-    background: #000;
     
+    aspect-ratio: 4 / 3;
+    max-width: 350px;
+    width: 100%;
+    justify-self: center;
+    
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.discussion-player-card:hover {
+    transform: scale(1.02);
+    z-index: 5;
+    box-shadow: 0 0 15px rgba(255,255,255,0.1);
+}
+
+.discussion-player-card.me { border-style: dashed; }
+
+/* === STATO MORTO (Nuovo stile con X) === */
+.discussion-player-card.dead {
+    border-color: #444 !important; /* Bordo grigio spento */
+    opacity: 0.9;
+}
+
+/* Filtro sul contenuto video del morto */
+.discussion-player-card.dead .discussion-video-container {
+    filter: grayscale(100%) brightness(0.6);
+}
+
+/* La "X" Rossa gigante */
+.discussion-dead-x {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    
+    font-size: 4.5rem;
+    color: #ff3333;
+    font-weight: 900;
+    
+    text-shadow: 0 0 10px black;
+    opacity: 0.9;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* CONTENITORE VIDEO INTERNO */
+.discussion-video-container {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    border-radius: 6px; 
+    overflow: hidden;
+    background: #222;
+}
+
+.discussion-video-container video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Fallback Lettera */
+.discussion-fallback {
+    width: 100%;
+    height: 100%;
     display: flex;
     justify-content: center;
     align-items: center;
     font-size: 3rem;
-    font-weight: bold;
-    color: white;
-    overflow: hidden;
-    border: 2px solid rgba(255,255,255,0.1);
+    font-weight: 800;
+    color: rgba(255,255,255,0.15);
 }
 
-.player-name-large {
-    font-size: 1.4rem;
+/* OVERLAY INFO (Nome in basso) */
+.discussion-info-overlay {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 6px 10px;
+    background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+    z-index: 2;
+}
+
+.player-name-overlay {
+    font-size: 1rem;
     font-weight: 700;
-    text-align: center;
+    color: white;
+    text-shadow: 0 2px 4px black;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
+}
+
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+
+/* MOBILE */
+@media (max-width: 600px) {
+    .discussion-players-container {
+        grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+        gap: 10px; padding: 10px; align-content: start;
+    }
+
+    .discussion-player-card {
+        padding: 4px; border-width: 2px; border-radius: 8px; aspect-ratio: 1 / 1;
+    }
+
+    .timer-display { font-size: 2rem; }
+    .phase-title { font-size: 1.4rem; }
+    .player-name-overlay { font-size: 0.85rem; }
+    .discussion-fallback { font-size: 2rem; }
+    .discussion-dead-x { font-size: 3.5rem; } /* X più piccola su mobile */
 }
