@@ -36,9 +36,6 @@ const Game = () => {
     const [gameState, setGameState] = useState(null);      
     const [userIdentity, setUserIdentity] = useState(null); 
     const [revealSecret, setRevealSecret] = useState(false); 
-    
-    const [activeRolls, setActiveRolls] = useState([]); 
-    const [isWaiting, setIsWaiting] = useState(false); 
 
     const gameStateRef = useRef(gameState);
     const hasJoinedJanus = useRef(false);
@@ -72,30 +69,12 @@ const Game = () => {
     }, [isJanusReady, janusStatus, roomId, user, joinRoom]);
 
 
-    // --- LOGICA SOCKET ESISTENTE ---
-    useEffect(() => {
-        if (gameState?.phase && gameState.phase !== 'DICE') {
-            setActiveRolls([]); 
-        }
-    }, [gameState?.phase]);
-
+    // --- LOGICA SOCKET GENERALE ---
     useEffect(() => {
         if (!socket) { navigate('/'); return; }
 
         const handleGameParams = (payload) => setGameState(payload);
         const handleIdentity = (payload) => setUserIdentity(payload);
-
-        const handlePrintDiceRoll = (payload) => {
-            const playerInState = gameStateRef.current?.players?.find(p => p.username === payload.username);
-            const playerColor = payload.color || playerInState?.color || '#ffffff';
-            setActiveRolls(prev => [...prev, {
-                id: Date.now() + Math.random(),
-                username: payload.username,
-                dice1: payload.dice1,
-                dice2: payload.dice2,
-                color: playerColor
-            }]);
-        };
 
         const handlePhaseChange = (payload) => {
             console.log("⚡ Cambio fase:", payload.phase);
@@ -107,15 +86,13 @@ const Game = () => {
 
         socket.on('gameStarted', handleGameParams);
         socket.on('identityAssigned', handleIdentity);
-        socket.on('playerRolledDice', handlePrintDiceRoll);
         socket.on('phaseChanged', handlePhaseChange);
         socket.on('lobbyError', (err) => { alert(err.message); navigate('/'); });
 
         return () => {
             if (socket) {
                 socket.off('gameStarted'); socket.off('identityAssigned');
-                socket.off('playerRolledDice'); socket.off('phaseChanged');
-                socket.off('lobbyError');
+                socket.off('phaseChanged'); socket.off('lobbyError');
             }
         };
     }, [socket, navigate, roomId]);
@@ -129,44 +106,21 @@ const Game = () => {
     const onExitClick = () => setShowExitPopup(true);
     const confirmExit = () => { setShowExitPopup(false); handleLeaveGame(); };
 
-    const handleDiceRoll = () => { 
-        if (!amIAlive) return; 
-        if(isWaiting) return; 
-        setIsWaiting(true);
-        if(socket) socket.emit('DiceRoll'); 
-    };
-
-    const handleRollComplete = (rollId, username, totalValue) => {
-        if (username === user.username) setIsWaiting(false);
-        setGameState(prevState => {
-            if (!prevState || !prevState.players) return prevState;
-            return {
-                ...prevState,
-                players: prevState.players.map(p => 
-                    p.username === username 
-                        ? { ...p, hasRolled: true, diceValue: totalValue } 
-                        : p
-                )
-            };
-        });
-    };
-
     if (!socket || !gameState) return <div className="game-loader">Caricamento...</div>;
 
     // Props comuni per l'audio da passare alle fasi
     const audioProps = {
         localStream,
         remoteStreams,
-        toggleAudio // <--- Ora le fasi riceveranno questa funzione
+        toggleAudio
     };
 
     const renderPhaseContent = () => {
         const phase = gameState.phase;
-        const startTimer = gameState.startTimer || false;
-
+        
         switch (phase) {
             case 'DICE': case 'lancio_dadi':
-                return <PhaseDice gameState={gameState} user={user} activeRolls={activeRolls} onRollComplete={handleRollComplete} onDiceRoll={handleDiceRoll} isWaiting={isWaiting} startTimer={startTimer} {...audioProps} />;
+                return <PhaseDice gameState={gameState} user={user} {...audioProps} />;
             case 'TURN_ASSIGNMENT': case 'ordine_gioco':
                 return <PhaseOrder gameState={gameState} user={user} {...audioProps} />;
             case 'GAME': case 'inizio_gioco':
@@ -187,7 +141,6 @@ const Game = () => {
     return (
         <div className={`game-page ${!amIAlive ? 'is-dead-mode' : ''}`}>
 
-            {/* POPUP PIXEL ART "WHAT?" (Copiato dalla Lobby) */}
             {showExitPopup && (
                 <div className="pixel-overlay">
                     <div className="pixel-bubble">
