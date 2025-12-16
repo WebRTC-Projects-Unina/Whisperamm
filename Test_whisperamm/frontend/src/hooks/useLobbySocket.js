@@ -31,7 +31,6 @@ export const useLobbySocket = (
         // --- A. GESTORE STATO COMPLETO (Join, Leave, HostChange) ---
         // Riceve tutto: players, readyStates, host, allReady
         const handleLobbyState = (payload) => {
-            console.log("📦 Full Lobby State:", payload);
             
             setPlayers(payload.players || []);
             setReadyStates(payload.readyStates || {});

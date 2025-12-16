@@ -9,7 +9,6 @@ import { useLobbyHandlers } from '../hooks/useLobbyHandlers';
 import '../style/Lobby.css';
 import MiniForm from './MiniForm';
 import Game from './Game';
-import VideoPlayer from './VideoPlayer';
 
 const Lobby = () => {
     
@@ -186,9 +185,8 @@ const Lobby = () => {
                         <p className="instruction">Ops, c'è un problema con audio e microfono </p>
                     </div>
 
-                    {/* Opzionale: Bottone per ricaricare la pagina se necessario */}
                     <button className="popup-btn" onClick={handleBackHome}>
-                        Continua
+                        Torna alla Home
                     </button>
                 </div>
             </div>
@@ -217,11 +215,9 @@ const Lobby = () => {
             {/* -------------------------------- */}
 
             <div className="lobby-layout">
-                {/* 0. TITOLO ESTERNO (FUORI DAL BLOCCO) */}
                 <div className="lobby-header-external">
                     LOBBY DI GIOCO
                 </div>
-                {/* 1. ZONA SUPERIORE: INFO E BOTTONI */}
                 <div className="lobby-card">
                     
                     <div className="lobby-info-group">

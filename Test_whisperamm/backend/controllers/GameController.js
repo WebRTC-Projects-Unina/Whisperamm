@@ -44,7 +44,7 @@ class GameController {
 
             // 7. START PRIMA FASE (DADI): Avvia il timer di 5 secondi.
             // Se il timer scade, esegue la callback `forceRollsAndProceed`
-            await TimerService.startTimedPhase(io, roomId, game.gameId, GamePhase.DICE, 5, async () => {
+            await TimerService.startTimedPhase(io, roomId, game.gameId, GamePhase.DICE, 15, async () => {
                 await this.forceRollsAndProceed(io, roomId, game.gameId);
             });
 
@@ -147,7 +147,7 @@ class GameController {
             const sortedPlayers = await GameService.assignTurnOrder(gameId);
 
            // 2. Avvia timer grafico
-            await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.TURN_ASSIGNMENT, 5, 
+            await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.TURN_ASSIGNMENT, 10, 
                 async () => {  // CALLBACK DI FINE TIMER:
                     // A. Il Service prepara i dati (CurrentTurnIndex=0 e Phase=GAME)
                     await GameService.prepareGamePhase(gameId);
@@ -180,7 +180,7 @@ class GameController {
                 TimerService.clearTimer(roomId);
                 
                 // Avvia fase DISCUSSIONE
-                await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.DISCUSSION, 5, 
+                await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.DISCUSSION, 30, 
                     async () => { await this.startVotingPhase(io, roomId, gameId); }
                 );
                 return;
@@ -190,7 +190,7 @@ class GameController {
             // Il service ci ha già dato l'oggetto player pulito
             const { player, index } = turnState;
 
-            await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.GAME, 5, async () => {
+            await TimerService.startTimedPhase(io, roomId, gameId, GamePhase.GAME, 7, async () => {
                 // Timeout: forza passaggio turno
                 await this.performTurnSwitch(io, roomId, gameId, player.username); 
             }, { currentTurnIndex: index }); 
